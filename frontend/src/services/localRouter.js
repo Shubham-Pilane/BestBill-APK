@@ -222,7 +222,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
             lodgingEnabled: false, // Desktop only - disabled on mobile
             kotEnabled: false, // Desktop only - disabled on mobile
             whatsAppBillingEnabled: localStorage.getItem('cfg_whatsapp_billing') === 'true',
-            inventoryEnabled: localStorage.getItem('cfg_inventory') !== 'false', // Default true on mobile
+            inventoryEnabled: false,
             tokenCounterEnabled: localStorage.getItem('cfg_token_counter') === 'true',
             simpleKotEnabled: false // Desktop only - disabled on mobile
           }
