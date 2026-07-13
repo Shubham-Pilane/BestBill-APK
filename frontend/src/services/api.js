@@ -40,7 +40,13 @@ api.defaults.adapter = async function(config) {
     }
 
     let data = config.data;
-    if (data && typeof data === 'string') {
+    if (data instanceof FormData) {
+      const plain = {};
+      data.forEach((val, key) => {
+        plain[key] = val;
+      });
+      data = plain;
+    } else if (data && typeof data === 'string') {
       try {
         data = JSON.parse(data);
       } catch (e) {}

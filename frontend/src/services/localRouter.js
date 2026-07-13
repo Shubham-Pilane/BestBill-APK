@@ -134,8 +134,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/auth/register' && methodUpper === 'POST') {
-      const { name, email, password, hotelName, phone, location } = body;
+      const { name, email, password, hotelName, phone, location, address } = body;
       const hashedPassword = await bcrypt.hash(password, 10);
+      const loc = location || address || '';
       
       // Create user
       const userRes = await db.query(
@@ -147,7 +148,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       // Create hotel
       const hotelRes = await db.query(
         'INSERT INTO hotels (owner_id, name, phone, location) VALUES ($1, $2, $3, $4) RETURNING *',
-        [newUser.id, hotelName, phone, location]
+        [newUser.id, hotelName, phone, loc]
       );
       const newHotel = hotelRes.rows[0];
 
@@ -1137,6 +1138,6 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
   } catch (err) {
     console.error(`[LOCAL ROUTER ERROR] ${methodUpper} ${path}:`, err);
-    return { status: 500, data: { message: 'Local processing failed', error: err.message } };
+    return { status: 500, data: { message: `Local processing failed: ${err.message}`, error: err.message } };
   }
 }

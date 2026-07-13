@@ -390,6 +390,12 @@ export const query = async (text, params = []) => {
           returningRows = [{ id: lastId }];
         }
 
+        // Auto save on write queries even if they use RETURNING (which is treated as isSelect)
+        const upperSql = sanitizedSql.trim().toUpperCase();
+        if (upperSql.startsWith('INSERT') || upperSql.startsWith('UPDATE') || upperSql.startsWith('DELETE') || upperSql.startsWith('REPLACE') || upperSql.includes('RETURNING')) {
+          saveDbFile();
+        }
+
         resolve({
           rows: returningRows,
           rowCount: returningRows.length

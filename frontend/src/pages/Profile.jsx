@@ -927,223 +927,78 @@ const Profile = () => {
                     </div>
                     {showModules && (
                         <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-rgba-05)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            {/* Lodging Module */}
+                            {/* WhatsApp Billing Module */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
-                                <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Lodging & Room Management</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
-                                    Enable room configurations, lodging layouts, and guest digital room-service ordering portals. 
-                                    This module requires a premium license passcode to unlock.
-                                </p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
+                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>WhatsApp Billing</h3>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
+                                        Enable customer mobile entry and direct bill sharing via WhatsApp.
+                                        This module requires a passcode to unlock.
+                                    </p>
+                                </div>
+                                
+                                {/* Toggle / Radio Control */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)' }}>
+                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="whatsAppBillingModule"
+                                            checked={!whatsAppBillingEnabled} 
+                                            onChange={() => handleToggleWhatsAppBilling(false)}
+                                            style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        Disabled
+                                    </label>
+                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="whatsAppBillingModule"
+                                            checked={whatsAppBillingEnabled} 
+                                            onChange={() => handleToggleWhatsAppBilling(true)}
+                                            style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        Enabled
+                                    </label>
+                                </div>
                             </div>
-                            
-                            {/* Toggle / Radio Control */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)' }}>
-                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                    <input 
-                                        type="radio" 
-                                        name="lodgingModule"
-                                        checked={!lodgingEnabled} 
-                                        onChange={() => handleToggleLodging(false)}
-                                        style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    Disabled
-                                </label>
-                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                    <input 
-                                        type="radio" 
-                                        name="lodgingModule"
-                                        checked={lodgingEnabled} 
-                                        onChange={() => handleToggleLodging(true)}
-                                        style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    Enabled
-                                </label>
+
+                            {/* Token Counter Module */}
+                            <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
+                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Token Counter</h3>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
+                                        Enable token counters on the dashboard. Receipts printed from token counters will only print items list and grand totals.
+                                        This module requires a passcode to unlock.
+                                    </p>
+                                </div>
+                                
+                                {/* Toggle / Radio Control */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)' }}>
+                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="tokenCounterModule"
+                                            checked={!tokenCounterEnabled} 
+                                            onChange={() => handleToggleTokenCounter(false)}
+                                            style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        Disabled
+                                    </label>
+                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="tokenCounterModule"
+                                            checked={tokenCounterEnabled} 
+                                            onChange={() => handleToggleTokenCounter(true)}
+                                            style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        Enabled
+                                    </label>
+                                </div>
                             </div>
                         </div>
-
-                        {/* KOT Module */}
-                        <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
-                                <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Kitchen Order Ticket (KOT)</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
-                                    Enable kitchen routing, chef KOT dashboard, and waitstaff onboarding for order taking. 
-                                    This module requires a premium license passcode to unlock.
-                                </p>
-                            </div>
-                            
-                            {/* Toggle / Radio Control */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)' }}>
-                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                    <input 
-                                        type="radio" 
-                                        name="kotModule"
-                                        checked={!kotEnabled} 
-                                        onChange={() => handleToggleKot(false)}
-                                        style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    Disabled
-                                </label>
-                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                    <input 
-                                        type="radio" 
-                                        name="kotModule"
-                                        checked={kotEnabled} 
-                                        onChange={() => handleToggleKot(true)}
-                                        style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    Enabled
-                                </label>
-                            </div>
-                        </div>
-
-                        {/* WhatsApp Billing Module */}
-                        <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
-                                <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>WhatsApp Billing</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
-                                    Enable customer mobile entry and direct bill sharing via WhatsApp.
-                                    This module requires a passcode to unlock.
-                                </p>
-                            </div>
-                            
-                            {/* Toggle / Radio Control */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)' }}>
-                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                    <input 
-                                        type="radio" 
-                                        name="whatsAppBillingModule"
-                                        checked={!whatsAppBillingEnabled} 
-                                        onChange={() => handleToggleWhatsAppBilling(false)}
-                                        style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    Disabled
-                                </label>
-                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                    <input 
-                                        type="radio" 
-                                        name="whatsAppBillingModule"
-                                        checked={whatsAppBillingEnabled} 
-                                        onChange={() => handleToggleWhatsAppBilling(true)}
-                                        style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    Enabled
-                                </label>
-                            </div>
-                        </div>
-
-                        {/* Inventory Management Module */}
-                        <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
-                                <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Inventory Management</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
-                                    Enable recipe mappings, stock transaction tracking, purchase logs, and ledger reports.
-                                    This module requires a passcode to unlock.
-                                </p>
-                            </div>
-                            
-                            {/* Toggle / Radio Control */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)' }}>
-                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                    <input 
-                                        type="radio" 
-                                        name="inventoryModule"
-                                        checked={!inventoryEnabled} 
-                                        onChange={() => handleToggleInventory(false)}
-                                        style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    Disabled
-                                </label>
-                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                    <input 
-                                        type="radio" 
-                                        name="inventoryModule"
-                                        checked={inventoryEnabled} 
-                                        onChange={() => handleToggleInventory(true)}
-                                        style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    Enabled
-                                </label>
-                            </div>
-                        </div>
-
-                        {/* Token Counter Module */}
-                        <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
-                                <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Token Counter</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
-                                    Enable token counters on the dashboard. Receipts printed from token counters will only print items list and grand totals.
-                                    This module requires a passcode to unlock.
-                                </p>
-                            </div>
-                            
-                            {/* Toggle / Radio Control */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)' }}>
-                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                    <input 
-                                        type="radio" 
-                                        name="tokenCounterModule"
-                                        checked={!tokenCounterEnabled} 
-                                        onChange={() => handleToggleTokenCounter(false)}
-                                        style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    Disabled
-                                </label>
-                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                    <input 
-                                        type="radio" 
-                                        name="tokenCounterModule"
-                                        checked={tokenCounterEnabled} 
-                                        onChange={() => handleToggleTokenCounter(true)}
-                                        style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    Enabled
-                                </label>
-                            </div>
-                        </div>
-
-                        {/* Simple KOT Module */}
-                        <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
-                                <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Simple KOT (Send to Kitchen)</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
-                                    When enabled, allows owners to send orders to the kitchen printer directly from regular tables, just like waiters.
-                                    This module requires a passcode to unlock.
-                                </p>
-                            </div>
-                            
-                            {/* Toggle / Radio Control */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)' }}>
-                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                    <input 
-                                        type="radio" 
-                                        name="simpleKotModule"
-                                        checked={!simpleKotEnabled} 
-                                        onChange={() => handleToggleSimpleKot(false)}
-                                        style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    Disabled
-                                </label>
-                                <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                    <input 
-                                        type="radio" 
-                                        name="simpleKotModule"
-                                        checked={simpleKotEnabled} 
-                                        onChange={() => handleToggleSimpleKot(true)}
-                                        style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    Enabled
-                                </label>
-                            </div>
-                        </div>
-
-                    </div>
-                )}
+                    )}
             </div>
         )}
 
