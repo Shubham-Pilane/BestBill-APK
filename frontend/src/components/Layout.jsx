@@ -101,6 +101,7 @@ const Layout = ({ children }) => {
           { name: 'Manage Menu', path: '/menu', icon: <UtensilsCrossed size={20} /> },
           { name: 'Billing History', path: '/history', icon: <History size={20} /> },
           { name: 'Credit Management', path: '/credit', icon: <Wallet size={20} /> },
+          { name: 'Inventory Management', path: '/inventory', icon: <Boxes size={20} /> },
           { name: 'Profile Settings', path: '/profile', icon: <UserCircle size={20} /> },
         ];
 

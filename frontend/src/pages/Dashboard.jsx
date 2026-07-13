@@ -297,7 +297,7 @@ const Dashboard = () => {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '64px', width: '100%', maxWidth: '1440px', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', maxWidth: '1440px', overflow: 'hidden' }}>
       {/* Hotel & Subscription Branding Area */}
       <div className="hotel-title-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '32px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
@@ -472,31 +472,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '24px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '400px' }}>
-          <h2 style={{fontSize: '24px', fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <LayoutGrid style={{ color: '#0ea5e9' }} size={24} />
-            Live Table Management
-          </h2>
-          <div style={{ position: 'relative' }}>
-            <Search style={{ position: 'absolute', top: '14px', left: '16px', color: 'var(--text-muted)' }} size={18} />
-            <input
-              type="text"
-              placeholder="Search tables..."
-              style={{width: '100%',
-                backgroundColor: 'var(--bg-card)',
-                border: '2px solid var(--bg-border)',
-                color: 'var(--text-primary)',
-                padding: '12px 16px 12px 48px',
-                borderRadius: '16px',
-                outline: 'none',
-                fontSize: '14px',
-                fontWeight: 600
-              }}
-            />
-          </div>
-        </div>
-        {isOwner && (
+      {isOwner && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-8px' }}>
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setShowCreateDropdown(!showCreateDropdown)}
@@ -638,8 +615,8 @@ const Dashboard = () => {
               </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {(tables || []).length === 0 ? (
         <div style={{
@@ -664,7 +641,7 @@ const Dashboard = () => {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '64px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* Fallback for only parcel counters or token counters, no floors */}
           {floors.length === 0 && (parcelTables.length > 0 || tokenTables.length > 0) && (

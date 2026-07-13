@@ -222,7 +222,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
             lodgingEnabled: false, // Desktop only - disabled on mobile
             kotEnabled: false, // Desktop only - disabled on mobile
             whatsAppBillingEnabled: localStorage.getItem('cfg_whatsapp_billing') === 'true',
-            inventoryEnabled: false,
+            inventoryEnabled: true,
             tokenCounterEnabled: localStorage.getItem('cfg_token_counter') === 'true',
             simpleKotEnabled: false // Desktop only - disabled on mobile
           }
@@ -768,29 +768,28 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     // ----------------------------------------
-    // CREDIT ROUTES
     // ----------------------------------------
-    if (path === '/credit/vendors' && methodUpper === 'GET') {
-      const suppliers = await db.query('SELECT * FROM suppliers WHERE hotel_id = $1 ORDER BY name ASC', [user.hotel_id]);
-      return { status: 200, data: suppliers.rows };
+    // CREDIT ROUTES (REWRITTEN FOR MOBILE APP MATCH)
+    // ----------------------------------------
+    if (path === '/credit/dashboard' && methodUpper === 'GET') {
+      const totalRes = await db.query("SELECT SUM(amount) as sum FROM credits WHERE hotel_id = $1 AND status = 'pending'", [user.hotel_id]);
+      const custRes = await db.query("SELECT SUM(amount) as sum FROM credits WHERE hotel_id = $1 AND status = 'pending' AND party_type = 'customer'", [user.hotel_id]);
+      const vendRes = await db.query("SELECT SUM(amount) as sum FROM credits WHERE hotel_id = $1 AND status = 'pending' AND party_type = 'vendor'", [user.hotel_id]);
+      const settledRes = await db.query("SELECT SUM(amount) as sum FROM credits WHERE hotel_id = $1 AND status = 'settled'", [user.hotel_id]);
+      return {
+        status: 200,
+        data: {
+          totalOutstandingAmount: Number(totalRes.rows[0]?.sum || 0),
+          customerOutstandingAmount: Number(custRes.rows[0]?.sum || 0),
+          vendorOutstandingAmount: Number(vendRes.rows[0]?.sum || 0),
+          totalSettledAmount: Number(settledRes.rows[0]?.sum || 0)
+        }
+      };
     }
 
-    if (path === '/credit/save' && methodUpper === 'POST') {
-      const { bill_id, party_type, amount, vendor_id, customer_name, customer_phone } = body;
-      await db.query(
-        `INSERT INTO credits (hotel_id, bill_id, party_type, vendor_id, customer_name, customer_phone, amount, status) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [user.hotel_id, bill_id, party_type, vendor_id || null, customer_name || null, customer_phone || null, amount, 'pending']
-      );
-
-      // If credit bill recorded, update bill paid method to credit
-      await db.query('UPDATE bills SET payment_method = \'credit\', is_paid = 0 WHERE id = $1', [bill_id]);
-      return { status: 200, data: { success: true } };
-    }
-
-    if (path === '/credit/list' && methodUpper === 'GET') {
+    if (path === '/credit/transactions' && methodUpper === 'GET') {
       const credits = await db.query(
-        `SELECT c.*, b.created_at as bill_date, s.name as vendor_name
+        `SELECT c.*, b.created_at as bill_date, s.name as vendor_name, s.phone as vendor_phone
          FROM credits c
          LEFT JOIN bills b ON c.bill_id = b.id
          LEFT JOIN suppliers s ON c.vendor_id = s.id
@@ -800,19 +799,75 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 200, data: credits.rows.map(c => ({ ...c, amount: Number(c.amount) })) };
     }
 
-    if (path.startsWith('/credit/') && path.endsWith('/settle') && methodUpper === 'POST') {
-      const creditId = parseInt(path.split('/')[2]);
-      const { paymentMethod } = body;
+    if ((path === '/credit/save' || path === '/credit/transactions') && methodUpper === 'POST') {
+      const { bill_id, party_type, amount, vendor_id, customer_name, customer_phone } = body;
+      await db.query(
+        `INSERT INTO credits (hotel_id, bill_id, party_type, vendor_id, customer_name, customer_phone, amount, status) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [user.hotel_id, bill_id || null, party_type, vendor_id || null, customer_name || null, customer_phone || null, amount, 'pending']
+      );
+
+      if (bill_id) {
+        await db.query('UPDATE bills SET payment_method = \'credit\', is_paid = 0 WHERE id = $1', [bill_id]);
+      }
+      return { status: 200, data: { success: true } };
+    }
+
+    if (path.startsWith('/credit/transactions/') && path.endsWith('/settle') && methodUpper === 'POST') {
+      const creditId = parseInt(path.split('/')[3]);
+      const { method } = body;
       await db.query(
         'UPDATE credits SET status = \'settled\', settled_at = CURRENT_TIMESTAMP, settlement_payment_method = $1 WHERE id = $2 AND hotel_id = $3',
-        [paymentMethod, creditId, user.hotel_id]
+        [method, creditId, user.hotel_id]
       );
       return { status: 200, data: { success: true } };
     }
 
+    if (path === '/credit/vendors' && methodUpper === 'GET') {
+      const suppliers = await db.query('SELECT * FROM suppliers WHERE hotel_id = $1 ORDER BY name ASC', [user.hotel_id]);
+      return { status: 200, data: suppliers.rows };
+    }
+
+    if (path === '/credit/vendors' && methodUpper === 'POST') {
+      const { name, phone, email, gstin } = body;
+      const res = await db.query(
+        'INSERT INTO suppliers (hotel_id, name, phone, email, gstin) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        [user.hotel_id, name, phone || null, email || null, gstin || null]
+      );
+      return { status: 201, data: res.rows[0] };
+    }
+
+    if (path.startsWith('/credit/vendors/') && methodUpper === 'PUT') {
+      const vendorId = parseInt(path.split('/')[3]);
+      const { name, phone, email, gstin } = body;
+      await db.query(
+        'UPDATE suppliers SET name = $1, phone = $2, email = $3, gstin = $4 WHERE id = $5 AND hotel_id = $6',
+        [name, phone || null, email || null, gstin || null, vendorId, user.hotel_id]
+      );
+      return { status: 200, data: { success: true } };
+    }
+
+    if (path.startsWith('/credit/vendors/') && methodUpper === 'DELETE') {
+      const vendorId = parseInt(path.split('/')[3]);
+      await db.query('DELETE FROM suppliers WHERE id = $1 AND hotel_id = $2', [vendorId, user.hotel_id]);
+      return { status: 200, data: { success: true } };
+    }
+
     // ----------------------------------------
-    // INVENTORY ROUTES
+    // INVENTORY ROUTES (REWRITTEN FOR MOBILE APP MATCH)
     // ----------------------------------------
+    if (path === '/inventory/dashboard' && methodUpper === 'GET') {
+      const totalRes = await db.query('SELECT count(*) as count FROM inventory_items WHERE hotel_id = $1', [user.hotel_id]);
+      const lowRes = await db.query('SELECT count(*) as count FROM inventory_items WHERE hotel_id = $1 AND current_stock < minimum_stock', [user.hotel_id]);
+      return {
+        status: 200,
+        data: {
+          totalIngredients: totalRes.rows[0]?.count || 0,
+          lowStockItems: lowRes.rows[0]?.count || 0
+        }
+      };
+    }
+
     if (path === '/inventory/items' && methodUpper === 'GET') {
       const items = await db.query(
         `SELECT ii.*, ic.name as category_name
@@ -825,28 +880,28 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/inventory/items' && methodUpper === 'POST') {
-      const { id, name, category_id, unit, minimum_stock, purchase_rate } = body;
-      if (id) {
-        // Update
-        await db.query(
-          'UPDATE inventory_items SET name = $1, category_id = $2, unit = $3, minimum_stock = $4, purchase_rate = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 AND hotel_id = $7',
-          [name, category_id || null, unit, minimum_stock, purchase_rate, id, user.hotel_id]
-        );
-        return { status: 200, data: { message: 'Item updated' } };
-      } else {
-        // Create
-        await db.query(
-          'INSERT INTO inventory_items (hotel_id, name, category_id, unit, minimum_stock, purchase_rate, current_stock) VALUES ($1, $2, $3, $4, $5, $6, 0)',
-          [user.hotel_id, name, category_id || null, unit, minimum_stock, purchase_rate]
-        );
-        return { status: 201, data: { message: 'Item created' } };
-      }
+      const { name, category_id, unit, minimum_stock, purchase_rate, current_stock } = body;
+      const res = await db.query(
+        'INSERT INTO inventory_items (hotel_id, name, category_id, unit, minimum_stock, purchase_rate, current_stock) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+        [user.hotel_id, name, category_id || null, unit || null, minimum_stock || 0, purchase_rate || 0, current_stock || 0]
+      );
+      return { status: 201, data: res.rows[0] };
+    }
+
+    if (path.startsWith('/inventory/items/') && methodUpper === 'PUT') {
+      const itemId = parseInt(path.split('/')[3]);
+      const { name, category_id, unit, minimum_stock, purchase_rate, current_stock } = body;
+      await db.query(
+        'UPDATE inventory_items SET name = $1, category_id = $2, unit = $3, minimum_stock = $4, purchase_rate = $5, current_stock = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 AND hotel_id = $8',
+        [name, category_id || null, unit || null, minimum_stock || 0, purchase_rate || 0, current_stock || 0, itemId, user.hotel_id]
+      );
+      return { status: 200, data: { success: true } };
     }
 
     if (path.startsWith('/inventory/items/') && methodUpper === 'DELETE') {
-      const id = parseInt(path.split('/')[3]);
-      await db.query('DELETE FROM inventory_items WHERE id = $1 AND hotel_id = $2', [id, user.hotel_id]);
-      return { status: 200, data: { message: 'Item deleted' } };
+      const itemId = parseInt(path.split('/')[3]);
+      await db.query('DELETE FROM inventory_items WHERE id = $1 AND hotel_id = $2', [itemId, user.hotel_id]);
+      return { status: 200, data: { success: true } };
     }
 
     if (path === '/inventory/categories' && methodUpper === 'GET') {
@@ -858,10 +913,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const { id, name } = body;
       if (id) {
         await db.query('UPDATE inventory_categories SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND hotel_id = $3', [name, id, user.hotel_id]);
+        return { status: 200, data: { success: true } };
       } else {
         await db.query('INSERT INTO inventory_categories (hotel_id, name) VALUES ($1, $2)', [user.hotel_id, name]);
+        return { status: 201, data: { success: true } };
       }
-      return { status: 200, data: { success: true } };
     }
 
     if (path.startsWith('/inventory/categories/') && methodUpper === 'DELETE') {
@@ -870,146 +926,65 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 200, data: { success: true } };
     }
 
-    if (path === '/inventory/suppliers' && methodUpper === 'GET') {
-      const suppliers = await db.query('SELECT * FROM suppliers WHERE hotel_id = $1 ORDER BY name ASC', [user.hotel_id]);
-      return { status: 200, data: suppliers.rows };
+    if (path === '/inventory/recipes' && methodUpper === 'GET') {
+      const res = await db.query(`
+        SELECT r.*, mi.name as product_name
+        FROM recipes r
+        JOIN menu_items mi ON r.product_id = mi.id
+        WHERE r.hotel_id = $1
+      `, [user.hotel_id]);
+      return { status: 200, data: res.rows };
     }
 
-    if (path === '/inventory/suppliers' && methodUpper === 'POST') {
-      const { id, name, phone, email, address, gst_number } = body;
-      if (id) {
-        await db.query(
-          'UPDATE suppliers SET name = $1, phone = $2, email = $3, address = $4, gst_number = $5 WHERE id = $6 AND hotel_id = $7',
-          [name, phone, email, address, gst_number, id, user.hotel_id]
-        );
-      } else {
-        await db.query(
-          'INSERT INTO suppliers (hotel_id, name, phone, email, address, gst_number) VALUES ($1, $2, $3, $4, $5, $6)',
-          [user.hotel_id, name, phone, email, address, gst_number]
-        );
+    if (path.startsWith('/inventory/recipes/product/') && methodUpper === 'GET') {
+      const productId = parseInt(path.split('/')[4]);
+      const recipeRes = await db.query('SELECT * FROM recipes WHERE product_id = $1 AND hotel_id = $2', [productId, user.hotel_id]);
+      if (recipeRes.rows.length === 0) {
+        return { status: 200, data: [] };
+      }
+      const recipeId = recipeRes.rows[0].id;
+      const itemsRes = await db.query(`
+        SELECT ri.*, ii.name as ingredient_name, ii.unit
+        FROM recipe_items ri
+        JOIN inventory_items ii ON ri.inventory_item_id = ii.id
+        WHERE ri.recipe_id = $1
+      `, [recipeId]);
+      return { status: 200, data: itemsRes.rows.map(ri => ({ ...ri, quantity_required: Number(ri.quantity_required) })) };
+    }
+
+    if (path === '/inventory/recipes' && methodUpper === 'POST') {
+      const { product_id, items } = body;
+      const existing = await db.query('SELECT id FROM recipes WHERE product_id = $1 AND hotel_id = $2', [product_id, user.hotel_id]);
+      if (existing.rows.length > 0) {
+        await db.query('DELETE FROM recipe_items WHERE recipe_id = $1', [existing.rows[0].id]);
+        await db.query('DELETE FROM recipes WHERE id = $1', [existing.rows[0].id]);
+      }
+      const recipeRes = await db.query('INSERT INTO recipes (hotel_id, product_id) VALUES ($1, $2) RETURNING id', [user.hotel_id, product_id]);
+      const recipeId = recipeRes.rows[0].id;
+      for (const ri of items) {
+        await db.query('INSERT INTO recipe_items (recipe_id, inventory_item_id, quantity_required) VALUES ($1, $2, $3)', [recipeId, ri.inventory_item_id, ri.quantity_required]);
       }
       return { status: 200, data: { success: true } };
     }
 
-    if (path.startsWith('/inventory/suppliers/') && methodUpper === 'DELETE') {
-      const id = parseInt(path.split('/')[3]);
-      await db.query('DELETE FROM suppliers WHERE id = $1 AND hotel_id = $2', [id, user.hotel_id]);
-      return { status: 200, data: { success: true } };
-    }
-
-    if (path === '/inventory/purchase' && methodUpper === 'POST') {
-      const { supplier_id, invoice_number, invoice_date, items } = body;
-
-      // Calculate total amount
-      let totalAmount = 0;
-      const parsedItems = items.map(item => {
-        const amt = Number(item.quantity) * Number(item.rate);
-        totalAmount += amt;
-        return { ...item, amount: amt };
-      });
-
-      // 1. Create Purchase Entry
-      const entryRes = await db.query(
-        `INSERT INTO purchase_entries (hotel_id, supplier_id, invoice_number, invoice_date, total_amount) 
-         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [user.hotel_id, supplier_id, invoice_number, invoice_date, totalAmount]
-      );
-      const entryId = entryRes.rows[0].id;
-
-      // 2. Add items, update stock, write transaction ledger
-      for (const item of parsedItems) {
-        const itemRes = await db.query('SELECT name, unit FROM inventory_items WHERE id = $1 AND hotel_id = $2', [item.inventory_item_id, user.hotel_id]);
-        if (itemRes.rows.length === 0) continue;
-
-        // Convert qty to base units
-        const unit = String(itemRes.rows[0].unit).toLowerCase().trim();
-        const factor = (unit === 'kg' || unit === 'kilogram' || unit === 'kilograms' || unit === 'litre' || unit === 'l' || unit === 'litres') ? 1000 : 1;
-        const baseQty = Number(item.quantity) * factor;
-
-        await db.query(
-          'INSERT INTO purchase_entry_items (purchase_entry_id, inventory_item_id, quantity, rate, amount) VALUES ($1, $2, $3, $4, $5)',
-          [entryId, item.inventory_item_id, baseQty, item.rate, item.amount]
-        );
-
-        await db.query('UPDATE inventory_items SET current_stock = current_stock + $1 WHERE id = $2 AND hotel_id = $3', [baseQty, item.inventory_item_id, user.hotel_id]);
-
+    if (path === '/inventory/adjustments' && methodUpper === 'POST') {
+      const { inventory_item_id, physical_stock, remarks } = body;
+      const itemRes = await db.query('SELECT unit, current_stock FROM inventory_items WHERE id = $1 AND hotel_id = $2', [inventory_item_id, user.hotel_id]);
+      if (itemRes.rows.length === 0) return { status: 404, data: { message: 'Item not found' } };
+      const current = itemRes.rows[0].current_stock;
+      const diff = physical_stock - current;
+      await db.query('UPDATE inventory_items SET current_stock = $1 WHERE id = $2 AND hotel_id = $3', [physical_stock, inventory_item_id, user.hotel_id]);
+      if (diff !== 0) {
         await db.query(
           `INSERT INTO stock_transactions (hotel_id, inventory_item_id, transaction_type, quantity, reference_type, reference_id, remarks) 
            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [user.hotel_id, item.inventory_item_id, 'PURCHASE', baseQty, 'purchase_entries', entryId, `Purchase invoice #${invoice_number}`]
+          [user.hotel_id, inventory_item_id, 'ADJUSTMENT', diff, 'stock_adjustments', null, remarks || 'Physical Stock Adjustment']
         );
       }
-
-      return { status: 201, data: { success: true } };
-    }
-
-    if (path === '/inventory/adjustment' && methodUpper === 'POST') {
-      const { inventory_item_id, physical_stock, remarks } = body;
-
-      const itemRes = await db.query('SELECT unit, current_stock FROM inventory_items WHERE id = $1 AND hotel_id = $2', [inventory_item_id, user.hotel_id]);
-      if (itemRes.rows.length === 0) return { status: 404, data: { message: 'Item not found' } };
-
-      const unit = String(itemRes.rows[0].unit).toLowerCase().trim();
-      const factor = (unit === 'kg' || unit === 'kilogram' || unit === 'kilograms' || unit === 'litre' || unit === 'l' || unit === 'litres') ? 1000 : 1;
-      const physicalBase = Number(physical_stock) * factor;
-      const diff = physicalBase - Number(itemRes.rows[0].current_stock || 0);
-
-      await db.query('UPDATE inventory_items SET current_stock = $1 WHERE id = $2 AND hotel_id = $3', [physicalBase, inventory_item_id, user.hotel_id]);
-
-      await db.query(
-        `INSERT INTO stock_transactions (hotel_id, inventory_item_id, transaction_type, quantity, reference_type, reference_id, remarks) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [user.hotel_id, inventory_item_id, 'ADJUSTMENT', diff, 'stock_adjustments', null, remarks || 'Physical Stock Adjustment']
-      );
-
       return { status: 200, data: { success: true } };
     }
 
-    if (path === '/inventory/recipe' && methodUpper === 'GET') {
-      const { productId } = queryParams;
-      const recipeRes = await db.query('SELECT * FROM recipes WHERE product_id = $1 AND hotel_id = $2', [productId, user.hotel_id]);
-      
-      if (recipeRes.rows.length === 0) {
-        return { status: 200, data: { items: [] } };
-      }
-
-      const recipeId = recipeRes.rows[0].id;
-      const itemsRes = await db.query(
-        `SELECT ri.*, ii.name as item_name, ii.unit 
-         FROM recipe_items ri
-         JOIN inventory_items ii ON ri.inventory_item_id = ii.id
-         WHERE ri.recipe_id = $1`,
-        [recipeId]
-      );
-      
-      return { status: 200, data: { id: recipeId, product_id: productId, items: itemsRes.rows.map(ri => ({ ...ri, quantity_required: Number(ri.quantity_required) })) } };
-    }
-
-    if (path === '/inventory/recipe' && methodUpper === 'POST') {
-      const { product_id, items } = body;
-
-      let recipeRes = await db.query('SELECT id FROM recipes WHERE product_id = $1 AND hotel_id = $2', [product_id, user.hotel_id]);
-      let recipeId;
-
-      if (recipeRes.rows.length > 0) {
-        recipeId = recipeRes.rows[0].id;
-        await db.query('DELETE FROM recipe_items WHERE recipe_id = $1', [recipeId]);
-      } else {
-        const newRecipe = await db.query('INSERT INTO recipes (hotel_id, product_id) VALUES ($1, $2) RETURNING id', [user.hotel_id, product_id]);
-        recipeId = newRecipe.rows[0].id;
-      }
-
-      for (const ri of items) {
-        await db.query(
-          'INSERT INTO recipe_items (recipe_id, inventory_item_id, quantity_required) VALUES ($1, $2, $3)',
-          [recipeId, ri.inventory_item_id, ri.quantity_required]
-        );
-      }
-
-      return { status: 200, data: { success: true } };
-    }
-
-    if (path === '/inventory/ledger' && methodUpper === 'GET') {
+    if (path === '/inventory/reports/transactions' && methodUpper === 'GET') {
       const ledger = await db.query(
         `SELECT st.*, ii.name as item_name, ii.unit
          FROM stock_transactions st
