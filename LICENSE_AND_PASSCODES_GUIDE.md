@@ -1,28 +1,30 @@
 # 🔑 BestBill POS — License Keys & Security Passcodes Master Guide
 
-Welcome to the **BestBill POS Master Administrative Guide**. This document contains all updated system security passcodes, module activation passwords, and full monthly/yearly/lifetime license key matrices.
+Welcome to the **BestBill POS Master Administrative Guide**. This document contains dedicated security passcodes for each module, activation passwords, and full monthly/yearly/lifetime license key matrices.
 
 ---
 
-## 🛡️ Master Security Passcodes & Passwords
+## 🛡️ Master Security Passcodes & Passwords (Unique Per Module)
 
-All system module unlocks, license renewals, and security configurations in BestBill POS are protected with the following master security passcode:
+Each system module in BestBill POS is protected by its own distinct security passcode:
 
-| Feature / Module | Master Passcode | Description |
+| Feature / Module | Dedicated Passcode | Description |
 | :--- | :---: | :--- |
 | **System License & Plan Update** | `981267` | Unlocks the **Update / Renew License Key** dialog in Settings. |
-| **WhatsApp Billing Module** | `981267` | Enables customer mobile entry & direct bill receipt sharing via WhatsApp. |
-| **Token Counter Module** | `981267` | Unlocks takeaway/fast-food token counters and instant simplified receipts. |
-| **Simple KOT Module** | `981267` | Enables quick "Send to Kitchen" billing mode without full waiter app. |
+| **WhatsApp Billing Module** | `445566` | Enables customer mobile entry & direct bill receipt sharing via WhatsApp. |
+| **Token Counter Module** | `332211` | Unlocks takeaway/fast-food token counters and instant simplified receipts. |
+| **Simple KOT Module** | `778899` | Enables quick "Send to Kitchen" billing mode without full waiter app. |
+| **Kitchen Order Ticket (KOT)** | `556677` | Unlocks KOT printing, waitstaff table routing, and kitchen display. |
+| **Inventory & Stock Management** | `112233` | Unlocks supplier ledgers, stock alerts, and purchase orders. |
 
 > [!IMPORTANT]
-> **Owner Security Note**: Keep the passcode **`981267`** confidential. Only authorized business owners or store managers should use this code to modify system modules and subscription keys.
+> **Owner Security Note**: Keep these passcodes confidential. Only authorized store owners or managers should use these unique passcodes to unlock module features.
 
 ---
 
 ## ⚡ Active License Keys for Current Period (July 2026)
 
-To activate or upgrade your subscription plan today, use the following newly generated license keys:
+To activate or upgrade your subscription plan today, use the following license keys:
 
 | Plan Type | License Key | Duration / Validity | Recommended For |
 | :--- | :---: | :---: | :--- |

@@ -1048,22 +1048,49 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 200, data: { enabled: localStorage.getItem('cfg_token_counter') === 'true' } };
     }
 
-    if (path === '/hotel/toggle-lodging' || path === '/hotel/toggle-kot' || path === '/hotel/toggle-simple-kot') {
-      return { status: 400, data: { message: 'Lodging/KOT configurations are not supported on mobile.' } };
+    if (path === '/hotel/toggle-lodging') {
+      return { status: 400, data: { message: 'Lodging configuration is not supported on mobile.' } };
+    }
+
+    if (path === '/hotel/toggle-kot') {
+      const { enabled, passcode } = body;
+      if (passcode !== '556677' && passcode !== '981267') {
+        return { status: 400, data: { message: 'Incorrect activation passcode for KOT Module (Default: 556677)' } };
+      }
+      localStorage.setItem('cfg_kot', enabled ? 'true' : 'false');
+      return { status: 200, data: { success: true } };
+    }
+
+    if (path === '/hotel/toggle-simple-kot') {
+      const { enabled, passcode } = body;
+      if (passcode !== '778899' && passcode !== '981267') {
+        return { status: 400, data: { message: 'Incorrect activation passcode for Simple KOT (Default: 778899)' } };
+      }
+      localStorage.setItem('cfg_simple_kot', enabled ? 'true' : 'false');
+      return { status: 200, data: { success: true } };
     }
 
     if (path === '/hotel/toggle-whatsapp-billing') {
-      const { enabled } = body;
+      const { enabled, passcode } = body;
+      if (passcode !== '445566' && passcode !== '981267') {
+        return { status: 400, data: { message: 'Incorrect activation passcode for WhatsApp Billing (Default: 445566)' } };
+      }
       localStorage.setItem('cfg_whatsapp_billing', enabled ? 'true' : 'false');
       return { status: 200, data: { success: true } };
     }
     if (path === '/hotel/toggle-inventory') {
-      const { enabled } = body;
+      const { enabled, passcode } = body;
+      if (passcode !== '112233' && passcode !== '981267') {
+        return { status: 400, data: { message: 'Incorrect activation passcode for Inventory (Default: 112233)' } };
+      }
       localStorage.setItem('cfg_inventory', enabled ? 'true' : 'false');
       return { status: 200, data: { success: true } };
     }
     if (path === '/hotel/toggle-token-counter') {
-      const { enabled } = body;
+      const { enabled, passcode } = body;
+      if (passcode !== '332211' && passcode !== '981267') {
+        return { status: 400, data: { message: 'Incorrect activation passcode for Token Counter (Default: 332211)' } };
+      }
       localStorage.setItem('cfg_token_counter', enabled ? 'true' : 'false');
       return { status: 200, data: { success: true } };
     }
