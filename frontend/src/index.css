@@ -233,36 +233,35 @@ body {
       padding: 24px 16px !important;
   }
   
-  /* OrderModal Responsive Fix */
+  /* OrderModal Mobile Native POS View Overrides */
   .order-modal-overlay {
       padding: 0 !important;
   }
   .order-modal-container {
-      width: 100% !important;
-      max-width: 100% !important;
+      width: 100vw !important;
+      max-width: 100vw !important;
       border-radius: 0 !important;
       height: 100vh !important;
       max-height: 100vh !important;
       border: none !important;
   }
   .order-modal-header {
-      padding: 16px 20px !important;
+      padding: 12px 16px !important;
   }
   .order-modal-content {
       flex-direction: column !important;
-      overflow-y: auto !important;
+      overflow: hidden !important;
+      position: relative !important;
   }
   .order-modal-menu {
       border-right: none !important;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      min-height: 400px; /* Give menu some space */
-  }
-  .order-modal-cart {
+      flex: 1 !important;
       width: 100% !important;
-      flex: none !important;
+      height: 100% !important;
+      overflow: hidden !important;
   }
   .category-bar {
-      padding: 8px 0 !important;
+      padding: 4px 0 !important;
   }
   .search-bar-container {
       width: 100% !important;

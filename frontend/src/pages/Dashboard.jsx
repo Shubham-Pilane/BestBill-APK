@@ -297,25 +297,25 @@ const Dashboard = () => {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', maxWidth: '1440px', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', maxWidth: '1440px', overflow: 'hidden' }}>
       {/* Hotel & Subscription Branding Area */}
-      <div className="hotel-title-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+      <div className="hotel-title-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{ 
-            width: '64px', 
-            height: '64px', 
+            width: '48px', 
+            height: '48px', 
             backgroundColor: 'rgba(14, 165, 233, 0.1)', 
-            borderRadius: '20px', 
+            borderRadius: '14px', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
             border: '1px solid rgba(14, 165, 233, 0.2)'
           }}>
-            <Hotel color="#0ea5e9" size={32} />
+            <Hotel color="#0ea5e9" size={24} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <h1 style={{fontSize: '36px', fontWeight: 950, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>{user?.hotel_name || 'BestBill Hotel'}</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '14px', fontWeight: 700 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 950, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>{user?.hotel_name || 'BestBill Hotel'}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>
               <span>Proprietor: {user?.name || 'A'}</span>
               <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'var(--bg-border)' }}></div>
               <span style={{ color: '#10b981' }}>Active Session</span>
@@ -323,30 +323,23 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-end' }}>
-          {/* Current Date */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-            <span style={{ fontSize: '10px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Current Date</span>
-            <span style={{fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </span>
-          </div>
-
+        {/* Right Side Header Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {/* Small Premium Subscription Info Block */}
           {subStatus && (
             <div style={{ 
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
+              gap: '8px',
               backgroundColor: 'var(--glass-card-bg)',
               border: '1px solid var(--bg-border)',
-              borderRadius: '12px',
-              padding: '6px 12px',
-              fontSize: '12px',
+              borderRadius: '10px',
+              padding: '4px 10px',
+              fontSize: '11px',
               color: 'var(--text-secondary)',
               fontWeight: 700
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Plan:</span>
                 <span style={{ color: isLight ? 'var(--text-primary)' : '#0ea5e9', fontWeight: 800 }}>
                   {subStatus.type === 'trial' ? 'Free Trial' : 
@@ -356,18 +349,18 @@ const Dashboard = () => {
               </div>
               {subStatus.type !== 'permanent' && (
                 <>
-                  <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'var(--bg-border)' }}></div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '3px', height: '3px', borderRadius: '50%', backgroundColor: 'var(--bg-border)' }}></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <span style={{ color: 'var(--text-muted)', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expires:</span>
                     <span style={{ color: 'var(--text-primary)', fontWeight: 800 }}>
                       {subStatus.expiresAt ? new Date(subStatus.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                     </span>
                   </div>
-                  <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'var(--bg-border)' }}></div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '3px', height: '3px', borderRadius: '50%', backgroundColor: 'var(--bg-border)' }}></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <span style={{ color: 'var(--text-muted)', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Remaining:</span>
                     <span style={{ color: subStatus.daysRemaining <= 3 ? '#f43f5e' : '#10b981', fontWeight: 800 }}>
-                      {timeRemainingStr || `${subStatus.daysRemaining} day${subStatus.daysRemaining !== 1 ? 's' : ''}`}
+                      {timeRemainingStr || `${subStatus.daysRemaining}d`}
                     </span>
                   </div>
                 </>
@@ -375,24 +368,21 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* Light / Dark Mode Toggle (Segmented Pill Radio Selector) */}
+          {/* Light / Dark Mode Toggle */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             backgroundColor: isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.03)',
             border: '1px solid var(--bg-border)',
-            borderRadius: '12px',
-            padding: '4px',
-            gap: '4px',
-            marginTop: '4px',
-            width: '180px'
+            borderRadius: '10px',
+            padding: '2px',
+            gap: '2px'
           }}>
             <button
               type="button"
               onClick={() => setTheme('light')}
               style={{
-                flex: 1,
-                padding: '6px 12px',
+                padding: '4px 10px',
                 backgroundColor: isLight ? 'var(--bg-card)' : 'transparent',
                 color: isLight ? '#0ea5e9' : 'var(--text-muted)',
                 borderRadius: '8px',
@@ -401,21 +391,19 @@ const Dashboard = () => {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                fontSize: '12px',
+                gap: '4px',
+                fontSize: '11px',
                 transition: 'all 0.2s',
                 boxShadow: isLight ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
               }}
             >
-              <Sun size={14} /> Light
+              <Sun size={13} /> Light
             </button>
             <button
               type="button"
               onClick={() => setTheme('dark')}
               style={{
-                flex: 1,
-                padding: '6px 12px',
+                padding: '4px 10px',
                 backgroundColor: !isLight ? 'var(--bg-card)' : 'transparent',
                 color: !isLight ? '#38bdf8' : 'var(--text-muted)',
                 borderRadius: '8px',
@@ -424,16 +412,154 @@ const Dashboard = () => {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                fontSize: '12px',
+                gap: '4px',
+                fontSize: '11px',
                 transition: 'all 0.2s',
                 boxShadow: !isLight ? '0 2px 4px rgba(0,0,0,0.15)' : 'none'
               }}
             >
-              <Moon size={14} /> Dark
+              <Moon size={13} /> Dark
             </button>
           </div>
+
+          {/* Create New Button */}
+          {isOwner && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowCreateDropdown(!showCreateDropdown)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backgroundColor: '#0ea5e9',
+                  color: 'white',
+                  padding: '6px 14px',
+                  borderRadius: '10px',
+                  fontWeight: 800,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  border: 'none',
+                  boxShadow: '0 4px 12px rgba(14, 165, 233, 0.15)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <PlusCircle size={15} />
+                Create New...
+                <ChevronDown 
+                  size={13} 
+                  style={{ 
+                    transform: showCreateDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease'
+                  }} 
+                />
+              </button>
+
+              {showCreateDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '6px',
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--bg-border)',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+                  zIndex: 100,
+                  padding: '6px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  width: '170px'
+                }}>
+                  <button
+                    onClick={(e) => {
+                      setShowCreateDropdown(false);
+                      createParcelCounter(e);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      color: '#0ea5e9',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      width: '100%',
+                      textAlign: 'left',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-border)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#0ea5e9' }}></span>
+                    Parcel Counter
+                  </button>
+
+                  {user?.tokenCounterEnabled && (
+                    <button
+                      onClick={(e) => {
+                        setShowCreateDropdown(false);
+                        createTokenCounter(e);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        color: '#10b981',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        fontWeight: 700,
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        width: '100%',
+                        textAlign: 'left',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-border)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+                      Token Counter
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setShowCreateDropdown(false);
+                      setAddTableModalOpen(true);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-primary)',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      width: '100%',
+                      textAlign: 'left',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-border)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <PlusCircle size={14} color="var(--text-muted)" />
+                    Table Card
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -472,151 +598,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {isOwner && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-8px' }}>
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowCreateDropdown(!showCreateDropdown)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: '#0ea5e9',
-                color: 'white',
-                padding: '10px 20px',
-                borderRadius: '12px',
-                fontWeight: 800,
-                fontSize: '13px',
-                cursor: 'pointer',
-                border: 'none',
-                boxShadow: '0 4px 12px rgba(14, 165, 233, 0.15)',
-                transition: 'all 0.2s',
-                justifyContent: 'center',
-                width: '180px'
-              }}
-            >
-              <PlusCircle size={16} />
-              Create New...
-              <ChevronDown 
-                size={14} 
-                style={{ 
-                  transform: showCreateDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s ease',
-                  marginLeft: 'auto'
-                }} 
-              />
-            </button>
 
-            {showCreateDropdown && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: '8px',
-                backgroundColor: 'var(--bg-card)',
-                border: '1px solid var(--bg-border)',
-                borderRadius: '12px',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
-                zIndex: 100,
-                padding: '6px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                width: '180px'
-              }}>
-                <button
-                  onClick={(e) => {
-                    setShowCreateDropdown(false);
-                    createParcelCounter(e);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    color: '#0ea5e9',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    width: '100%',
-                    textAlign: 'left',
-                    transition: 'all 0.15s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-border)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#0ea5e9' }}></span>
-                  Parcel Counter
-                </button>
-
-                {user?.tokenCounterEnabled && (
-                  <button
-                    onClick={(e) => {
-                      setShowCreateDropdown(false);
-                      createTokenCounter(e);
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      color: '#10b981',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      width: '100%',
-                      textAlign: 'left',
-                      transition: 'all 0.15s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-border)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                  >
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-                    Token Counter
-                  </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    setShowCreateDropdown(false);
-                    setIsCustomFloor(false);
-                    setCustomFloorName('');
-                    setNewTableFloor('Floor 1');
-                    setAddTableOpen(true);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-primary)',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    width: '100%',
-                    textAlign: 'left',
-                    transition: 'all 0.15s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-border)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--text-secondary)' }}></span>
-                  Dining Table
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {(tables || []).length === 0 ? (
         <div style={{
