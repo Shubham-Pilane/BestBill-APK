@@ -859,11 +859,13 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if (path === '/inventory/dashboard' && methodUpper === 'GET') {
       const totalRes = await db.query('SELECT count(*) as count FROM inventory_items WHERE hotel_id = $1', [user.hotel_id]);
       const lowRes = await db.query('SELECT count(*) as count FROM inventory_items WHERE hotel_id = $1 AND current_stock < minimum_stock', [user.hotel_id]);
+      const valRes = await db.query('SELECT SUM(current_stock * purchase_rate) as total FROM inventory_items WHERE hotel_id = $1', [user.hotel_id]);
       return {
         status: 200,
         data: {
           totalIngredients: totalRes.rows[0]?.count || 0,
-          lowStockItems: lowRes.rows[0]?.count || 0
+          lowStockItems: lowRes.rows[0]?.count || 0,
+          inventoryValue: Number(valRes.rows[0]?.total || 0)
         }
       };
     }

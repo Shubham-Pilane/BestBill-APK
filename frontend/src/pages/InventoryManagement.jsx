@@ -577,7 +577,9 @@ const InventoryManagement = () => {
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Total Inventory Value</span>
-                            <span style={{ fontSize: '24px', fontWeight: 900, color: '#10b981', marginTop: '4px' }}>₹{Number(metrics.inventoryValue || 0).toFixed(2)}</span>
+                            <span style={{ fontSize: '24px', fontWeight: 900, color: '#10b981', marginTop: '4px' }}>
+                                ₹{(items.reduce((sum, item) => sum + (parseFloat(item.current_stock || 0) * parseFloat(item.purchase_rate || 0)), 0) || Number(metrics.inventoryValue || 0)).toFixed(2)}
+                            </span>
                         </div>
                     </div>
                     <button 
@@ -1403,7 +1405,9 @@ const InventoryManagement = () => {
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px solid var(--bg-border)', paddingTop: '16px' }}>
                             <span style={{ fontSize: '14px', fontWeight: 900, color: 'var(--text-muted)' }}>GRAND TOTAL</span>
-                            <span style={{ fontSize: '20px', fontWeight: 950, color: '#10b981' }}>₹{Number(metrics.inventoryValue || 0).toFixed(2)}</span>
+                            <span style={{ fontSize: '20px', fontWeight: 950, color: '#10b981' }}>
+                                ₹{(items.reduce((sum, item) => sum + (parseFloat(item.current_stock || 0) * parseFloat(item.purchase_rate || 0)), 0) || Number(metrics.inventoryValue || 0)).toFixed(2)}
+                            </span>
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

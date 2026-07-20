@@ -60,7 +60,7 @@ const MenuManagement = () => {
       const importedItems = [];
       
       let startIdx = 0;
-      if (lines.length > 0 && (lines[0].toLowerCase().includes('category') || lines[0].toLowerCase().includes('price'))) {
+      if (lines.length > 0 && (lines[0].toLowerCase().includes('category') || lines[0].toLowerCase().includes('price') || lines[0].toLowerCase().includes('name'))) {
         startIdx = 1;
       }
 
@@ -68,29 +68,33 @@ const MenuManagement = () => {
         const line = lines[i].trim();
         if (!line) continue;
         
-        const parts = line.split(',');
+        const delimiter = line.includes('\t') ? '\t' : line.includes(';') ? ';' : ',';
+        const parts = line.split(delimiter).map(p => p.trim().replace(/^["']|["']$/g, ''));
+        
         if (parts.length >= 3) {
-          importedItems.push({
-            category: parts[0].trim(),
-            name: parts[1].trim(),
-            price: parseFloat(parts[2].trim())
-          });
+          const category = parts[0];
+          const name = parts[1];
+          const price = parseFloat(parts[2]);
+          if (category && name && !isNaN(price)) {
+            importedItems.push({ category, name, price });
+          }
         }
       }
 
       if (importedItems.length === 0) {
-        toast.error('No valid items found in CSV');
+        toast.error('No valid menu items found in CSV file');
+        if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
 
-      const loadingToast = toast.loading(`Importing ${importedItems.length} items...`);
+      const loadingToast = toast.loading(`Importing ${importedItems.length} menu items...`);
       try {
         const res = await api.post('/menu/items/bulk', { items: importedItems });
-        toast.success(res.data.message || 'Menu imported successfully', { id: loadingToast });
+        toast.success(res.data.message || `Successfully imported ${importedItems.length} items!`, { id: loadingToast });
         fetchData(1, '');
         setCurrentPage(1);
       } catch (err) {
-        toast.error('Failed to import menu', { id: loadingToast });
+        toast.error('Failed to import menu CSV', { id: loadingToast });
       }
       
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -335,7 +339,7 @@ const MenuManagement = () => {
                 <Trash2 size={18} /> Delete All
               </button>
             </div>
-            <input type="file" accept=".csv" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
+            <input type="file" accept=".csv,text/csv,text/comma-separated-values,text/plain,application/vnd.ms-excel,*/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
           </div>
 
           <form onSubmit={addItem} style={{ gap: '24px' }} className="responsive-grid-12">
