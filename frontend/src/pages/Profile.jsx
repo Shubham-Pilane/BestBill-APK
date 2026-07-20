@@ -1059,50 +1059,6 @@ const Profile = () => {
                  <p style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 500 }}>BestBill Identity Protection — Secure Role-Based Access Control Active</p>
             </div>
 
-            {/* Lodging Activation Modal */}
-            {showLodgingModal && (
-                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }} onClick={() => setShowLodgingModal(false)}>
-                    <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '24px', padding: '36px', border: '1px solid var(--bg-border)', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <ShieldCheck size={28} style={{ color: lodgingModalMode === 'enable' ? '#10b981' : '#f43f5e' }} />
-                            <h3 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
-                                {lodgingModalMode === 'enable' ? 'Activate Lodging Module' : 'Deactivate Lodging Module'}
-                            </h3>
-                        </div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, margin: 0, lineHeight: '1.6' }}>
-                            {lodgingModalMode === 'enable'
-                                ? 'Enter the Premium Activation License Password to unlock Lodging & Room Management.'
-                                : 'Are you sure you want to deactivate Lodging & Room Management? Please enter the license password to confirm deactivation. Rooms and guest portals will be hidden.'
-                            }
-                        </p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 900 }}>
-                                {lodgingModalMode === 'enable' ? 'ACTIVATION PASSWORD' : 'DEACTIVATION PASSWORD'}
-                            </label>
-                            <input
-                                type="password"
-                                value={lodgingPassword}
-                                onChange={e => setLodgingPassword(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleLodgingModalSubmit()}
-                                placeholder={lodgingModalMode === 'enable' ? "Enter activation password" : "Enter deactivation password"}
-                                autoFocus
-                                style={{padding: '14px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', fontSize: '15px' }}
-                            />
-                        </div>
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                            <button
-                                onClick={() => setShowLodgingModal(false)}
-                                style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '14px' }}
-                            >Cancel</button>
-                            <button
-                                onClick={handleLodgingModalSubmit}
-                                style={{flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: lodgingModalMode === 'enable' ? '#10b981' : '#f43f5e', color: 'var(--text-primary)', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '14px', boxShadow: lodgingModalMode === 'enable' ? '0 8px 20px rgba(16,185,129,0.3)' : '0 8px 20px rgba(244,63,94,0.3)' }}
-                            >{lodgingModalMode === 'enable' ? 'Unlock & Activate' : 'Confirm Deactivate'}</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* KOT Activation Modal */}
             {showKotModal && (
                 <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }} onClick={() => setShowKotModal(false)}>
