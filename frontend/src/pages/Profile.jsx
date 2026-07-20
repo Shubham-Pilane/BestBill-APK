@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
-import { User, Mail, Lock, ShieldCheck, Save, Eye, EyeOff, LayoutPanelLeft, UserCircle, Wallet, Users, Trash2, UserPlus, Fingerprint, MapPin, Percent, Upload, Image as ImageIcon, Printer, ChevronDown, Globe, Download, QrCode } from 'lucide-react';
+import { User, Mail, Lock, ShieldCheck, Save, Eye, EyeOff, LayoutPanelLeft, UserCircle, Wallet, Users, Trash2, UserPlus, Fingerprint, MapPin, Percent, Upload, Image as ImageIcon, Printer, ChevronDown, Globe, Download, QrCode, Key } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { BluetoothPrinterService, formatBill } from '../services/bluetoothPrinterService';
+import * as licenseService from '../services/localLicenseService';
+
 const Profile = () => {
     const { user, updateUser } = useAuth();
     const isAdmin = user?.role === 'admin';
@@ -53,6 +55,14 @@ const Profile = () => {
     
     // Modules
     const [showModules, setShowModules] = useState(false);
+
+    // License & Plan Update State
+    const [licenseDetails, setLicenseDetails] = useState(null);
+    const [showLicensePasscodeModal, setShowLicensePasscodeModal] = useState(false);
+    const [licensePasscode, setLicensePasscode] = useState('');
+    const [showLicenseKeyModal, setShowLicenseKeyModal] = useState(false);
+    const [newLicenseKey, setNewLicenseKey] = useState('');
+    const [showKeyList, setShowKeyList] = useState(false);
     
     // KOT State
     const [kotEnabled, setKotEnabled] = useState(false);
@@ -90,6 +100,7 @@ const Profile = () => {
     const [showHotelProfile, setShowHotelProfile] = useState(false);
 
     useEffect(() => {
+        fetchLicenseDetails();
         if (isOwner) {
             fetchStaff();
             fetchHotelDetails();
@@ -104,6 +115,50 @@ const Profile = () => {
             fetchSimpleKotStatus();
         }
     }, [isOwner]);
+
+    const fetchLicenseDetails = async () => {
+        try {
+            const details = await licenseService.getLicenseDetails();
+            setLicenseDetails(details);
+        } catch (err) {
+            console.error("Failed to fetch license details", err);
+        }
+    };
+
+    const handleStartLicenseUpdate = () => {
+        setLicensePasscode('');
+        setShowLicensePasscodeModal(true);
+    };
+
+    const handleVerifyLicensePasscode = () => {
+        if (licensePasscode === '981267') {
+            setShowLicensePasscodeModal(false);
+            setLicensePasscode('');
+            setNewLicenseKey('');
+            setShowLicenseKeyModal(true);
+            toast.success("Passcode verified! You can now update your License Key.");
+        } else {
+            toast.error("Incorrect passcode. Access denied.");
+        }
+    };
+
+    const handleActivateNewLicenseKey = async () => {
+        if (!newLicenseKey.trim()) {
+            toast.error("Please enter a license key.");
+            return;
+        }
+        const keyToUse = newLicenseKey.trim();
+        const success = await licenseService.setLicenseKey(keyToUse);
+        if (success) {
+            toast.success("License key updated successfully! Your subscription plan has been upgraded.");
+            setShowLicenseKeyModal(false);
+            setNewLicenseKey('');
+            await fetchLicenseDetails();
+            window.dispatchEvent(new Event('storage'));
+        } else {
+            toast.error("Invalid license key. Please check key for current month/year.");
+        }
+    };
 
     const fetchLodgingStatus = async () => {
         try {
@@ -927,6 +982,63 @@ const Profile = () => {
                     </div>
                     {showModules && (
                         <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-rgba-05)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            {/* Active Subscription License & Plan Card */}
+                            <div style={{ backgroundColor: 'var(--bg-base)', borderRadius: '16px', padding: '20px', border: '1px solid rgba(14, 165, 233, 0.3)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                        <div style={{ width: '44px', height: '44px', borderRadius: '14px', backgroundColor: 'rgba(14, 165, 233, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9' }}>
+                                            <Key size={22} />
+                                        </div>
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <h3 style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Active Subscription License</h3>
+                                                <span style={{ 
+                                                    padding: '4px 12px', 
+                                                    borderRadius: '20px', 
+                                                    fontSize: '11px', 
+                                                    fontWeight: 900, 
+                                                    backgroundColor: licenseDetails?.type === 'permanent' ? 'rgba(16, 185, 129, 0.2)' : licenseDetails?.type === 'yearly' ? 'rgba(14, 165, 233, 0.2)' : licenseDetails?.type === 'monthly' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                                                    color: licenseDetails?.type === 'permanent' ? '#10b981' : licenseDetails?.type === 'yearly' ? '#0ea5e9' : licenseDetails?.type === 'monthly' ? '#f59e0b' : '#f87171',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.03em'
+                                                }}>
+                                                    {licenseDetails?.type === 'trial' ? 'Free Trial (30 Days)' : 
+                                                     licenseDetails?.type === 'monthly' ? 'Monthly Subscription' : 
+                                                     licenseDetails?.type === 'yearly' ? 'Yearly Subscription' : 
+                                                     licenseDetails?.type === 'permanent' ? 'Lifetime Access' : 'Active Plan'}
+                                                </span>
+                                            </div>
+                                            <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '4px 0 0 0', fontWeight: 500 }}>
+                                                {licenseDetails?.type === 'permanent' 
+                                                    ? 'Unlimited Lifetime Access — Permanent license active.'
+                                                    : `Status: Active (${licenseDetails?.daysRemaining || 0} Days Remaining). Expiry: ${licenseDetails?.expiresAt ? new Date(licenseDetails.expiresAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}`}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        onClick={handleStartLicenseUpdate}
+                                        style={{ 
+                                            padding: '10px 20px', 
+                                            borderRadius: '12px', 
+                                            backgroundColor: '#0ea5e9', 
+                                            color: '#ffffff', 
+                                            border: 'none', 
+                                            fontWeight: 900, 
+                                            fontSize: '13px', 
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            boxShadow: '0 4px 14px rgba(14, 165, 233, 0.3)',
+                                            transition: 'transform 0.15s ease'
+                                        }}
+                                    >
+                                        <Key size={16} /> Update / Renew License Key
+                                    </button>
+                                </div>
+                            </div>
+                            <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
                             {/* WhatsApp Billing Module */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
@@ -1265,6 +1377,96 @@ const Profile = () => {
                                 onClick={handleSimpleKotModalSubmit}
                                 style={{flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: simpleKotModalMode === 'enable' ? '#10b981' : '#f43f5e', color: 'var(--text-primary)', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '14px', boxShadow: simpleKotModalMode === 'enable' ? '0 8px 20px rgba(16,185,129,0.3)' : '0 8px 20px rgba(244,63,94,0.3)' }}
                             >{simpleKotModalMode === 'enable' ? 'Unlock & Activate' : 'Confirm Deactivate'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* License Passcode Modal */}
+            {showLicensePasscodeModal && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }} onClick={() => setShowLicensePasscodeModal(false)}>
+                    <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '24px', padding: '32px', border: '1px solid var(--bg-border)', width: '100%', maxWidth: '420px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <Lock size={26} style={{ color: '#0ea5e9' }} />
+                            <h3 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Security Passcode Required</h3>
+                        </div>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: 1.5, fontWeight: 500 }}>
+                            Enter the system security passcode to unlock license key modification and plan upgrade.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 900 }}>SECURITY PASSCODE</label>
+                            <input
+                                type="password"
+                                value={licensePasscode}
+                                onChange={e => setLicensePasscode(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleVerifyLicensePasscode()}
+                                placeholder="Enter passcode"
+                                autoFocus
+                                style={{ padding: '14px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', fontSize: '16px', letterSpacing: '0.1em' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                            <button onClick={() => setShowLicensePasscodeModal(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
+                            <button onClick={handleVerifyLicensePasscode} style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)' }}>Verify Passcode</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* License Key Update Modal */}
+            {showLicenseKeyModal && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }} onClick={() => setShowLicenseKeyModal(false)}>
+                    <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '24px', padding: '32px', border: '1px solid var(--bg-border)', width: '100%', maxWidth: '480px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <Key size={26} style={{ color: '#10b981' }} />
+                            <div>
+                                <h3 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Update / Renew License Key</h3>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>Upgrade your subscription from Free Trial to Monthly, Yearly, or Lifetime.</p>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 900 }}>ENTER LICENSE KEY</label>
+                            <input
+                                type="text"
+                                value={newLicenseKey}
+                                onChange={e => setNewLicenseKey(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleActivateNewLicenseKey()}
+                                placeholder="Paste or type new license key"
+                                autoFocus
+                                style={{ padding: '14px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: '#10b981', fontWeight: 900, outline: 'none', fontSize: '16px', letterSpacing: '0.05em' }}
+                            />
+                        </div>
+
+                        {/* Quick reference key suggestions */}
+                        <div style={{ backgroundColor: 'var(--bg-base)', borderRadius: '14px', padding: '14px', border: '1px solid var(--bg-border)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>AVAILABLE KEYS FOR CURRENT PERIOD</span>
+                                <button onClick={() => setShowKeyList(!showKeyList)} style={{ background: 'none', border: 'none', color: '#0ea5e9', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>
+                                    {showKeyList ? 'Hide Keys' : 'View Keys'}
+                                </button>
+                            </div>
+
+                            {showKeyList && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
+                                    <div onClick={() => setNewLicenseKey('T6pL3cN9q4')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.1)', cursor: 'pointer' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b' }}>Monthly Key (30 Days)</span>
+                                        <code style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>T6pL3cN9q4</code>
+                                    </div>
+                                    <div onClick={() => setNewLicenseKey('L1xV4nQ8p3')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(14, 165, 233, 0.1)', cursor: 'pointer' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#0ea5e9' }}>Yearly Key (365 Days)</span>
+                                        <code style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>L1xV4nQ8p3</code>
+                                    </div>
+                                    <div onClick={() => setNewLicenseKey('T6PL3CN9Q4')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.1)', cursor: 'pointer' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#10b981' }}>Lifetime Key</span>
+                                        <code style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>T6PL3CN9Q4</code>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                            <button onClick={() => setShowLicenseKeyModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '12px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
+                            <button onClick={handleActivateNewLicenseKey} style={{ flex: 1, padding: '14px', borderRadius: '12px', backgroundColor: '#10b981', color: '#ffffff', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)' }}>Activate Plan</button>
                         </div>
                     </div>
                 </div>
