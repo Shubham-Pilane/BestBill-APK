@@ -404,12 +404,25 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   if (loading) return null;
 
   return (
-    <div className="order-modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div className="order-modal-container" style={{ width: '100%', maxWidth: '1440px', height: '90vh', backgroundColor: 'var(--bg-card)', borderRadius: '40px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.8)', border: '1px solid var(--border-rgba-05)' }}>
-        {/* Header */}
-        <div className="order-modal-header" style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-rgba-05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-            <div style={{width: '64px', height: '64px', backgroundColor: table.active_order_id ? '#f43f5e' : '#10b981', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)', fontWeight: 900, fontSize: '28px' }}>
+    <div className="order-modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+      <div className="order-modal-container" style={{ width: '100%', maxWidth: '1280px', height: '92vh', backgroundColor: '#0b1120', borderRadius: '32px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 30px 90px rgba(0,0,0,0.9)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+        
+        {/* Header - Matching Screenshot Style */}
+        <div className="order-modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0f172a' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{
+              width: '48px', 
+              height: '48px', 
+              backgroundColor: '#10b981', 
+              borderRadius: '16px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              color: '#ffffff', 
+              fontWeight: 950, 
+              fontSize: '22px',
+              boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)'
+            }}>
               {String(table.table_number || '').toLowerCase().includes('parcel') 
                 ? 'PC' 
                 : String(table.table_number || '').toLowerCase().includes('token') 
@@ -418,7 +431,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               }
             </div>
             <div>
-              <h2 style={{fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 900, color: '#ffffff', margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {String(table.table_number || '').toLowerCase().includes('parcel') 
                   ? 'Parcel Counter Summary' 
                   : String(table.table_number || '').toLowerCase().includes('token') 
@@ -426,51 +439,80 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     : `Table ${table.table_number} Summary`
                 }
               </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                 <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>BestBill POS</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                 <span style={{ fontSize: '10px', fontWeight: 900, color: '#10b981', letterSpacing: '0.08em', textTransform: 'uppercase' }}>BESTBILL POS</span>
                  {table.active_order_id && !showBill && (
-                    <button onClick={() => setSwapModalOpen(true)} style={{ backgroundColor: 'rgba(14, 165, 233, 0.1)', border: '1px solid #0ea5e9', color: '#0ea5e9', padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 900, cursor: 'pointer' }}>SWAP TABLE</button>
+                    <button onClick={() => setSwapModalOpen(true)} style={{ backgroundColor: 'rgba(14, 165, 233, 0.15)', border: '1px solid #0ea5e9', color: '#38bdf8', padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 900, cursor: 'pointer' }}>SWAP TABLE</button>
                  )}
               </div>
             </div>
           </div>
-          <button onClick={onClose} style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--bg-border)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={24} /></button>
+          <button 
+            onClick={onClose} 
+            style={{ 
+              width: '40px', 
+              height: '40px', 
+              borderRadius: '50%', 
+              backgroundColor: 'rgba(255, 255, 255, 0.06)', 
+              border: '1px solid rgba(255, 255, 255, 0.08)', 
+              color: 'rgba(255, 255, 255, 0.7)', 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              transition: 'all 0.2s'
+            }}
+          >
+            <X size={20} />
+          </button>
         </div>
 
+        {/* Content Section */}
         <div className="order-modal-content" style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          {/* Menu */}
-          <div className="order-modal-menu" style={{ flex: 1, borderRight: '1px solid var(--border-rgba-05)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-            <div style={{ padding: '16px 48px', display: 'flex', gap: '20px', alignItems: 'center', backgroundColor: 'var(--bg-base)', borderBottom: '1px solid var(--border-rgba-05)' }}>
-              <div className="category-bar" style={{ display: 'flex', gap: '10px', overflowX: 'auto', flex: 1 }}>
-                <button onClick={() => { setSelectedCategory('all'); setCurrentPage(1); }} style={{padding: '10px 20px', borderRadius: '12px', border: 'none', fontWeight: 900, cursor: 'pointer', backgroundColor: selectedCategory === 'all' ? '#0ea5e9' : 'var(--bg-border)', color: 'var(--text-primary)', fontSize: '12px', whiteSpace: 'nowrap' }}>ALL ITEMS</button>
-                {categories.map(cat => (
-                  <button key={cat.id} onClick={() => { setSelectedCategory(cat.id); setCurrentPage(1); }} style={{padding: '10px 20px', borderRadius: '12px', border: 'none', fontWeight: 900, cursor: 'pointer', backgroundColor: selectedCategory === cat.id ? '#0ea5e9' : 'var(--bg-border)', color: 'var(--text-primary)', fontSize: '12px', whiteSpace: 'nowrap' }}>{cat.name.toUpperCase()}</button>
-                ))}
-              </div>
-
-              <div className="search-bar-container" style={{ position: 'relative', width: '300px' }}>
-                <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
-                  <Search size={18} />
+          
+          {/* Left Panel: Search & Menu Items */}
+          <div className="order-modal-menu" style={{ flex: 1, borderRight: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, backgroundColor: '#0b1120' }}>
+            
+            {/* Top Bar: Search Input & Category Scroll Bar */}
+            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#0f172a', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              
+              {/* Search Menu Input */}
+              <div className="search-bar-container" style={{ position: 'relative', width: '100%' }}>
+                <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255, 255, 255, 0.4)' }}>
+                  <Search size={16} />
                 </div>
                 <input 
                    type="text" 
                    placeholder="Search Menu..."
                    value={searchQuery}
                    onChange={handleSearchChange}
-                   style={{width: '100%', padding: '14px 44px 14px 48px', borderRadius: '16px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', fontSize: '14px' }}
+                   style={{
+                     width: '100%', 
+                     padding: '12px 40px 12px 44px', 
+                     borderRadius: '16px', 
+                     backgroundColor: 'rgba(15, 23, 42, 0.9)', 
+                     border: '1px solid rgba(255, 255, 255, 0.1)', 
+                     color: '#ffffff', 
+                     fontWeight: 700, 
+                     outline: 'none', 
+                     fontSize: '14px',
+                     boxSizing: 'border-box'
+                   }}
                 />
                 {searchQuery && (
                   <button 
                     onClick={() => { setSearchQuery(''); setSuggestions([]); }}
-                    style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                    style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255, 255, 255, 0.5)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
                   >
                     <X size={16} />
                   </button>
                 )}
+
+                {/* Suggestions Dropdown */}
                 {suggestions.length > 0 && (
-                  <div className="search-suggestions-scrollbar" style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'var(--bg-card)', borderRadius: '16px', marginTop: '8px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', zIndex: 100, border: '1px solid var(--bg-border)', overflowY: 'auto', maxHeight: '350px' }}>
+                  <div className="search-suggestions-scrollbar" style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#0f172a', borderRadius: '16px', marginTop: '6px', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', zIndex: 100, border: '1px solid rgba(255, 255, 255, 0.1)', overflowY: 'auto', maxHeight: '300px' }}>
                     {suggestions.map(s => (
-                      <div key={s.id} onClick={() => { addToOrder(s); setSearchQuery(''); setSuggestions([]); }} style={{padding: '14px 20px', cursor: 'pointer', borderBottom: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: '0.2s' }}>
+                      <div key={s.id} onClick={() => { addToOrder(s); setSearchQuery(''); setSuggestions([]); }} style={{ padding: '12px 18px', cursor: 'pointer', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', color: '#ffffff', fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <Plus size={14} color="#0ea5e9" />
                           <span>{s.name}</span>
@@ -478,81 +520,103 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                         <span style={{ color: '#10b981' }}>₹{s.price}</span>
                       </div>
                     ))}
-                    {suggestions.length > 6 && (
-                      <div style={{
-                        position: 'sticky',
-                        bottom: 0,
-                        backgroundColor: 'var(--bg-card)',
-                        padding: '10px 20px',
-                        textAlign: 'center',
-                        fontSize: '11px',
-                        color: '#0ea5e9',
-                        fontWeight: 900,
-                        borderTop: '1px solid var(--bg-border)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        opacity: 0.95,
-                        backdropFilter: 'blur(8px)',
-                        boxShadow: '0 -4px 12px rgba(0, 0, 0, 0.25)',
-                        borderBottomLeftRadius: '16px',
-                        borderBottomRightRadius: '16px',
-                        pointerEvents: 'none'
-                      }}>
-                        <span>Scroll for more results</span>
-                        <span className="bounce-arrow" style={{ display: 'inline-block' }}>↓</span>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
+
+              {/* Horizontal Category Bar */}
+              <div className="category-bar" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
+                <button 
+                  onClick={() => { setSelectedCategory('all'); setCurrentPage(1); }} 
+                  style={{
+                    padding: '8px 16px', 
+                    borderRadius: '20px', 
+                    border: 'none', 
+                    fontWeight: 800, 
+                    cursor: 'pointer', 
+                    backgroundColor: selectedCategory === 'all' ? '#0ea5e9' : 'rgba(255, 255, 255, 0.06)', 
+                    color: '#ffffff', 
+                    fontSize: '11px', 
+                    whiteSpace: 'nowrap',
+                    letterSpacing: '0.03em',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  ALL ITEMS
+                </button>
+                {categories.map(cat => (
+                  <button 
+                    key={cat.id} 
+                    onClick={() => { setSelectedCategory(cat.id); setCurrentPage(1); }} 
+                    style={{
+                      padding: '8px 16px', 
+                      borderRadius: '20px', 
+                      border: 'none', 
+                      fontWeight: 800, 
+                      cursor: 'pointer', 
+                      backgroundColor: selectedCategory === cat.id ? '#0ea5e9' : 'rgba(255, 255, 255, 0.06)', 
+                      color: '#ffffff', 
+                      fontSize: '11px', 
+                      whiteSpace: 'nowrap',
+                      letterSpacing: '0.03em',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    {cat.name.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
             </div>
             
-            <div style={{ flex: 1, padding: '32px 48px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', alignContent: 'start' }}>
+            {/* Menu Items List - Neat & Compact Cards Matching Screenshot */}
+            <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {items.map(item => (
-                <div key={item.id} onClick={() => addToOrder(item)} style={{ 
-                  backgroundColor: 'var(--bg-base)', 
-                  border: '1px solid var(--bg-border)', 
-                  padding: '16px 24px', 
-                  borderRadius: '16px', 
-                  cursor: 'pointer', 
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  position: 'relative'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--bg-card)';
-                  e.currentTarget.style.borderColor = '#0ea5e9';
-                  e.currentTarget.style.transform = 'translateX(4px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--bg-base)';
-                  e.currentTarget.style.borderColor = 'var(--bg-border)';
-                  e.currentTarget.style.transform = 'translateX(0)';
-                }}>
+                <div 
+                  key={item.id} 
+                  onClick={() => addToOrder(item)} 
+                  style={{ 
+                    backgroundColor: 'rgba(15, 23, 42, 0.6)', 
+                    border: '1px solid rgba(14, 165, 233, 0.25)', 
+                    padding: '14px 18px', 
+                    borderRadius: '16px', 
+                    cursor: 'pointer', 
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(15, 23, 42, 0.95)';
+                    e.currentTarget.style.borderColor = '#0ea5e9';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(15, 23, 42, 0.6)';
+                    e.currentTarget.style.borderColor = 'rgba(14, 165, 233, 0.25)';
+                  }}
+                >
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{fontSize: '16px', fontWeight: 900, color: 'var(--text-primary)', textTransform: 'uppercase' }}>{item.name}</span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, backgroundColor: 'rgba(100, 116, 139, 0.1)', padding: '2px 8px', borderRadius: '6px' }}>{item.category_name?.toUpperCase()}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{item.name}</span>
+                      <span style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 800, backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                        {item.category_name || 'Item'}
+                      </span>
                     </div>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{item.description || 'Standard culinary selection'}</p>
+                    <p style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', margin: 0, fontWeight: 500 }}>
+                      {item.description || 'Standard culinary selection'}
+                    </p>
                   </div>
                   
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                    <span style={{ color: '#10b981', fontSize: '18px', fontWeight: 900 }}>₹{item.price}</span>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '12px', backgroundColor: 'rgba(14, 165, 233, 0.1)', border: '1px solid #0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9' }}>
-                      <Plus size={18} strokeWidth={3} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <span style={{ color: '#10b981', fontSize: '17px', fontWeight: 900 }}>₹{item.price}</span>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '10px', border: '1px solid #0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9' }}>
+                      <Plus size={16} strokeWidth={3} />
                     </div>
                   </div>
                 </div>
               ))}
 
-              {/* Pagination Bar */}
+              {/* Pagination */}
               {(() => {
                 const getPages = () => {
                   const pages = [];
@@ -567,21 +631,21 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   return pages;
                 };
                 if (totalPages <= 1) return null;
-                const btn = { height: '38px', minWidth: '38px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: '13px', transition: 'all 0.15s' };
+                const btn = { height: '34px', minWidth: '34px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: '12px', transition: 'all 0.15s' };
                 return (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '24px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '16px', flexWrap: 'wrap' }}>
                     <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}
-                      style={{ ...btn, padding: '0 12px', backgroundColor: currentPage === 1 ? 'rgba(255,255,255,0.02)' : 'var(--bg-border)', color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === 1 ? 'default' : 'pointer' }}
+                      style={{ ...btn, padding: '0 10px', backgroundColor: currentPage === 1 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.08)', color: currentPage === 1 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)', cursor: currentPage === 1 ? 'default' : 'pointer' }}
                     >&#8249; Prev</button>
                     {getPages().map((p, i) => p === '...' ? (
-                      <span key={`e${i}`} style={{ color: 'var(--text-muted)', fontWeight: 800, padding: '0 4px' }}>...</span>
+                      <span key={`e${i}`} style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 800, padding: '0 4px' }}>...</span>
                     ) : (
                       <button key={p} onClick={() => setCurrentPage(p)}
-                        style={{ ...btn, backgroundColor: currentPage === p ? '#0ea5e9' : 'var(--bg-border)', color: currentPage === p ? 'white' : 'var(--text-secondary)', boxShadow: currentPage === p ? '0 4px 12px rgba(14,165,233,0.4)' : 'none' }}
+                        style={{ ...btn, backgroundColor: currentPage === p ? '#0ea5e9' : 'rgba(255,255,255,0.08)', color: currentPage === p ? 'white' : 'rgba(255,255,255,0.7)' }}
                       >{p}</button>
                     ))}
                     <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}
-                      style={{ ...btn, padding: '0 12px', backgroundColor: currentPage === totalPages ? 'rgba(255,255,255,0.02)' : 'var(--bg-border)', color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === totalPages ? 'default' : 'pointer' }}
+                      style={{ ...btn, padding: '0 10px', backgroundColor: currentPage === totalPages ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.08)', color: currentPage === totalPages ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)', cursor: currentPage === totalPages ? 'default' : 'pointer' }}
                     >Next &#8250;</button>
                   </div>
                 );
@@ -589,402 +653,412 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
             </div>
           </div>
 
-          {/* Cart */}
-          <div className="order-modal-cart" style={{ width: '420px', backgroundColor: 'var(--bg-base)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '32px', borderBottom: '1px solid var(--bg-border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-               <Receipt size={20} color="#0ea5e9" />
-               <h3 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Active Selection</h3>
+          {/* Right Panel: Active Selection (Cart) - Styled exactly as requested */}
+          <div className="order-modal-cart" style={{ width: '400px', backgroundColor: '#070c18', display: 'flex', flexDirection: 'column' }}>
+            
+            {/* Active Selection Header */}
+            <div style={{ padding: '18px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+               <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'rgba(14, 165, 233, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9' }}>
+                  <Receipt size={16} />
+               </div>
+               <h3 style={{ fontSize: '16px', fontWeight: 900, color: '#ffffff', margin: 0 }}>Active Selection</h3>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {orderItems.map(item => (
-                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', backgroundColor: 'var(--bg-card)', borderRadius: '20px' }}>
-                  <div>
-                    <div style={{color: 'var(--text-primary)', fontWeight: 900 }}>{item.name}</div>
-                    {editingPriceId === item.id ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                         <span style={{ color: '#10b981', fontSize: '13px' }}>₹</span>
-                         <input 
-                           type="number" 
-                           autoFocus
-                           value={editPriceValue} 
-                           onChange={e => setEditPriceValue(e.target.value)}
-                           onBlur={() => savePriceChange(item.id, item.menu_item_id)}
-                           onKeyDown={e => e.key === 'Enter' && savePriceChange(item.id, item.menu_item_id)}
-                           style={{ width: '85px', backgroundColor: 'var(--bg-base)', border: '1px solid #10b981', color: '#10b981', borderRadius: '6px', padding: '4px 6px', fontSize: '13px', outline: 'none', fontWeight: 800 }}
-                         />
-                         <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>/ unit</span>
-                      </div>
-                    ) : (
-                      <div 
-                        onClick={() => { setEditingPriceId(item.id); setEditPriceValue(Math.round(item.price)); }}
-                        style={{ color: '#10b981', fontSize: '13px', cursor: 'pointer', display: 'inline-block', borderBottom: '1px dashed rgba(16,185,129,0.4)', paddingBottom: '2px', marginTop: '4px' }}
-                        title="Edit Unit Price (Updates Master Menu)"
-                      >
-                         ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'var(--text-muted)', fontSize: '11px', marginLeft: '6px' }}>(₹{Math.round(item.price)} each)</span>}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <button 
-                      onClick={() => updateQuantity(item.id, -1)} 
-                      disabled={!item.id}
-                      style={{cursor: !item.id ? 'not-allowed' : 'pointer', opacity: !item.id ? 0.3 : 1, border: 'none', width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-border)', color: 'var(--text-primary)' }}
-                    >
-                      <Minus size={14} />
-                    </button>
-                    <span style={{color: 'var(--text-primary)', fontWeight: 900 }}>{item.quantity}</span>
-                    <button 
-                      onClick={() => updateQuantity(item.id, 1)} 
-                      disabled={!item.id}
-                      style={{cursor: !item.id ? 'not-allowed' : 'pointer', opacity: !item.id ? 0.3 : 1, border: 'none', width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-border)', color: 'var(--text-primary)' }}
-                    >
-                      <Plus size={14} />
-                    </button>
-                  </div>
+
+            {/* Cart Items List */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {orderItems.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255, 255, 255, 0.3)', fontSize: '13px', fontStyle: 'italic' }}>
+                  No items selected yet. Tap items on the left to add.
                 </div>
-              ))}
+              ) : (
+                orderItems.map(item => (
+                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: 'rgba(15, 23, 42, 0.9)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                    <div>
+                      <div style={{ color: '#ffffff', fontWeight: 900, fontSize: '14px' }}>{item.name}</div>
+                      {editingPriceId === item.id ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                           <span style={{ color: '#10b981', fontSize: '12px' }}>₹</span>
+                           <input 
+                             type="number" 
+                             autoFocus
+                             value={editPriceValue} 
+                             onChange={e => setEditPriceValue(e.target.value)}
+                             onBlur={() => savePriceChange(item.id, item.menu_item_id)}
+                             onKeyDown={e => e.key === 'Enter' && savePriceChange(item.id, item.menu_item_id)}
+                             style={{ width: '75px', backgroundColor: '#0f172a', border: '1px solid #10b981', color: '#10b981', borderRadius: '6px', padding: '3px 6px', fontSize: '12px', outline: 'none', fontWeight: 800 }}
+                           />
+                           <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px' }}>/ unit</span>
+                        </div>
+                      ) : (
+                        <div 
+                          onClick={() => { setEditingPriceId(item.id); setEditPriceValue(Math.round(item.price)); }}
+                          style={{ color: '#10b981', fontSize: '12px', fontWeight: 900, cursor: 'pointer', display: 'inline-block', borderBottom: '1px dashed rgba(16,185,129,0.4)', marginTop: '2px' }}
+                          title="Tap to Edit Unit Price"
+                        >
+                           ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', marginLeft: '4px' }}>(₹{Math.round(item.price)} each)</span>}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quantity Selector matching screenshot circular design */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <button 
+                        onClick={() => updateQuantity(item.id, -1)} 
+                        disabled={!item.id}
+                        style={{ cursor: !item.id ? 'not-allowed' : 'pointer', opacity: !item.id ? 0.3 : 1, border: 'none', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Minus size={13} />
+                      </button>
+                      <span style={{ color: '#ffffff', fontWeight: 900, fontSize: '14px', minWidth: '16px', textAlign: 'center' }}>{item.quantity}</span>
+                      <button 
+                        onClick={() => updateQuantity(item.id, 1)} 
+                        disabled={!item.id}
+                        style={{ cursor: !item.id ? 'not-allowed' : 'pointer', opacity: !item.id ? 0.3 : 1, border: 'none', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-            <div style={{ padding: '20px 24px', backgroundColor: 'var(--bg-card)', borderTop: '1px solid var(--bg-border)' }}>
-              <div style={{ marginBottom: '16px' }}>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 900, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                   <span>Loyalty Discount (%)</span>
-                   <input 
-                      type="number" 
-                      value={discount} 
-                      onChange={e => setDiscount(Math.max(0, Math.min(100, e.target.value)))} 
-                      style={{width: '50px', background: 'none', border: 'none', borderBottom: '2px solid #0ea5e9', color: 'var(--text-primary)', textAlign: 'center', fontWeight: 900, outline: 'none' }} 
-                   />
-                 </div>
-                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--text-primary)' }}>
-                   <span style={{ fontSize: '22px', fontWeight: 1000 }}>Final Due</span>
-                    <span style={{ color: '#10b981', fontSize: '22px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
-                 </div>
+
+            {/* Cart Footer: Discount, Due & Buttons */}
+            <div style={{ padding: '16px 20px', backgroundColor: '#0f172a', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              
+              {/* Loyalty Discount Input */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>LOYALTY DISCOUNT (%)</span>
+                <input 
+                   type="number" 
+                   value={discount} 
+                   onChange={e => setDiscount(Math.max(0, Math.min(100, e.target.value)))} 
+                   style={{ width: '45px', background: 'none', border: 'none', borderBottom: '2px solid #0ea5e9', color: '#ffffff', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '13px' }} 
+                />
               </div>
-              <div style={{ marginBottom: '16px' }}>
+
+              {/* Kitchen Notes */}
+              <div>
                 <input 
                   type="text" 
                   value={kitchenNotes} 
                   onChange={e => setKitchenNotes(e.target.value)}
-                  placeholder="Add notes for kitchen (e.g. less spicy)..." 
-                  style={{width: '100%', padding: '12px 16px', borderRadius: '12px', backgroundColor: 'var(--bg-border)', border: '1px solid #334155', color: 'var(--text-primary)', fontWeight: 600, outline: 'none', fontSize: '13px' }} 
+                  placeholder="Kitchen notes (e.g. less spicy)..." 
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '10px', backgroundColor: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#ffffff', fontWeight: 600, outline: 'none', fontSize: '12px', boxSizing: 'border-box' }} 
                 />
               </div>
+
+              {/* Final Due Bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
+                <span style={{ fontSize: '20px', fontWeight: 900, color: '#ffffff' }}>Final Due</span>
+                <span style={{ color: '#10b981', fontSize: '22px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
+              </div>
+
+              {/* Action Buttons */}
               {user?.role === 'waiter' ? (
                 <button 
                   disabled={orderItems.length === 0} 
                   onClick={sendToKitchen} 
-                  style={{ width: '100%', padding: '16px', borderRadius: '16px', backgroundColor: '#f59e0b', color: 'white', border: 'none', fontWeight: 1000, fontSize: '15px', cursor: 'pointer', scale: orderItems.length === 0 ? '1' : '1.02', transition: '0.2s', opacity: orderItems.length === 0 ? 0.3 : 1 }}
+                  style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '14px', cursor: 'pointer', opacity: orderItems.length === 0 ? 0.3 : 1, transition: '0.2s', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)' }}
                 >
                   SEND TO KITCHEN
                 </button>
               ) : (table.table_number === 'Parcel Counter' || user?.simpleKotEnabled) ? (
-                <div style={{ display: 'flex', gap: '12px', flexDirection: 'column' }}>
-                  <button disabled={orderItems.length === 0} onClick={sendToKitchen} style={{ width: '100%', padding: '16px', borderRadius: '16px', backgroundColor: '#f59e0b', color: 'white', border: 'none', fontWeight: 1000, fontSize: '15px', cursor: 'pointer', scale: orderItems.length === 0 ? '1' : '1.02', transition: '0.2s', opacity: orderItems.length === 0 ? 0.3 : 1 }}>SEND TO KITCHEN</button>
-                  <button disabled={orderItems.length === 0} onClick={generateBill} style={{ width: '100%', padding: '16px', borderRadius: '16px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', fontWeight: 1000, fontSize: '15px', cursor: 'pointer', scale: orderItems.length === 0 ? '1' : '1.02', transition: '0.2s', opacity: orderItems.length === 0 ? 0.3 : 1 }}>SETTLE TRANSACTION</button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button disabled={orderItems.length === 0} onClick={sendToKitchen} style={{ flex: 1, padding: '14px 8px', borderRadius: '14px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '13px', cursor: 'pointer', opacity: orderItems.length === 0 ? 0.3 : 1, transition: '0.2s' }}>SEND TO KITCHEN</button>
+                  <button disabled={orderItems.length === 0} onClick={generateBill} style={{ flex: 1, padding: '14px 8px', borderRadius: '14px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '13px', cursor: 'pointer', opacity: orderItems.length === 0 ? 0.3 : 1, transition: '0.2s' }}>SETTLE BILL</button>
                 </div>
               ) : (
-                <button disabled={orderItems.length === 0} onClick={generateBill} style={{ width: '100%', padding: '16px', borderRadius: '16px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', fontWeight: 1000, fontSize: '15px', cursor: 'pointer', scale: orderItems.length === 0 ? '1' : '1.02', transition: '0.2s', opacity: orderItems.length === 0 ? 0.3 : 1 }}>SETTLE TRANSACTION</button>
+                <button disabled={orderItems.length === 0} onClick={generateBill} style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '14px', cursor: 'pointer', opacity: orderItems.length === 0 ? 0.3 : 1, transition: '0.2s', boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)' }}>SETTLE TRANSACTION</button>
               )}
             </div>
+
           </div>
         </div>
       </div>
 
+      {/* Bill & Settlement Modal */}
       {showBill && billData && (
-        <div className="bill-modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', backdropFilter: 'blur(10px)' }}>
-          <div className="bill-container" style={{width: '100%', maxWidth: '850px', maxHeight: '90vh', backgroundColor: 'var(--bg-card)', borderRadius: '40px', overflow: 'hidden', display: 'flex', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.5)', border: '1px solid var(--border-rgba-05)', position: 'relative' }}>
-             <div style={{ flex: 1, padding: '48px', borderRight: '1px solid var(--border-rgba-05)', backgroundColor: billData.is_paid ? '#10b981' : '#0f172a', transition: 'all 0.6s', overflowY: 'auto', position: 'relative' }}>
+        <div className="bill-modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backdropFilter: 'blur(10px)' }}>
+          <div className="bill-container" style={{ width: '100%', maxWidth: '850px', maxHeight: '90vh', backgroundColor: '#0f172a', borderRadius: '32px', overflow: 'hidden', display: 'flex', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', position: 'relative' }}>
+             <div style={{ flex: 1, padding: '32px', borderRight: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: billData.is_paid ? '#10b981' : '#0f172a', transition: 'all 0.6s', overflowY: 'auto', position: 'relative' }}>
                 {isSuccess && (
                    <div style={{ position: 'absolute', inset: 0, backgroundColor: '#10b981', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.3s ease-out' }}>
-                      <div style={{width: '120px', height: '120px', borderRadius: '50%', backgroundColor: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', marginBottom: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', animation: 'scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-                         <CheckCircle size={80} strokeWidth={3} />
+                      <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', marginBottom: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
+                         <CheckCircle size={64} strokeWidth={3} />
                       </div>
-                      <h2 style={{fontSize: '32px', fontWeight: 1000, color: 'var(--text-primary)', margin: 0 }}>Transaction Complete</h2>
-                      <p style={{ fontSize: '16px', color: 'rgba(255,255,255,0.8)', marginTop: '8px', fontWeight: 800 }}>Redirecting...</p>
+                      <h2 style={{ fontSize: '28px', fontWeight: 1000, color: '#ffffff', margin: 0 }}>Transaction Complete</h2>
+                      <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.8)', marginTop: '8px', fontWeight: 800 }}>Redirecting...</p>
                    </div>
                 )}
                 {!!billData.is_paid && !isSuccess && (
                    <div style={{ position: 'absolute', top: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
-                      <div style={{backgroundColor: 'var(--text-primary)', padding: '24px', borderRadius: '50%', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-                         <CheckCircle size={100} color="#10b981" />
+                      <div style={{ backgroundColor: '#ffffff', padding: '20px', borderRadius: '50%', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+                         <CheckCircle size={80} color="#10b981" />
                       </div>
                    </div>
                 )}
-                <div style={{ textAlign: 'center', marginBottom: '24px', opacity: billData.is_paid ? 0.3 : 1 }}>
-                   <h1 style={{ margin: 0, fontWeight: 950, fontSize: '28px', color: 'white' }}>{(billData.hotel_name || user?.hotel_name || 'BESTBILL').toUpperCase()}</h1>
-                   <div style={{ color: 'rgba(255,255,255,0.7)', fontWeight: 800, fontSize: '14px', marginTop: '4px' }}>{billData.hotel_location}</div>
+                <div style={{ textAlign: 'center', marginBottom: '20px', opacity: billData.is_paid ? 0.3 : 1 }}>
+                   <h1 style={{ margin: 0, fontWeight: 950, fontSize: '24px', color: '#ffffff' }}>{(billData.hotel_name || user?.hotel_name || 'BESTBILL').toUpperCase()}</h1>
+                   <div style={{ color: 'rgba(255,255,255,0.7)', fontWeight: 800, fontSize: '13px', marginTop: '4px' }}>{billData.hotel_location}</div>
                 </div>
                 
-                <div style={{ borderTop: '2px dashed var(--border-rgba-05)', borderBottom: '2px dashed var(--border-rgba-05)', padding: '16px 0', marginBottom: '24px' }}>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 900, color: 'white' }}>
+                <div style={{ borderTop: '2px dashed rgba(255, 255, 255, 0.1)', borderBottom: '2px dashed rgba(255, 255, 255, 0.1)', padding: '14px 0', marginBottom: '20px' }}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 900, color: '#ffffff' }}>
                       <span>TABLE NO: {table.table_numberByFloor || table.table_number}</span>
                       <span>BILL NO: #{billData.id}</span>
                    </div>
-                   <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>DATE: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</div>
+                   <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>DATE: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</div>
                 </div>
 
-                <div style={{ marginBottom: '24px' }}>
-                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 60px 100px', borderBottom: '1px dashed var(--border-rgba-05)', paddingBottom: '8px', marginBottom: '12px', fontSize: '12px', fontWeight: 900, color: 'rgba(255,255,255,0.7)' }}>
+                <div style={{ marginBottom: '20px' }}>
+                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 60px 100px', borderBottom: '1px dashed rgba(255, 255, 255, 0.1)', paddingBottom: '6px', marginBottom: '10px', fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.7)' }}>
                       <span>Item</span><span style={{ textAlign: 'right' }}>Price</span><span style={{ textAlign: 'right' }}>Qty</span><span style={{ textAlign: 'right' }}>Total</span>
                    </div>
                    {billData.items.map((i, idx) => (
-                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 60px 100px', fontSize: '15px', fontWeight: 800, marginBottom: '8px', color: 'white' }}>
+                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 60px 100px', fontSize: '14px', fontWeight: 800, marginBottom: '6px', color: '#ffffff' }}>
                         <span>{i.name}</span><span style={{ textAlign: 'right' }}>₹{Math.round(i.price)}</span><span style={{ textAlign: 'right' }}>{i.quantity}</span><span style={{ textAlign: 'right' }}>₹{(i.price * i.quantity).toFixed(2)}</span>
                       </div>
                    ))}
                 </div>
 
-                <div style={{ borderTop: '1px dashed var(--border-rgba-05)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px', color: 'rgba(255,255,255,0.8)' }}>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 800 }}><span>SUBTOTAL</span><span>₹{parseFloat(billData.subtotal).toFixed(2)}</span></div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 800 }}><span>GST</span><span>₹{parseFloat(billData.gst).toFixed(2)}</span></div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '42px', fontWeight: 1000, color: '#10b981', borderTop: '4px double var(--border-rgba-05)', marginTop: '12px', paddingTop: '12px' }}><span>TOTAL</span><span>₹{parseFloat(billData.final_amount).toFixed(2)}</span></div>
+                <div style={{ borderTop: '1px dashed rgba(255, 255, 255, 0.1)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '6px', color: 'rgba(255,255,255,0.8)' }}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>SUBTOTAL</span><span>₹{parseFloat(billData.subtotal).toFixed(2)}</span></div>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>GST</span><span>₹{parseFloat(billData.gst).toFixed(2)}</span></div>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '32px', fontWeight: 1000, color: '#10b981', borderTop: '2px double rgba(255, 255, 255, 0.1)', marginTop: '10px', paddingTop: '10px' }}><span>TOTAL</span><span>₹{parseFloat(billData.final_amount).toFixed(2)}</span></div>
                 </div>
 
-                <div style={{ marginTop: '48px' }}>
+                <div style={{ marginTop: '32px' }}>
                   {!billData.is_paid ? (
-                    <button onClick={rollbackBill} className="btn-modify-invoice" style={{ width: '100%', padding: '20px', borderRadius: '24px', border: '1px solid #475569', backgroundColor: '#334155', color: 'white', fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)', transition: 'background-color 0.2s' }}>MODIFY INVOICE</button>
+                    <button onClick={rollbackBill} className="btn-modify-invoice" style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1px solid #475569', backgroundColor: '#334155', color: '#ffffff', fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)', transition: 'background-color 0.2s' }}>MODIFY INVOICE</button>
                   ) : (
-                    <div style={{textAlign: 'center', padding: '24px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '24px', color: '#10b981', fontWeight: 950, fontSize: '20px' }}>SUCCESSFULLY SETTLED</div>
+                    <div style={{ textAlign: 'center', padding: '16px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '16px', color: '#10b981', fontWeight: 950, fontSize: '18px' }}>SUCCESSFULLY SETTLED</div>
                   )}
                 </div>
               </div>
-              <div style={{ width: '380px', padding: '36px', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+              {/* Settlement Right Side */}
+              <div style={{ width: '340px', padding: '28px', backgroundColor: '#0b1120', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                      {!billData.is_paid && (
-                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                         <div style={{ display: 'flex', gap: '8px' }}>
-                           <button 
-                             type="button"
-                             onClick={() => setSelectedPaymentMethod('cash')} 
-                             style={{ 
-                               flex: 1, 
-                               padding: '14px 8px', 
-                               backgroundColor: selectedPaymentMethod === 'cash' ? '#10b981' : '#ffffff', 
-                               color: selectedPaymentMethod === 'cash' ? 'white' : '#475569', 
-                               border: selectedPaymentMethod === 'cash' ? 'none' : '1px solid #cbd5e1', 
-                               borderRadius: '12px', 
-                               fontWeight: 1000, 
-                               cursor: 'pointer', 
-                               fontSize: '13px', 
-                               textTransform: 'uppercase', 
-                               letterSpacing: '0.05em', 
-                               boxShadow: selectedPaymentMethod === 'cash' ? '0 4px 12px rgba(16, 185, 129, 0.2)' : '0 2px 4px rgba(0,0,0,0.02)',
-                               transition: 'all 0.2s'
-                             }}
-                           >
-                             Cash
-                           </button>
-                           <button 
-                             type="button"
-                             onClick={() => setSelectedPaymentMethod('upi')} 
-                             style={{ 
-                               flex: 1, 
-                               padding: '14px 8px', 
-                               backgroundColor: selectedPaymentMethod === 'upi' ? '#0ea5e9' : '#ffffff', 
-                               color: selectedPaymentMethod === 'upi' ? 'white' : '#475569', 
-                               border: selectedPaymentMethod === 'upi' ? 'none' : '1px solid #cbd5e1', 
-                               borderRadius: '12px', 
-                               fontWeight: 1000, 
-                               cursor: 'pointer', 
-                               fontSize: '13px', 
-                               textTransform: 'uppercase', 
-                               letterSpacing: '0.05em', 
-                               boxShadow: selectedPaymentMethod === 'upi' ? '0 4px 12px rgba(14, 165, 233, 0.2)' : '0 2px 4px rgba(0,0,0,0.02)',
-                               transition: 'all 0.2s'
-                             }}
-                           >
-                             Online
-                           </button>
-                           <button 
-                             type="button"
-                             onClick={() => setSelectedPaymentMethod('credit')} 
-                             style={{ 
-                               flex: 1, 
-                               padding: '14px 8px', 
-                               backgroundColor: selectedPaymentMethod === 'credit' ? '#f59e0b' : '#ffffff', 
-                               color: selectedPaymentMethod === 'credit' ? 'white' : '#475569', 
-                               border: selectedPaymentMethod === 'credit' ? 'none' : '1px solid #cbd5e1', 
-                               borderRadius: '12px', 
-                               fontWeight: 1000, 
-                               cursor: 'pointer', 
-                               fontSize: '13px', 
-                               textTransform: 'uppercase', 
-                               letterSpacing: '0.05em', 
-                               boxShadow: selectedPaymentMethod === 'credit' ? '0 4px 12px rgba(245, 158, 11, 0.2)' : '0 2px 4px rgba(0,0,0,0.02)',
-                               transition: 'all 0.2s'
-                             }}
-                           >
-                             Credit
-                           </button>
-                         </div>
- 
-                         {selectedPaymentMethod === 'credit' && (
-                           <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
-                             <div style={{ display: 'flex', gap: '12px' }}>
-                               <button 
-                                 type="button" 
-                                 className="btn-no-override"
-                                 onClick={() => setPartyType('customer')}
-                                 style={{ 
-                                   flex: 1, 
-                                   padding: '16px', 
-                                   borderRadius: '20px', 
-                                   fontSize: '15px', 
-                                   fontWeight: 900, 
-                                   backgroundColor: partyType === 'customer' ? '#0ea5e9' : 'white', 
-                                   color: partyType === 'customer' ? 'white' : '#475569', 
-                                   border: '2px solid ' + (partyType === 'customer' ? '#0ea5e9' : '#cbd5e1'), 
-                                   cursor: 'pointer', 
-                                   transition: 'all 0.2s',
-                                   boxShadow: partyType === 'customer' ? '0 8px 16px rgba(14, 165, 233, 0.15)' : 'none'
-                                 }}
-                               >
-                                 Customer
-                               </button>
-                               <button 
-                                 type="button" 
-                                 className="btn-no-override"
-                                 onClick={() => setPartyType('vendor')}
-                                 style={{ 
-                                   flex: 1, 
-                                   padding: '16px', 
-                                   borderRadius: '20px', 
-                                   fontSize: '15px', 
-                                   fontWeight: 900, 
-                                   backgroundColor: partyType === 'vendor' ? '#0ea5e9' : 'white', 
-                                   color: partyType === 'vendor' ? 'white' : '#475569', 
-                                   border: '2px solid ' + (partyType === 'vendor' ? '#0ea5e9' : '#cbd5e1'), 
-                                   cursor: 'pointer', 
-                                   transition: 'all 0.2s',
-                                   boxShadow: partyType === 'vendor' ? '0 8px 16px rgba(14, 165, 233, 0.15)' : 'none'
-                                 }}
-                               >
-                                 Vendor
-                               </button>
-                             </div>
- 
-                             {partyType === 'customer' ? (
-                               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                 <input 
-                                   placeholder="Customer Name"
-                                   value={customerName}
-                                   onChange={e => setCustomerName(e.target.value)}
-                                   style={{ 
-                                     padding: '16px 20px', 
-                                     borderRadius: '20px', 
-                                     border: '2px solid #cbd5e1', 
-                                     backgroundColor: 'white', 
-                                     color: '#0f172a', 
-                                     fontWeight: 800, 
-                                     fontSize: '15px', 
-                                     outline: 'none', 
-                                     width: '100%', 
-                                     boxSizing: 'border-box',
-                                     transition: 'border-color 0.2s'
-                                   }}
-                                 />
-                                 <input 
-                                   placeholder="Mobile Number"
-                                   value={customerPhone}
-                                   onChange={e => setCustomerPhone(e.target.value)}
-                                   style={{ 
-                                     padding: '16px 20px', 
-                                     borderRadius: '20px', 
-                                     border: '2px solid #cbd5e1', 
-                                     backgroundColor: 'white', 
-                                     color: '#0f172a', 
-                                     fontWeight: 800, 
-                                     fontSize: '15px', 
-                                     outline: 'none', 
-                                     width: '100%', 
-                                     boxSizing: 'border-box',
-                                     transition: 'border-color 0.2s'
-                                   }}
-                                 />
-                               </div>
-                             ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                  {vendors.length === 0 ? (
-                                    <div style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '16px', backgroundColor: 'white', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>No vendors registered.</div>
-                                  ) : (
-                                    <select 
-                                      value={selectedVendorId || ''} 
-                                      onChange={(e) => setSelectedVendorId(e.target.value)}
-                                      style={{
-                                        padding: '16px 20px', 
-                                        borderRadius: '20px', 
-                                        border: '2px solid #cbd5e1', 
-                                        backgroundColor: 'white', 
-                                        color: '#0f172a', 
-                                        fontWeight: 800, 
-                                        fontSize: '15px', 
-                                        outline: 'none', 
-                                        width: '100%', 
-                                        boxSizing: 'border-box',
-                                        transition: 'border-color 0.2s',
-                                        cursor: 'pointer'
-                                      }}
-                                    >
-                                      <option value="" disabled>Select Vendor</option>
-                                      {vendors.map(v => (
-                                        <option key={v.id} value={v.id}>{v.name} {v.phone ? `(${v.phone})` : ''}</option>
-                                      ))}
-                                    </select>
-                                  )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              type="button"
+                              onClick={() => setSelectedPaymentMethod('cash')} 
+                              style={{ 
+                                flex: 1, 
+                                padding: '12px 6px', 
+                                backgroundColor: selectedPaymentMethod === 'cash' ? '#10b981' : '#1e293b', 
+                                color: '#ffffff', 
+                                border: selectedPaymentMethod === 'cash' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', 
+                                borderRadius: '10px', 
+                                fontWeight: 900, 
+                                cursor: 'pointer', 
+                                fontSize: '12px', 
+                                textTransform: 'uppercase', 
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              Cash
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => setSelectedPaymentMethod('upi')} 
+                              style={{ 
+                                flex: 1, 
+                                padding: '12px 6px', 
+                                backgroundColor: selectedPaymentMethod === 'upi' ? '#0ea5e9' : '#1e293b', 
+                                color: '#ffffff', 
+                                border: selectedPaymentMethod === 'upi' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', 
+                                borderRadius: '10px', 
+                                fontWeight: 900, 
+                                cursor: 'pointer', 
+                                fontSize: '12px', 
+                                textTransform: 'uppercase', 
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              Online
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => setSelectedPaymentMethod('credit')} 
+                              style={{ 
+                                flex: 1, 
+                                padding: '12px 6px', 
+                                backgroundColor: selectedPaymentMethod === 'credit' ? '#f59e0b' : '#1e293b', 
+                                color: '#ffffff', 
+                                border: selectedPaymentMethod === 'credit' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', 
+                                borderRadius: '10px', 
+                                fontWeight: 900, 
+                                cursor: 'pointer', 
+                                fontSize: '12px', 
+                                textTransform: 'uppercase', 
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              Credit
+                            </button>
+                          </div>
+  
+                          {selectedPaymentMethod === 'credit' && (
+                            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button 
+                                  type="button" 
+                                  className="btn-no-override"
+                                  onClick={() => setPartyType('customer')}
+                                  style={{ 
+                                    flex: 1, 
+                                    padding: '12px', 
+                                    borderRadius: '12px', 
+                                    fontSize: '13px', 
+                                    fontWeight: 900, 
+                                    backgroundColor: partyType === 'customer' ? '#0ea5e9' : '#1e293b', 
+                                    color: '#ffffff', 
+                                    border: '1px solid ' + (partyType === 'customer' ? '#0ea5e9' : 'rgba(255,255,255,0.1)'), 
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Customer
+                                </button>
+                                <button 
+                                  type="button" 
+                                  className="btn-no-override"
+                                  onClick={() => setPartyType('vendor')}
+                                  style={{ 
+                                    flex: 1, 
+                                    padding: '12px', 
+                                    borderRadius: '12px', 
+                                    fontSize: '13px', 
+                                    fontWeight: 900, 
+                                    backgroundColor: partyType === 'vendor' ? '#0ea5e9' : '#1e293b', 
+                                    color: '#ffffff', 
+                                    border: '1px solid ' + (partyType === 'vendor' ? '#0ea5e9' : 'rgba(255,255,255,0.1)'), 
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Vendor
+                                </button>
+                              </div>
+  
+                              {partyType === 'customer' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  <input 
+                                    placeholder="Customer Name"
+                                    value={customerName}
+                                    onChange={e => setCustomerName(e.target.value)}
+                                    style={{ 
+                                      padding: '12px 14px', 
+                                      borderRadius: '12px', 
+                                      border: '1px solid rgba(255, 255, 255, 0.1)', 
+                                      backgroundColor: '#1e293b', 
+                                      color: '#ffffff', 
+                                      fontWeight: 800, 
+                                      fontSize: '13px', 
+                                      outline: 'none', 
+                                      width: '100%', 
+                                      boxSizing: 'border-box'
+                                    }}
+                                  />
+                                  <input 
+                                    placeholder="Mobile Number"
+                                    value={customerPhone}
+                                    onChange={e => setCustomerPhone(e.target.value)}
+                                    style={{ 
+                                      padding: '12px 14px', 
+                                      borderRadius: '12px', 
+                                      border: '1px solid rgba(255, 255, 255, 0.1)', 
+                                      backgroundColor: '#1e293b', 
+                                      color: '#ffffff', 
+                                      fontWeight: 800, 
+                                      fontSize: '13px', 
+                                      outline: 'none', 
+                                      width: '100%', 
+                                      boxSizing: 'border-box'
+                                    }}
+                                  />
                                 </div>
+                              ) : (
+                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                   {vendors.length === 0 ? (
+                                     <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', textAlign: 'center', padding: '12px', backgroundColor: '#1e293b', borderRadius: '12px' }}>No vendors registered.</div>
+                                   ) : (
+                                     <select 
+                                       value={selectedVendorId || ''} 
+                                       onChange={(e) => setSelectedVendorId(e.target.value)}
+                                       style={{
+                                         padding: '12px 14px', 
+                                         borderRadius: '12px', 
+                                         border: '1px solid rgba(255, 255, 255, 0.1)', 
+                                         backgroundColor: '#1e293b', 
+                                         color: '#ffffff', 
+                                         fontWeight: 800, 
+                                         fontSize: '13px', 
+                                         outline: 'none', 
+                                         width: '100%', 
+                                         boxSizing: 'border-box'
+                                       }}
+                                     >
+                                       <option value="" disabled>Select Vendor</option>
+                                       {vendors.map(v => (
+                                         <option key={v.id} value={v.id}>{v.name} {v.phone ? `(${v.phone})` : ''}</option>
+                                       ))}
+                                     </select>
+                                   )}
+                                 </div>
                               )}
- 
-                             <button 
-                               type="button"
-                               className="btn-no-override"
-                               onClick={() => confirmPayment('credit')}
-                               style={{ 
-                                 width: '100%', 
-                                 padding: '18px', 
-                                 borderRadius: '20px', 
-                                 backgroundColor: '#10b981', 
-                                 color: 'white', 
-                                 border: 'none', 
-                                 cursor: 'pointer', 
-                                 fontWeight: '900', 
-                                 fontSize: '15px', 
-                                 boxShadow: '0 8px 20px rgba(16, 185, 129, 0.2)', 
-                                 textTransform: 'uppercase', 
-                                 marginTop: '8px',
-                                 transition: 'transform 0.1s'
-                               }}
-                             >
-                               Settle Without Print
-                             </button>
-                           </div>
-                         )}
-                       </div>
-                     )}
+  
+                              <button 
+                                type="button"
+                                className="btn-no-override"
+                                onClick={() => confirmPayment('credit')}
+                                style={{ 
+                                  width: '100%', 
+                                  padding: '14px', 
+                                  borderRadius: '14px', 
+                                  backgroundColor: '#10b981', 
+                                  color: '#ffffff', 
+                                  border: 'none', 
+                                  cursor: 'pointer', 
+                                  fontWeight: '900', 
+                                  fontSize: '14px', 
+                                  textTransform: 'uppercase', 
+                                  marginTop: '4px'
+                                }}
+                              >
+                                Settle Without Print
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                   </div>
- 
+  
                   {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
-                     <div style={{backgroundColor: 'white', padding: '20px', borderRadius: '24px', display: 'flex', alignItems: 'center', gap: '12px', border: '1px solid #cbd5e1' }}>
-                        <Phone size={18} color="#64748b" />
+                     <div style={{ backgroundColor: '#1e293b', padding: '14px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                        <Phone size={16} color="rgba(255, 255, 255, 0.5)" />
                         <input 
                            placeholder="Enter Mobile No" 
                            value={customerPhone} 
                            onChange={(e) => setCustomerPhone(e.target.value)}
-                           style={{ border: 'none', width: '100%', outline: 'none', fontWeight: 800, fontSize: '15px', background: 'white', color: '#0f172a' }}
+                           style={{ border: 'none', width: '100%', outline: 'none', fontWeight: 800, fontSize: '13px', background: 'transparent', color: '#ffffff' }}
                         />
                      </div>
                    )}
 
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                     <button onClick={printBill} style={{flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: '#3b82f6', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '800', fontSize: '14px', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)', transition: 'background-color 0.2s' }}>
-                        <Printer size={18} /> {!billData.is_paid ? 'Print' : 'Re-Print'}
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                     <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
+                        <Printer size={16} /> {!billData.is_paid ? 'Print' : 'Re-Print'}
                      </button>
                      {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
-                       <button onClick={shareViaWhatsApp} style={{ flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: '#22c55e', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '800', fontSize: '14px', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.2)' }}>
-                          <MessageCircle size={18} /> WhatsApp
+                       <button onClick={shareViaWhatsApp} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#22c55e', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
+                          <MessageCircle size={16} /> WhatsApp
                        </button>
                      )}
-                 </div>
-             </div>
+                  </div>
+              </div>
           </div>
         </div>
       )}

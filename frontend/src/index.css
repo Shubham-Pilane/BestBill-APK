@@ -421,14 +421,14 @@ body {
 
 @media (max-width: 768px) {
   .tables-grid {
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 8px !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
   }
 
   .mobile-table-card {
-    padding: 12px 10px !important;
-    border-radius: 16px !important;
-    gap: 6px !important;
+    padding: 14px 12px !important;
+    border-radius: 20px !important;
+    gap: 8px !important;
   }
 
   .mobile-table-card .card-header-label {

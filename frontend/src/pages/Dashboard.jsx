@@ -921,16 +921,19 @@ const TableCard = React.memo(({ table, isOwner, onOpen, onEdit, onDelete, onSwap
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
            {isOwner && (
-              <div style={{ display: 'flex', gap: '12px' }}>
-                 <button 
-                    onClick={table.active_order_id ? onSwap : (e) => onEdit(e, table)}
-                    style={{ color: '#0ea5e9', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 900, fontSize: '11px', textTransform: 'uppercase' }}
-                 >
-                    {table.active_order_id ? 'Swap' : 'Edit'}
-                 </button>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                 {table.active_order_id && (
+                    <button 
+                       onClick={onSwap}
+                       style={{ color: '#0ea5e9', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 900, fontSize: '11px', textTransform: 'uppercase' }}
+                    >
+                       Swap
+                    </button>
+                 )}
                  <button 
                     onClick={(e) => onDelete(e, table)} 
                     style={{ color: '#f43f5e', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    title="Delete Table"
                  >
                     <Trash2 size={14} />
                   </button>
