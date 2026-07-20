@@ -1,44 +1,44 @@
 const MONTHLY_KEYS = {
-  0: 'X7p9K2m8Q4', // Jan
-  1: 'N9wT3zL8r5', // Feb
-  2: 'R5bY7qD2k9', // Mar
-  3: 'C8uM1xP6t3', // Apr
-  4: 'H4kV9nJ3w7', // May
-  5: 'Z2rF8yW7m1', // Jun
-  6: 'T6pL3cN9q4', // Jul
-  7: 'B1dQ7mK5x8', // Aug
-  8: 'G9xR2vH4p6', // Sep
-  9: 'Y3jC8tM1n7', // Oct
-  10: 'P7nW4bX6k2', // Nov
-  11: 'L5sZ9qF2r8'  // Dec
+  0: 'X8m2K9P4Q7', // Jan
+  1: 'N4w7T3L8R5', // Feb
+  2: 'R9b2Y7Q5K3', // Mar
+  3: 'C3u7M1P8T6', // Apr
+  4: 'H8k5V2N9W4', // May
+  5: 'Z4r8F2W9M7', // Jun
+  6: 'T9p3L7C2Q8', // Jul
+  7: 'B5d8Q2M9X4', // Aug
+  8: 'G3x7R9V2P5', // Sep
+  9: 'Y8j4C2T9N5', // Oct
+  10: 'P2n8W5B9K4', // Nov
+  11: 'L9s4Z7Q2R5'  // Dec
 };
 
 const YEARLY_KEYS = {
-  0: 'M7xK2pQ8r4',
-  1: 'T9bW3nL5y7',
-  2: 'C4vR8mP1k6',
-  3: 'H2qN7xJ9t5',
-  4: 'Z8pF3wD6r1',
-  5: 'B5mY9kT2c7',
-  6: 'L1xV4nQ8p3',
-  7: 'R6tK2bW7m9',
-  8: 'P3yH8qN5x2',
-  9: 'F7cM1rZ4v8'
+  0: 'M4x9K2P7R3',
+  1: 'T8b5W3N9Y2',
+  2: 'C7v2R8P5K9',
+  3: 'H5q9N2J7T4',
+  4: 'Z3p8F5W2R9',
+  5: 'B9m4Y2K7C5',
+  6: 'L8x3V9Q2P7',
+  7: 'R4t8K2W9M5',
+  8: 'P9y3H7Q2X5',
+  9: 'F2c8M5R9V4'
 };
 
 const PERMANENT_KEYS = {
-  0: 'X7P9K2M8Q4', // Jan
-  1: 'N9WT3ZL8R5', // Feb
-  2: 'R5BY7QD2K9', // Mar
-  3: 'C8UM1XP6T3', // Apr
-  4: 'H4KV9NJ3W7', // May
-  5: 'Z2RF8YW7M1', // Jun
-  6: 'T6PL3CN9Q4', // Jul
-  7: 'B1DQ7MK5X8', // Aug
-  8: 'G9XR2VH4P6', // Sep
-  9: 'Y3JC8TM1N7', // Oct
-  10: 'P7NW4BX6K2', // Nov
-  11: 'L5SZ9QF2R8'  // Dec
+  0: 'X8M2K9P4Q7', // Jan
+  1: 'N4W7T3L8R5', // Feb
+  2: 'R9B2Y7Q5K3', // Mar
+  3: 'C3U7M1P8T6', // Apr
+  4: 'H8K5V2N9W4', // May
+  5: 'Z4R8F2W9M7', // Jun
+  6: 'T9P3L7C2Q8', // Jul
+  7: 'B5D8Q2M9X4', // Aug
+  8: 'G3X7R9V2P5', // Sep
+  9: 'Y8J4C2T9N5', // Oct
+  10: 'P2N8W5B9K4', // Nov
+  11: 'L9S4Z7Q2R5'  // Dec
 };
 
 /**

@@ -47,10 +47,6 @@ const Profile = () => {
     const [selectedGuestIp, setSelectedGuestIp] = useState('');
     const [billingCustomActive, setBillingCustomActive] = useState(false);
     const [kitchenCustomActive, setKitchenCustomActive] = useState(false);
-    const [lodgingEnabled, setLodgingEnabled] = useState(false);
-    const [showLodgingModal, setShowLodgingModal] = useState(false);
-    const [lodgingPassword, setLodgingPassword] = useState('');
-    const [lodgingModalMode, setLodgingModalMode] = useState('enable');
     const [showPrinters, setShowPrinters] = useState(false);
     
     // Modules
@@ -107,7 +103,6 @@ const Profile = () => {
             fetchPrinterConfig();
             fetchInstalledPrinters();
             fetchAvailableIps();
-            fetchLodgingStatus();
             fetchKotStatus();
             fetchWhatsAppBillingStatus();
             fetchInventoryStatus();
@@ -157,60 +152,6 @@ const Profile = () => {
             window.dispatchEvent(new Event('storage'));
         } else {
             toast.error("Invalid license key. Please check key for current month/year.");
-        }
-    };
-
-    const fetchLodgingStatus = async () => {
-        try {
-            const res = await api.get('/hotel/lodging-status');
-            setLodgingEnabled(res.data.lodgingEnabled);
-            updateUser({ lodgingEnabled: res.data.lodgingEnabled });
-        } catch (err) {
-            console.error('Failed to fetch lodging status', err);
-        }
-    };
-
-    const handleToggleLodging = (shouldEnable) => {
-        if (shouldEnable) {
-            setLodgingModalMode('enable');
-            setLodgingPassword('');
-            setShowLodgingModal(true);
-        } else {
-            setLodgingModalMode('disable');
-            setLodgingPassword('');
-            setShowLodgingModal(true);
-        }
-    };
-
-    const handleLodgingModalSubmit = async () => {
-        if (!lodgingPassword) {
-            toast.error("Password cannot be blank");
-            return;
-        }
-        if (lodgingModalMode === 'enable') {
-            try {
-                const res = await api.post('/hotel/toggle-lodging', { enabled: true, passcode: lodgingPassword });
-                if (res.data.success) {
-                    setLodgingEnabled(true);
-                    updateUser({ lodgingEnabled: true });
-                    toast.success("Premium Lodging module unlocked and activated!");
-                    setShowLodgingModal(false);
-                }
-            } catch (err) {
-                toast.error(err.response?.data?.message || "Incorrect activation password");
-            }
-        } else {
-            try {
-                const res = await api.post('/hotel/toggle-lodging', { enabled: false, passcode: lodgingPassword });
-                if (res.data.success) {
-                    setLodgingEnabled(false);
-                    updateUser({ lodgingEnabled: false });
-                    toast.success("Lodging module deactivated successfully.");
-                    setShowLodgingModal(false);
-                }
-            } catch (err) {
-                toast.error(err.response?.data?.message || "Incorrect deactivation password");
-            }
         }
     };
 
@@ -1448,17 +1389,17 @@ const Profile = () => {
 
                             {showKeyList && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
-                                    <div onClick={() => setNewLicenseKey('T6pL3cN9q4')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.1)', cursor: 'pointer' }}>
+                                    <div onClick={() => setNewLicenseKey('T9p3L7C2Q8')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.1)', cursor: 'pointer' }}>
                                         <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b' }}>Monthly Key (30 Days)</span>
-                                        <code style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>T6pL3cN9q4</code>
+                                        <code style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>T9p3L7C2Q8</code>
                                     </div>
-                                    <div onClick={() => setNewLicenseKey('L1xV4nQ8p3')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(14, 165, 233, 0.1)', cursor: 'pointer' }}>
+                                    <div onClick={() => setNewLicenseKey('L8x3V9Q2P7')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(14, 165, 233, 0.1)', cursor: 'pointer' }}>
                                         <span style={{ fontSize: '12px', fontWeight: 800, color: '#0ea5e9' }}>Yearly Key (365 Days)</span>
-                                        <code style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>L1xV4nQ8p3</code>
+                                        <code style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>L8x3V9Q2P7</code>
                                     </div>
-                                    <div onClick={() => setNewLicenseKey('T6PL3CN9Q4')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.1)', cursor: 'pointer' }}>
+                                    <div onClick={() => setNewLicenseKey('T9P3L7C2Q8')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.1)', cursor: 'pointer' }}>
                                         <span style={{ fontSize: '12px', fontWeight: 800, color: '#10b981' }}>Lifetime Key</span>
-                                        <code style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>T6PL3CN9Q4</code>
+                                        <code style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>T9P3L7C2Q8</code>
                                     </div>
                                 </div>
                             )}
