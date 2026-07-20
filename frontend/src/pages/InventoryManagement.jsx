@@ -578,7 +578,7 @@ const InventoryManagement = () => {
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Total Inventory Value</span>
                             <span style={{ fontSize: '24px', fontWeight: 900, color: '#10b981', marginTop: '4px' }}>
-                                ₹{(items.reduce((sum, item) => sum + (parseFloat(item.current_stock || 0) * parseFloat(item.purchase_rate || 0)), 0) || Number(metrics.inventoryValue || 0)).toFixed(2)}
+                                ₹{(items.reduce((sum, item) => sum + ((parseFloat(item.current_stock) || 0) * (parseFloat(item.purchase_rate) || 0)), 0) || Number(metrics.inventoryValue || 0)).toFixed(2)}
                             </span>
                         </div>
                     </div>
@@ -1388,7 +1388,7 @@ const InventoryManagement = () => {
                                         </tr>
                                     ) : (
                                         items.map(item => {
-                                            const totalItemVal = parseFloat(item.current_stock) * parseFloat(item.purchase_rate || 0);
+                                            const totalItemVal = (parseFloat(item.current_stock) || 0) * (parseFloat(item.purchase_rate) || 0);
                                             return (
                                                 <tr key={item.id} style={{ borderBottom: '1px solid var(--border-rgba-05)' }}>
                                                     <td style={{ padding: '12px 16px', fontWeight: 700 }}>{item.name}</td>
@@ -1406,7 +1406,7 @@ const InventoryManagement = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px solid var(--bg-border)', paddingTop: '16px' }}>
                             <span style={{ fontSize: '14px', fontWeight: 900, color: 'var(--text-muted)' }}>GRAND TOTAL</span>
                             <span style={{ fontSize: '20px', fontWeight: 950, color: '#10b981' }}>
-                                ₹{(items.reduce((sum, item) => sum + (parseFloat(item.current_stock || 0) * parseFloat(item.purchase_rate || 0)), 0) || Number(metrics.inventoryValue || 0)).toFixed(2)}
+                                ₹{(items.reduce((sum, item) => sum + ((parseFloat(item.current_stock) || 0) * (parseFloat(item.purchase_rate) || 0)), 0) || Number(metrics.inventoryValue || 0)).toFixed(2)}
                             </span>
                         </div>
 

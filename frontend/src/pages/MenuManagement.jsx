@@ -332,14 +332,14 @@ const MenuManagement = () => {
               <h2 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Add To Live Menu</h2>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-              <button onClick={() => fileInputRef.current?.click()} type="button" style={{ backgroundColor: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: '160px', justifyContent: 'center' }}>
+              <label style={{ backgroundColor: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: '160px', justifyContent: 'center', margin: 0 }}>
                 <UploadCloud size={18} /> Import CSV
-              </button>
+                <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleFileUpload} />
+              </label>
               <button onClick={deleteAllMenu} type="button" style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: '160px', justifyContent: 'center' }}>
                 <Trash2 size={18} /> Delete All
               </button>
             </div>
-            <input type="file" accept=".csv,text/csv,text/comma-separated-values,text/plain,application/vnd.ms-excel,*/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
           </div>
 
           <form onSubmit={addItem} style={{ gap: '24px' }} className="responsive-grid-12">

@@ -599,8 +599,8 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, paddingRight: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{item.name}</span>
                         <span style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 800, backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
                           {item.category_name || 'Item'}
@@ -611,7 +611,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                       </p>
                     </div>
                     
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
                       <span style={{ color: '#10b981', fontSize: '17px', fontWeight: 900 }}>₹{item.price}</span>
                       
                       {currentQty === 0 ? (
@@ -989,7 +989,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       {/* Bill & Settlement Modal */}
       {showBill && billData && (
         <div className="bill-modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backdropFilter: 'blur(10px)' }}>
-          <div className="bill-container" style={{ width: '100%', maxWidth: '850px', maxHeight: '90vh', backgroundColor: '#0f172a', borderRadius: '32px', overflow: 'hidden', display: 'flex', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', position: 'relative' }}>
+          <div className="bill-container" style={{ width: '100%', maxWidth: '850px', maxHeight: '90vh', backgroundColor: '#0f172a', borderRadius: '32px', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', position: 'relative' }}>
              <div style={{ flex: 1, padding: '32px', borderRight: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: billData.is_paid ? '#10b981' : '#0f172a', transition: 'all 0.6s', overflowY: 'auto', position: 'relative' }}>
                 {isSuccess && (
                    <div style={{ position: 'absolute', inset: 0, backgroundColor: '#10b981', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.3s ease-out' }}>
@@ -1021,12 +1021,12 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 </div>
 
                 <div style={{ marginBottom: '20px' }}>
-                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 60px 100px', borderBottom: '1px dashed rgba(255, 255, 255, 0.1)', paddingBottom: '6px', marginBottom: '10px', fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.7)' }}>
+                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 60px 30px 70px' : '1fr 80px 60px 100px', borderBottom: '1px dashed rgba(255, 255, 255, 0.1)', paddingBottom: '6px', marginBottom: '10px', fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.7)' }}>
                       <span>Item</span><span style={{ textAlign: 'right' }}>Price</span><span style={{ textAlign: 'right' }}>Qty</span><span style={{ textAlign: 'right' }}>Total</span>
                    </div>
                    {billData.items.map((i, idx) => (
-                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 60px 100px', fontSize: '14px', fontWeight: 800, marginBottom: '6px', color: '#ffffff' }}>
-                        <span>{i.name}</span><span style={{ textAlign: 'right' }}>₹{Math.round(i.price)}</span><span style={{ textAlign: 'right' }}>{i.quantity}</span><span style={{ textAlign: 'right' }}>₹{(i.price * i.quantity).toFixed(2)}</span>
+                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 60px 30px 70px' : '1fr 80px 60px 100px', fontSize: isMobile ? '12px' : '14px', fontWeight: 800, marginBottom: '6px', color: '#ffffff' }}>
+                        <span style={{ paddingRight: '8px' }}>{i.name}</span><span style={{ textAlign: 'right' }}>₹{Math.round(i.price)}</span><span style={{ textAlign: 'right' }}>{i.quantity}</span><span style={{ textAlign: 'right' }}>₹{(i.price * i.quantity).toFixed(2)}</span>
                       </div>
                    ))}
                 </div>
@@ -1047,7 +1047,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               </div>
 
               {/* Settlement Right Side */}
-              <div style={{ width: '340px', padding: '28px', backgroundColor: '#0b1120', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
+              <div style={{ width: isMobile ? '100%' : '340px', padding: isMobile ? '20px' : '28px', backgroundColor: '#0b1120', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', borderTop: isMobile ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                      {!billData.is_paid && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
