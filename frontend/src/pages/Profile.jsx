@@ -58,7 +58,6 @@ const Profile = () => {
     const [licensePasscode, setLicensePasscode] = useState('');
     const [showLicenseKeyModal, setShowLicenseKeyModal] = useState(false);
     const [newLicenseKey, setNewLicenseKey] = useState('');
-    const [showKeyList, setShowKeyList] = useState(false);
     
     // KOT State
     const [kotEnabled, setKotEnabled] = useState(false);
@@ -1334,34 +1333,7 @@ const Profile = () => {
                             />
                         </div>
 
-                        {/* Quick reference key suggestions */}
-                        <div style={{ backgroundColor: 'var(--bg-base)', borderRadius: '14px', padding: '14px', border: '1px solid var(--bg-border)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>AVAILABLE KEYS FOR CURRENT PERIOD</span>
-                                <button onClick={() => setShowKeyList(!showKeyList)} style={{ background: 'none', border: 'none', color: '#0ea5e9', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>
-                                    {showKeyList ? 'Hide Keys' : 'View Keys'}
-                                </button>
-                            </div>
-
-                            {showKeyList && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
-                                    <div onClick={() => setNewLicenseKey('T9p3L7C2Q8')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.1)', cursor: 'pointer' }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b' }}>Monthly Key (30 Days)</span>
-                                        <code style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>T9p3L7C2Q8</code>
-                                    </div>
-                                    <div onClick={() => setNewLicenseKey('L8x3V9Q2P7')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(14, 165, 233, 0.1)', cursor: 'pointer' }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#0ea5e9' }}>Yearly Key (365 Days)</span>
-                                        <code style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>L8x3V9Q2P7</code>
-                                    </div>
-                                    <div onClick={() => setNewLicenseKey('T9P3L7C2Q8')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.1)', cursor: 'pointer' }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#10b981' }}>Lifetime Key</span>
-                                        <code style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>T9P3L7C2Q8</code>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
                             <button onClick={() => setShowLicenseKeyModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '12px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
                             <button onClick={handleActivateNewLicenseKey} style={{ flex: 1, padding: '14px', borderRadius: '12px', backgroundColor: '#10b981', color: '#ffffff', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)' }}>Activate Plan</button>
                         </div>
