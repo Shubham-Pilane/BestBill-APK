@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import ConfirmModal from '../components/ConfirmModal';
 import { toast } from 'react-hot-toast';
-import { Plus, Utensils, Tag, IndianRupee, Layers, ListChecks, Trash2, Edit2, X, Save, Search, UploadCloud, Download } from 'lucide-react';
+import { Plus, Utensils, Tag, IndianRupee, Layers, ListChecks, Trash2, Edit2, X, Save, Search, UploadCloud } from 'lucide-react';
 
 const MenuManagement = () => {
   const [categories, setCategories] = useState([]);
@@ -49,148 +49,48 @@ const MenuManagement = () => {
     fetchData(currentPage, searchTerm);
   }, [currentPage, searchTerm]);
 
-  // Helper to parse CSV line handling quotes and custom delimiter (, or ; or \t)
-  const parseCSVLine = (textLine, delimiter = ',') => {
-    const result = [];
-    let cur = '';
-    let inQuotes = false;
-    for (let i = 0; i < textLine.length; i++) {
-      const char = textLine[i];
-      if (char === '"') {
-        if (inQuotes && textLine[i + 1] === '"') {
-          cur += '"';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === delimiter && !inQuotes) {
-        result.push(cur.trim());
-        cur = '';
-      } else {
-        cur += char;
-      }
-    }
-    result.push(cur.trim());
-    return result;
-  };
-
-  const downloadSampleCSV = () => {
-    const csvContent = "Category,Item Name,Price,Description\n" +
-      "Starters,Paneer Tikka,240,Spiced grilled paneer cubes\n" +
-      "Starters,Veg Crispy,210,Crispy fried vegetables\n" +
-      "Main Course,Paneer Butter Masala,270,Rich tomato gravy with butter\n" +
-      "Main Course,Dal Tadka,180,Tempered yellow lentils\n" +
-      "Beverages,Cold Coffee,120,Chilled thick coffee\n" +
-      "Desserts,Gulab Jamun,90,Hot sweet syrup dumplings";
-      
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'bestbill_menu_sample.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = async (event) => {
-      let rawText = event.target.result || '';
-      // Remove Byte Order Mark (BOM) if present from Excel UTF-8
-      rawText = rawText.replace(/^\uFEFF/, '').trim();
-      
-      if (!rawText) {
-        toast.error('Selected CSV file is empty');
-        return;
-      }
-
-      const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-      if (lines.length === 0) {
-        toast.error('No readable lines found in CSV');
-        return;
-      }
-
-      // Auto-detect delimiter: comma, semicolon, or tab
-      const sampleLine = lines[0];
-      let delimiter = ',';
-      if (sampleLine.includes(';') && (sampleLine.split(';').length > sampleLine.split(',').length)) {
-        delimiter = ';';
-      } else if (sampleLine.includes('\t') && (sampleLine.split('\t').length > sampleLine.split(',').length)) {
-        delimiter = '\t';
-      }
-
-      const parsedLines = lines.map(line => parseCSVLine(line, delimiter));
-
-      // Dynamic Header detection & column index mapping
-      let catIdx = 0;
-      let nameIdx = 1;
-      let priceIdx = 2;
-      let descIdx = 3;
-      let startRow = 0;
-
-      const firstRowHeaders = parsedLines[0].map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
-      const hasHeader = firstRowHeaders.some(h => 
-        h.includes('cat') || h.includes('item') || h.includes('name') || h.includes('price') || h.includes('rate') || h.includes('dish') || h.includes('group')
-      );
-
-      if (hasHeader) {
-        startRow = 1;
-        firstRowHeaders.forEach((h, idx) => {
-          if (h.includes('cat') || h.includes('group') || h.includes('type') || h.includes('section')) catIdx = idx;
-          else if (h.includes('name') || h.includes('item') || h.includes('dish') || h.includes('title')) nameIdx = idx;
-          else if (h.includes('price') || h.includes('rate') || h.includes('cost') || h.includes('amount') || h.includes('rs') || h.includes('inr')) priceIdx = idx;
-          else if (h.includes('desc') || h.includes('detail') || h.includes('note')) descIdx = idx;
-        });
-      }
-
+      const text = event.target.result;
+      const lines = text.split(/\r?\n/);
       const importedItems = [];
+      
+      let startIdx = 0;
+      if (lines.length > 0 && (lines[0].toLowerCase().includes('category') || lines[0].toLowerCase().includes('price'))) {
+        startIdx = 1;
+      }
 
-      for (let i = startRow; i < parsedLines.length; i++) {
-        const row = parsedLines[i];
-        if (!row || row.length === 0) continue;
-
-        let categoryName = row[catIdx] ? row[catIdx].replace(/^["']|["']$/g, '').trim() : 'General';
-        let itemName = row[nameIdx] ? row[nameIdx].replace(/^["']|["']$/g, '').trim() : '';
-        let priceRaw = row[priceIdx] ? row[priceIdx].replace(/^["']|["']$/g, '').trim() : '0';
-        let description = row[descIdx] ? row[descIdx].replace(/^["']|["']$/g, '').trim() : '';
-
-        // If nameIdx wasn't found or row has 2 columns, fallback heuristics
-        if (!itemName && row.length === 2) {
-          itemName = row[0].replace(/^["']|["']$/g, '').trim();
-          priceRaw = row[1].replace(/^["']|["']$/g, '').trim();
-          categoryName = 'General';
+      for (let i = startIdx; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        const parts = line.split(',');
+        if (parts.length >= 3) {
+          importedItems.push({
+            category: parts[0].trim(),
+            name: parts[1].trim(),
+            price: parseFloat(parts[2].trim())
+          });
         }
-
-        if (!itemName) continue;
-
-        // Clean numeric price (removes currency symbols, commas)
-        const cleanPrice = parseFloat(priceRaw.replace(/[^0-9.]/g, '')) || 0;
-
-        importedItems.push({
-          category: categoryName || 'General',
-          name: itemName,
-          price: cleanPrice,
-          description: description
-        });
       }
 
       if (importedItems.length === 0) {
-        toast.error('No valid menu items found in CSV. Try using the Download Sample CSV template.');
+        toast.error('No valid items found in CSV');
         return;
       }
 
       const loadingToast = toast.loading(`Importing ${importedItems.length} items...`);
       try {
         const res = await api.post('/menu/items/bulk', { items: importedItems });
-        toast.success(res.data.message || `${importedItems.length} items imported successfully!`, { id: loadingToast });
+        toast.success(res.data.message || 'Menu imported successfully', { id: loadingToast });
         fetchData(1, '');
         setCurrentPage(1);
       } catch (err) {
-        toast.error('Failed to import menu: ' + (err.response?.data?.error || err.message), { id: loadingToast });
+        toast.error('Failed to import menu', { id: loadingToast });
       }
       
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -427,15 +327,12 @@ const MenuManagement = () => {
               </div>
               <h2 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Add To Live Menu</h2>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-              <button onClick={() => fileInputRef.current?.click()} type="button" style={{ backgroundColor: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)', padding: '10px 14px', borderRadius: '12px', fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s' }}>
-                <UploadCloud size={16} /> Import CSV
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+              <button onClick={() => fileInputRef.current?.click()} type="button" style={{ backgroundColor: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: '160px', justifyContent: 'center' }}>
+                <UploadCloud size={18} /> Import CSV
               </button>
-              <button onClick={downloadSampleCSV} type="button" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '10px 14px', borderRadius: '12px', fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s' }} title="Download sample template CSV file">
-                <Download size={16} /> Sample CSV
-              </button>
-              <button onClick={deleteAllMenu} type="button" style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)', padding: '10px 14px', borderRadius: '12px', fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s' }}>
-                <Trash2 size={16} /> Delete All
+              <button onClick={deleteAllMenu} type="button" style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: '160px', justifyContent: 'center' }}>
+                <Trash2 size={18} /> Delete All
               </button>
             </div>
             <input type="file" accept=".csv" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
