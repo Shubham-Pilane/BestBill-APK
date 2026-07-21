@@ -423,11 +423,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               fontSize: '22px',
               boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)'
             }}>
-              {String(table.table_number || '').toLowerCase().includes('parcel') 
+              {String(table.table_number || table.id || '').toLowerCase().includes('parcel') 
                 ? 'PC' 
-                : String(table.table_number || '').toLowerCase().includes('token') 
+                : String(table.table_number || table.id || '').toLowerCase().includes('token') 
                   ? 'TC' 
-                  : table.table_number
+                  : (table.table_number || table.id)
               }
             </div>
             <div>
@@ -436,7 +436,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   ? 'Parcel Counter Summary' 
                   : String(table.table_number || '').toLowerCase().includes('token') 
                     ? 'Token Counter Summary' 
-                    : `Table ${table.table_number} Summary`
+                    : table.floor ? `Table ${table.table_number || table.id} (${table.floor})` : `Table ${table.table_number || table.id}`
                 }
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>

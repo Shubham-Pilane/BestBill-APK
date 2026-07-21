@@ -36,9 +36,19 @@ const MenuManagement = () => {
         api.get(`/menu/items?page=${page}&limit=10&search=${encodeURIComponent(search)}`)
       ]);
       setCategories(Array.isArray(catRes.data) ? catRes.data : []);
-      setItems(itemsRes.data.items || []);
-      setTotalPages(itemsRes.data.totalPages || 1);
-      setCurrentPage(itemsRes.data.currentPage || 1);
+      const itemsData = itemsRes.data;
+      if (Array.isArray(itemsData)) {
+        setItems(itemsData);
+        setTotalPages(Math.ceil(itemsData.length / 10) || 1);
+        setCurrentPage(page);
+      } else if (itemsData && typeof itemsData === 'object') {
+        setItems(itemsData.items || []);
+        setTotalPages(itemsData.totalPages || 1);
+        setCurrentPage(itemsData.currentPage || page);
+      } else {
+        setItems([]);
+        setTotalPages(1);
+      }
     } catch (err) {
       console.error('Menu load error:', err);
       toast.error('Failed to load menu');

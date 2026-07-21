@@ -281,12 +281,12 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const { tableNumbers, floor } = body;
       const floorValue = floor || 'Floor 1';
       for (const num of tableNumbers) {
-        await db.query('INSERT INTO tables (hotel_id, table_number, floor) VALUES ($1, $2, $3)', [user.hotel_id, num, floorValue]);
+        await db.query('INSERT OR IGNORE INTO tables (hotel_id, table_number, floor) VALUES ($1, $2, $3)', [user.hotel_id, num, floorValue]);
       }
       return { status: 201, data: { message: 'Tables created securely' } };
     }
 
-    if (path.startsWith('/tables/') && methodUpper === 'PUT') {
+    if (path.startsWith('/tables/') && path.split('/').length === 3 && methodUpper === 'PUT') {
       const tableId = parseInt(path.split('/')[2]);
       const { table_number, capacity, floor } = body;
       const res = await db.query(
@@ -298,7 +298,6 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path.startsWith('/tables/') && methodUpper === 'DELETE') {
-      const tableId = parseInt(path.split('/')[2]);
       // If delete table bill rollback
       if (path.includes('/bill/')) {
         const billId = parseInt(path.split('/')[4]);
@@ -311,8 +310,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         return { status: 200, data: { message: 'Bill rolled back, order is active again' } };
       }
 
-      await db.query('DELETE FROM tables WHERE id = $1 AND hotel_id = $2', [tableId, user.hotel_id]);
-      return { status: 200, data: { message: 'Table deleted' } };
+      if (path.split('/').length === 3) {
+        const tableId = parseInt(path.split('/')[2]);
+        await db.query('DELETE FROM tables WHERE id = $1 AND hotel_id = $2', [tableId, user.hotel_id]);
+        return { status: 200, data: { message: 'Table deleted' } };
+      }
     }
 
     if (path.startsWith('/tables/') && path.endsWith('/order') && methodUpper === 'GET') {
@@ -604,8 +606,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/menu/items' && methodUpper === 'GET') {
-      const { page = 1, limit = 1000, search = '' } = queryParams;
-      const offset = (parseInt(page) - 1) * parseInt(limit);
+      const { page, limit = 10, search = '' } = queryParams;
       
       let itemsRes;
       if (search) {
@@ -626,6 +627,25 @@ export async function handleRequest(method, url, body = null, headers = {}) {
            ORDER BY c.name ASC, mi.name ASC`,
           [user.hotel_id]
         );
+      }
+
+      if (page !== undefined) {
+        const pageNum = parseInt(page) || 1;
+        const limitNum = parseInt(limit) || 10;
+        const totalItems = itemsRes.rows.length;
+        const totalPages = Math.ceil(totalItems / limitNum) || 1;
+        const offset = (pageNum - 1) * limitNum;
+        const pagedRows = itemsRes.rows.slice(offset, offset + limitNum);
+
+        return {
+          status: 200,
+          data: {
+            items: pagedRows,
+            totalPages: totalPages,
+            currentPage: pageNum,
+            totalItems: totalItems
+          }
+        };
       }
       
       return { status: 200, data: itemsRes.rows };
