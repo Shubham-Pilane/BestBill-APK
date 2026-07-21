@@ -387,14 +387,9 @@ const Login = () => {
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '72px',
-              height: '72px',
-              background: 'linear-gradient(135deg, #0ea5e9, #6366f1)',
-              borderRadius: '24px',
-              marginBottom: '20px',
-              boxShadow: '0 10px 20px rgba(14, 165, 233, 0.3)'
+              marginBottom: '20px'
             }}>
-               <UtensilsCrossed style={{color: '#ffffff' }} size={36} />
+               <img src="/logo.svg" alt="BestBill Logo" style={{ width: '72px', height: '72px', objectFit: 'contain' }} />
             </div>
             <h1 style={{color: 'var(--text-primary)', fontSize: '32px', fontWeight: 900, letterSpacing: '-0.05em', margin: '0 0 4px 0', textTransform: 'uppercase' }}>
               Best<span style={{ color: '#38bdf8' }}>Bill</span>

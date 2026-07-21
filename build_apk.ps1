@@ -4,14 +4,14 @@ if (!(Test-Path $sdkDir)) {
 }
 
 $jdkZip = "$sdkDir\jdk.zip"
-$jdkPath = "$sdkDir\jdk-17"
+$jdkPath = "$sdkDir\jdk-21"
 if (!(Test-Path $jdkPath)) {
-    Write-Host "Downloading OpenJDK 17 (approx 160MB)..."
-    Invoke-WebRequest -Uri "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.8.1%2B1/OpenJDK17U-jdk_x64_windows_hotspot_17.0.8.1_1.zip" -OutFile $jdkZip
-    Write-Host "Extracting OpenJDK 17..."
+    Write-Host "Downloading OpenJDK 21 (approx 190MB)..."
+    Invoke-WebRequest -Uri "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.4%2B7/OpenJDK21U-jdk_x64_windows_hotspot_21.0.4_7.zip" -OutFile $jdkZip
+    Write-Host "Extracting OpenJDK 21..."
     Expand-Archive -Path $jdkZip -DestinationPath $sdkDir
-    $extracted = Get-ChildItem -Path $sdkDir -Directory -Filter "jdk-17*" | Select-Object -First 1
-    Rename-Item -Path $extracted.FullName -NewName "jdk-17"
+    $extracted = Get-ChildItem -Path $sdkDir -Directory -Filter "jdk-21*" | Select-Object -First 1
+    Rename-Item -Path $extracted.FullName -NewName "jdk-21"
     Remove-Item -Force $jdkZip
 }
 

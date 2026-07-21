@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
+import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
 import { Receipt, History, IndianRupee, Calendar, Search, Ban, CheckCircle, Phone, Printer, MessageCircle, BarChart2, Download, ArrowLeft, ArrowUp, ArrowDown } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
@@ -202,32 +203,19 @@ const BillingHistory = () => {
         }
     };
 
-    const shareViaWhatsApp = () => {
+    const shareViaWhatsApp = async () => {
         if (!selectedBill) return;
         if (!customerPhone) {
             toast.error('Please enter a phone number first');
             return;
         }
-        const subVal = parseFloat(selectedBill.subtotal || 0);
-        const taxVal = parseFloat(selectedBill.gst || 0);
-        const preVal = subVal + taxVal;
-        
-        let msg = `*--- ${user?.hotel_name?.toUpperCase() || 'BESTBILL'} RECEIPT ---*\n\n`;
-        msg += `Table No: ${selectedBill.table_number}\n`;
-        msg += `Bill No: #${selectedBill.id}\n`;
-        msg += `Date: ${new Date(selectedBill.created_at).toLocaleDateString()} ${new Date(selectedBill.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}\n`;
-        msg += `\n*Items:*\n`;
-        (selectedBill.items || []).forEach(i => msg += `• ${i.name} x ${i.quantity} = ₹${(i.price * i.quantity).toFixed(2)}\n`);
-        msg += `\n*------------------------*\n`;
-        msg += `*Subtotal:* ₹${subVal.toFixed(2)}\n`;
-        msg += `*GST (${selectedBill.gst_percentage || 0}%):* ₹${taxVal.toFixed(2)}\n`;
-        if (selectedBill.discount_percentage > 0) msg += `*Discount (${selectedBill.discount_percentage}%):* -₹${(preVal * selectedBill.discount_percentage / 100).toFixed(2)}\n`;
-        msg += `*GRAND TOTAL: ₹${parseFloat(selectedBill.final_amount).toFixed(2)}*\n`;
-        msg += `\n*Visit Again!* - ${(user?.hotel_name || 'BestBill').toUpperCase()}\n`;
-        
-        const cleanPhone = customerPhone.replace(/\D/g, '');
-        const finalPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-        window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+        const toastId = toast.loading('Generating WhatsApp PDF bill...');
+        try {
+            await shareBillPDFViaWhatsApp(selectedBill, user, customerPhone);
+            toast.success('WhatsApp PDF bill generated!', { id: toastId });
+        } catch (e) {
+            toast.error('Failed to share PDF bill: ' + e.message, { id: toastId });
+        }
     };
 
     const exportPDF = () => {

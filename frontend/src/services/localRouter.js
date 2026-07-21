@@ -384,7 +384,13 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const orderItemId = parseInt(path.split('/')[5]);
       const { quantity } = body;
 
-      await db.query('UPDATE order_items SET quantity = $1 WHERE id = $2', [quantity, orderItemId]);
+      await db.query(`
+        UPDATE order_items 
+        SET quantity = $1 
+        WHERE id = $2 
+           OR (order_id IN (SELECT id FROM orders WHERE table_id = $3 AND status = 'active') AND menu_item_id = $2)
+      `, [quantity, orderItemId, tableId]);
+
       return { status: 200, data: { message: 'Quantity updated' } };
     }
 
@@ -392,11 +398,19 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const tableId = parseInt(path.split('/')[2]);
       const orderItemId = parseInt(path.split('/')[5]);
 
-      const itemQuery = await db.query('SELECT order_id FROM order_items WHERE id = $1', [orderItemId]);
+      let itemQuery = await db.query('SELECT id, order_id FROM order_items WHERE id = $1', [orderItemId]);
+      if (itemQuery.rows.length === 0) {
+        itemQuery = await db.query(
+          "SELECT id, order_id FROM order_items WHERE menu_item_id = $1 AND order_id IN (SELECT id FROM orders WHERE table_id = $2 AND status = 'active')",
+          [orderItemId, tableId]
+        );
+      }
+
       if (itemQuery.rows.length === 0) return { status: 404, data: { message: 'Item not found' } };
+      const actualItemId = itemQuery.rows[0].id;
       const orderId = itemQuery.rows[0].order_id;
 
-      await db.query('DELETE FROM order_items WHERE id = $1', [orderItemId]);
+      await db.query('DELETE FROM order_items WHERE id = $1', [actualItemId]);
 
       const remainingQuery = await db.query('SELECT count(*) as count FROM order_items WHERE order_id = $1', [orderId]);
       const hasRemaining = remainingQuery.rows[0].count > 0;
@@ -675,7 +689,8 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     // ----------------------------------------
     if (path === '/bills/history' && methodUpper === 'GET') {
       const result = await db.query(`
-        SELECT b.*, t.table_number, o.created_at as order_time,
+        SELECT b.*, 
+               COALESCE(t.table_number, r.room_number, 'Counter') as table_number,
                (
                   SELECT json_group_array(json_object('name', mi.name, 'quantity', oi.quantity, 'price', mi.price))
                   FROM order_items oi
@@ -684,8 +699,10 @@ export async function handleRequest(method, url, body = null, headers = {}) {
                ) as items_json
         FROM bills b 
         JOIN orders o ON b.order_id = o.id 
-        JOIN tables t ON o.table_id = t.id 
-        WHERE t.hotel_id = $1
+        LEFT JOIN tables t ON o.table_id = t.id 
+        LEFT JOIN rooms r ON o.room_id = r.id
+        JOIN hotels h ON h.id = $1
+        WHERE (t.hotel_id = $1 OR r.hotel_id = $1 OR h.id = $1)
         ORDER BY b.created_at DESC`,
         [user.hotel_id]
       );
@@ -706,18 +723,19 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 200, data: items };
     }
 
-    if (path.startsWith('/bills/') && path.endsWith('/print') && methodUpper === 'POST') {
+    if (path.startsWith('/bills/') && methodUpper === 'GET' && !path.endsWith('/history') && !path.includes('/print') && !path.includes('/pay')) {
       const billId = parseInt(path.split('/')[2]);
-      const { paymentMethod } = body || {};
-
       const billRes = await db.query(`
-        SELECT b.*, o.table_id, h.name as hotel_name, h.phone as hotel_phone, h.location as hotel_location, h.gst_percentage, h.upi_id, h.printer_size, h.fssai_number, h.email as hotel_email
+        SELECT b.*, o.table_id, o.room_id,
+               COALESCE(t.table_number, r.room_number, 'Counter') as table_number,
+               h.name as hotel_name, h.phone as hotel_phone, h.location as hotel_location, h.gst_percentage, h.upi_id, h.fssai_number, h.email as hotel_email
         FROM bills b
         JOIN orders o ON b.order_id = o.id
-        JOIN tables t ON o.table_id = t.id
-        JOIN hotels h ON t.hotel_id = h.id
-        WHERE b.id = $1 AND h.id = $2`,
-        [billId, user.hotel_id]
+        LEFT JOIN tables t ON o.table_id = t.id
+        LEFT JOIN rooms r ON o.room_id = r.id
+        JOIN hotels h ON h.id = $2
+        WHERE b.id = $1`,
+        [billId, Number(user.hotel_id)]
       );
 
       if (billRes.rows.length === 0) return { status: 404, data: { message: 'Bill not found' } };
@@ -731,8 +749,52 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         [bill.order_id]
       );
 
-      const tableQuery = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [bill.table_id]);
-      const tableName = tableQuery.rows[0] ? `Table ${tableQuery.rows[0].table_number} (${tableQuery.rows[0].floor})` : 'Counter';
+      return {
+        status: 200,
+        data: {
+          ...bill,
+          subtotal: bill.total_amount,
+          items: itemsRes.rows,
+          is_paid: bill.is_paid === 1 || bill.is_paid === true
+        }
+      };
+    }
+
+    if (path.startsWith('/bills/') && path.endsWith('/print') && methodUpper === 'POST') {
+      const billId = parseInt(path.split('/')[2]);
+      const { paymentMethod } = body || {};
+
+      const billRes = await db.query(`
+        SELECT b.*, o.table_id, o.room_id,
+               h.name as hotel_name, h.phone as hotel_phone, h.location as hotel_location, h.gst_percentage, h.upi_id, h.printer_size, h.fssai_number, h.email as hotel_email
+        FROM bills b
+        JOIN orders o ON b.order_id = o.id
+        LEFT JOIN tables t ON o.table_id = t.id
+        LEFT JOIN rooms r ON o.room_id = r.id
+        JOIN hotels h ON h.id = $2
+        WHERE b.id = $1`,
+        [billId, Number(user.hotel_id)]
+      );
+
+      if (billRes.rows.length === 0) return { status: 404, data: { message: 'Bill not found' } };
+      const bill = billRes.rows[0];
+
+      const itemsRes = await db.query(`
+        SELECT oi.quantity, mi.name, mi.price 
+        FROM order_items oi 
+        JOIN menu_items mi ON oi.menu_item_id = mi.id 
+        WHERE oi.order_id = $1`,
+        [bill.order_id]
+      );
+
+      let tableName = 'Counter';
+      if (bill.table_id) {
+        const tableQuery = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [bill.table_id]);
+        if (tableQuery.rows[0]) tableName = `Table ${tableQuery.rows[0].table_number} (${tableQuery.rows[0].floor})`;
+      } else if (bill.room_id) {
+        const roomQuery = await db.query('SELECT room_number FROM rooms WHERE id = $1', [bill.room_id]);
+        if (roomQuery.rows[0]) tableName = `Room ${roomQuery.rows[0].room_number}`;
+      }
 
       const showUPI = (bill.is_paid === 0 || bill.is_paid === false) && (paymentMethod === 'upi' || bill.payment_method === 'upi');
 

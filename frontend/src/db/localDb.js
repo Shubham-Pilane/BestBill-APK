@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS hotels (
     subscription_amount REAL DEFAULT 0,
     subscription_valid_until TIMESTAMP,
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
-    gst_percentage REAL DEFAULT 5,
+    gst_percentage REAL DEFAULT 0,
     is_service_stopped BOOLEAN DEFAULT 0,
     printer_size TEXT DEFAULT '80mm',
     billing_method TEXT DEFAULT 'qz',

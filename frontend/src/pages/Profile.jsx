@@ -496,7 +496,7 @@ const Profile = () => {
                 hotelLocation: hotelData.address || 'Test Location',
                 upiId: hotelData.upi_id || '',
                 isPaid: false,
-                gst_percentage: hotelData.gst_percentage || 5
+                gst_percentage: hotelData.gst_percentage !== undefined ? hotelData.gst_percentage : 0
             };
 
             const size = printerConfig.billing.paperSize || '80mm';

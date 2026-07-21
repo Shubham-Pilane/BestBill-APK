@@ -7,9 +7,6 @@ import Dashboard from './pages/Dashboard';
 import MenuManagement from './pages/MenuManagement';
 import BillingHistory from './pages/BillingHistory';
 import Profile from './pages/Profile';
-import Lodging from './pages/Lodging';
-import GuestPortal from './pages/GuestPortal';
-import GuestOrders from './pages/GuestOrders';
 import KitchenKOT from './pages/KitchenKOT';
 import CreditManagement from './pages/CreditManagement';
 import InventoryManagement from './pages/InventoryManagement';
@@ -30,12 +27,6 @@ const Home = () => {
 const OwnerRoute = ({ children }) => {
   const { user } = useAuth();
   if (user?.role !== 'owner' || !user) return <Navigate to="/" />;
-  return children;
-};
-
-const LodgingRoute = ({ children }) => {
-  const { user } = useAuth();
-  if (user?.role !== 'owner' || !user?.lodgingEnabled) return <Navigate to="/" />;
   return children;
 };
 
@@ -104,24 +95,6 @@ function App() {
                 </InventoryRoute>
               </ProtectedRoute>
             } />
-            <Route path="/lodging" element={
-              <ProtectedRoute>
-                <LodgingRoute>
-                  <Layout>
-                    <Lodging />
-                  </Layout>
-                </LodgingRoute>
-              </ProtectedRoute>
-            } />
-            <Route path="/orders" element={
-              <ProtectedRoute>
-                <LodgingRoute>
-                  <Layout>
-                    <GuestOrders />
-                  </Layout>
-                </LodgingRoute>
-              </ProtectedRoute>
-            } />
             <Route path="/profile" element={
               <ProtectedRoute>
                 <Layout>
@@ -130,7 +103,6 @@ function App() {
               </ProtectedRoute>
             } />
 
-            <Route path="/guest/order/:hotelId" element={<GuestPortal />} />
           </Routes>
           <Toaster position="top-right" />
         </Router>

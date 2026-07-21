@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
+import { App as CapacitorApp } from '@capacitor/app';
+import ExitConfirmModal from './ExitConfirmModal';
 import { 
   LayoutDashboard, 
   UtensilsCrossed, 
@@ -13,7 +15,6 @@ import {
   Wallet, 
   Menu, 
   X, 
-  Bed, 
   Bell,
   ShieldCheck,
   ChefHat,
@@ -54,41 +55,39 @@ const Layout = ({ children }) => {
   const isWaiter = user?.role === 'waiter';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
-  const [pendingGuestOrders, setPendingGuestOrders] = useState(0);
 
-  // SIMPLIFIED DETECTION LOGIC
-  const prevCount = useRef(-1); 
-
-  const fetchPendingOrders = async () => {
-    if (isWaiter || !user || !user.lodgingEnabled) return;
-    try {
-        const res = await api.get('/rooms/guest-orders-all');
-        const activeOrders = res.data.filter(o => !o.is_delivered && o.room_status === 'occupied');
-        const currentCount = activeOrders.length;
-
-        // --- AUTOMATIC CHIME TRIGGER ---
-        if (prevCount.current !== -1 && currentCount > prevCount.current) {
-            if (localStorage.getItem('guest_order_sound') === 'true') {
-                playInternalChime();
-                toast(`NEW ORDER RECEIVED!`, { 
-                    icon: '🔔',
-                    style: { borderRadius: '20px', background: '#0ea5e9', color: '#fff', fontWeight: 900 }
-                });
-            }
-        }
-        
-        prevCount.current = currentCount;
-        setPendingGuestOrders(currentCount);
-    } catch (e) {}
-  };
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   useEffect(() => {
-    fetchPendingOrders();
-    const interval = setInterval(fetchPendingOrders, 5000);
-    return () => clearInterval(interval);
-  }, [user]);
+    let sub = null;
+    const setupBackButton = async () => {
+      try {
+        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+          sub = await CapacitorApp.addListener('backButton', () => {
+            setShowExitConfirm(true);
+          });
+        }
+      } catch (e) {
+        console.error('BackButton listener error:', e);
+      }
+    };
+    setupBackButton();
+    return () => {
+      if (sub && typeof sub.remove === 'function') {
+        sub.remove();
+      }
+    };
+  }, []);
 
-  const lodgingEnabled = user?.lodgingEnabled || false;
+  const handleConfirmExit = () => {
+    setShowExitConfirm(false);
+    if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+      CapacitorApp.exitApp();
+    } else {
+      window.history.back();
+    }
+  };
+
   const inventoryEnabled = user?.inventoryEnabled || false;
 
   const baseNavItems = isWaiter 
@@ -110,8 +109,6 @@ const Layout = ({ children }) => {
   const navItems = baseNavItems.filter(item => {
     if (item.path === '/kitchen-kot' && !kotEnabled) return false;
     if (item.path === '/inventory' && !inventoryEnabled) return false;
-    if (item.path === '/lodging' && !lodgingEnabled) return false;
-    if (item.path === '/orders' && !lodgingEnabled) return false;
     return true;
   });
 
@@ -133,20 +130,6 @@ const Layout = ({ children }) => {
     if (item.path === '/inventory' && !inventoryEnabled) {
       e.preventDefault();
       toast.error("You need license for that to unlock this feature contact Shubham Pilane 9822401802", {
-        style: {
-          borderRadius: '12px',
-          background: 'var(--bg-card)',
-          color: '#fff',
-          border: '1px solid #ef4444',
-          fontWeight: '900',
-          fontSize: '14px'
-        }
-      });
-      return;
-    }
-    if ((item.path === '/lodging' || item.path === '/orders') && !lodgingEnabled) {
-      e.preventDefault();
-      toast.error("You need licencse for that to unloack this fetaure contact Shubham Pilane 9822401802", {
         style: {
           borderRadius: '12px',
           background: 'var(--bg-card)',
@@ -193,8 +176,8 @@ const Layout = ({ children }) => {
         className="sidebar-responsive"
       >
         <div style={{ padding: '40px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '54px', height: '54px', backgroundColor: '#0ea5e9', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><UtensilsCrossed color="white" size={30} /></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <img src="/logo.svg" alt="BestBill Logo" style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
             <h1 style={{ fontSize: '28px', fontWeight: 900, margin: 0 }}>Best<span style={{ color: '#38bdf8' }}>Bill</span></h1>
           </div>
           {/* Close button only for mobile */}
@@ -301,6 +284,11 @@ const Layout = ({ children }) => {
            }
         }
       `}</style>
+      <ExitConfirmModal 
+        isOpen={showExitConfirm} 
+        onConfirm={handleConfirmExit} 
+        onCancel={() => setShowExitConfirm(false)} 
+      />
     </div>
   );
 };

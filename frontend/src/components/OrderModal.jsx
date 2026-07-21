@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
+import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
 import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
@@ -165,7 +166,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   };
 
   const updateQuantity = async (itemId, change) => {
-    const item = orderItems.find(i => i.id === itemId);
+    const item = orderItems.find(i => i.id === itemId || i.menu_item_id === itemId || i.tempId === itemId);
     if (!item) return;
     
     const newQty = item.quantity + change;
@@ -173,10 +174,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
     // Optimistic Update
     const originalItems = [...orderItems];
-    setOrderItems(prev => prev.map(i => i.id === itemId ? { ...i, quantity: newQty } : i));
+    setOrderItems(prev => prev.map(i => (i.id === itemId || i.menu_item_id === itemId || i.tempId === itemId) ? { ...i, quantity: newQty } : i));
 
     try {
-      await api.put(`/tables/${table.id}/order/items/${itemId}`, { quantity: newQty });
+      const targetId = item.id || item.menu_item_id;
+      await api.put(`/tables/${table.id}/order/items/${targetId}`, { quantity: newQty });
       // We rely entirely on our optimistic state, no need to overwrite with API response
     } catch (err) {
       if (err.response?.status !== 404) {
@@ -370,38 +372,28 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       toast.error(err.response?.data?.message || 'Swap protocol failed');
     }
   };
-
   const handleSearchChange = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
     setCurrentPage(1);
   };
 
-  const shareViaWhatsApp = () => {
+  const shareViaWhatsApp = async () => {
     if (!customerPhone) {
       toast.error('Please enter a phone number first');
       return;
     }
-    const subVal = parseFloat(billData.subtotal);
-    const taxVal = parseFloat(billData.gst);
-    const preVal = subVal + taxVal;
-    
-    let msg = `*--- ${user?.hotel_name?.toUpperCase() || 'BESTBILL'} RECEIPT ---*\n\n`;
-    msg += `Table No: ${table.table_numberByFloor || table.table_number}\n`;
-    msg += `Bill No: #${billData.id}\n`;
-    msg += `Date: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}\n`;
-    msg += `\n*Items:*\n`;
-    (billData.items || []).forEach(i => msg += `• ${i.name} x ${i.quantity} = ₹${(i.price * i.quantity).toFixed(2)}\n`);
-    msg += `\n*------------------------*\n`;
-    msg += `*Subtotal:* ₹${subVal.toFixed(2)}\n`;
-    msg += `*GST (${billData.gst_percentage}%):* ₹${taxVal.toFixed(2)}\n`;
-    if (billData.discount_percentage > 0) msg += `*Discount (${billData.discount_percentage}%):* -₹${(preVal * billData.discount_percentage / 100).toFixed(2)}\n`;
-    msg += `*GRAND TOTAL: ₹${parseFloat(billData.final_amount).toFixed(2)}*\n`;
-    msg += `\n*Visit Again!* - ${(user?.hotel_name || 'BestBill').toUpperCase()}\n`;
-    
-    const cleanPhone = customerPhone.replace(/\D/g, '');
-    const finalPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-    window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    const toastId = toast.loading('Generating WhatsApp PDF bill...');
+    try {
+      await shareBillPDFViaWhatsApp(
+        { ...billData, table: table.table_numberByFloor || table.table_number },
+        user,
+        customerPhone
+      );
+      toast.success('WhatsApp PDF bill generated!', { id: toastId });
+    } catch (e) {
+      toast.error('Failed to share PDF bill: ' + e.message, { id: toastId });
+    }
   };
 
   const upiId = user?.upi_id || '';
