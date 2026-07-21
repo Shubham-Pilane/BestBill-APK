@@ -836,10 +836,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 200, data: { success: true, message: 'Print job emitted locally' } };
     }
 
-    if (path.startsWith('/bills/') && path.endsWith('/pay') && methodUpper === 'PUT') {
-      const billId = parseInt(path.split('/')[2]);
-      const { method } = body;
-      await db.query('UPDATE bills SET is_paid = 1, payment_method = $1 WHERE id = $2', [method, billId]);
+    if ((path.includes('/bill/') || path.includes('/bills/')) && path.endsWith('/pay') && methodUpper === 'PUT') {
+      const parts = path.split('/');
+      const billId = parseInt(parts[parts.length - 2]);
+      const { method } = body || {};
+      await db.query('UPDATE bills SET is_paid = 1, payment_method = $1 WHERE id = $2', [method || 'cash', billId]);
       return { status: 200, data: { success: true } };
     }
 

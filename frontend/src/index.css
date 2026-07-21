@@ -456,3 +456,27 @@ input:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0px 1000px #1e293b inset !important;
   transition: background-color 5000s ease-in-out 0s !important;
 }
+
+/* Global react-hot-toast Dark Theme Overrides */
+div[data-react-hot-toast],
+div[class*="go"] {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6) !important;
+}
+
+div[data-react-hot-toast] *,
+div[class*="go"] * {
+  color: #ffffff !important;
+}
+
+/* Ensure inputs inside dark wrappers never display white backgrounds */
+div[style*="#1e293b"] input,
+div[style*="rgb(30, 41, 59)"] input,
+.bill-container input {
+  background-color: transparent !important;
+  color: #ffffff !important;
+}
+

@@ -286,13 +286,21 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     if (!billData) return;
     try {
       await api.post(`/bills/${billData.id}/print`, { paymentMethod: selectedPaymentMethod });
-      toast.success('Sent to printer successfully!');
+      toast.success('Bill finalized!');
       if (!billData.is_paid) {
         await confirmPayment(selectedPaymentMethod);
       }
     } catch (err) {
-      console.error('Print and settle failed:', err);
-      toast.error('Print failed');
+      console.error('Print failed:', err);
+      try {
+        if (!billData.is_paid) {
+          await confirmPayment(selectedPaymentMethod);
+        } else {
+          toast.success('Bill finalized!');
+        }
+      } catch (confirmErr) {
+        toast.error(confirmErr.response?.data?.message || 'Settlement failed');
+      }
     }
   };
 
