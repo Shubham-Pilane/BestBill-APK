@@ -710,7 +710,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if (path === '/bills/history' && methodUpper === 'GET') {
       const result = await db.query(`
         SELECT b.*, 
-               COALESCE(t.table_number, r.room_number, 'Counter') as table_number,
+               COALESCE(t.table_number, 'Counter') as table_number,
                (
                   SELECT json_group_array(json_object('name', mi.name, 'quantity', oi.quantity, 'price', mi.price))
                   FROM order_items oi
@@ -720,9 +720,8 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         FROM bills b 
         JOIN orders o ON b.order_id = o.id 
         LEFT JOIN tables t ON o.table_id = t.id 
-        LEFT JOIN rooms r ON o.room_id = r.id
         JOIN hotels h ON h.id = $1
-        WHERE (t.hotel_id = $1 OR r.hotel_id = $1 OR h.id = $1)
+        WHERE (t.hotel_id = $1 OR h.id = $1)
         ORDER BY b.created_at DESC`,
         [user.hotel_id]
       );
@@ -746,13 +745,12 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if (path.startsWith('/bills/') && methodUpper === 'GET' && !path.endsWith('/history') && !path.includes('/print') && !path.includes('/pay')) {
       const billId = parseInt(path.split('/')[2]);
       const billRes = await db.query(`
-        SELECT b.*, o.table_id, o.room_id,
-               COALESCE(t.table_number, r.room_number, 'Counter') as table_number,
+        SELECT b.*, o.table_id,
+               COALESCE(t.table_number, 'Counter') as table_number,
                h.name as hotel_name, h.phone as hotel_phone, h.location as hotel_location, h.gst_percentage, h.upi_id, h.fssai_number, h.email as hotel_email
         FROM bills b
         JOIN orders o ON b.order_id = o.id
         LEFT JOIN tables t ON o.table_id = t.id
-        LEFT JOIN rooms r ON o.room_id = r.id
         JOIN hotels h ON h.id = $2
         WHERE b.id = $1`,
         [billId, Number(user.hotel_id)]
@@ -785,12 +783,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const { paymentMethod } = body || {};
 
       const billRes = await db.query(`
-        SELECT b.*, o.table_id, o.room_id,
+        SELECT b.*, o.table_id,
                h.name as hotel_name, h.phone as hotel_phone, h.location as hotel_location, h.gst_percentage, h.upi_id, h.printer_size, h.fssai_number, h.email as hotel_email
         FROM bills b
         JOIN orders o ON b.order_id = o.id
         LEFT JOIN tables t ON o.table_id = t.id
-        LEFT JOIN rooms r ON o.room_id = r.id
         JOIN hotels h ON h.id = $2
         WHERE b.id = $1`,
         [billId, Number(user.hotel_id)]
@@ -811,9 +808,6 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       if (bill.table_id) {
         const tableQuery = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [bill.table_id]);
         if (tableQuery.rows[0]) tableName = `Table ${tableQuery.rows[0].table_number} (${tableQuery.rows[0].floor})`;
-      } else if (bill.room_id) {
-        const roomQuery = await db.query('SELECT room_number FROM rooms WHERE id = $1', [bill.room_id]);
-        if (roomQuery.rows[0]) tableName = `Room ${roomQuery.rows[0].room_number}`;
       }
 
       const showUPI = (bill.is_paid === 0 || bill.is_paid === false) && (paymentMethod === 'upi' || bill.payment_method === 'upi');

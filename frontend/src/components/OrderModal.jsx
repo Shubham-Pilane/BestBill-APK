@@ -983,6 +983,10 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
         <div className="bill-modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backdropFilter: 'blur(10px)' }}>
           <div className="bill-container" style={{ width: '100%', maxWidth: '850px', maxHeight: '90vh', backgroundColor: '#0f172a', borderRadius: '32px', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', position: 'relative' }}>
              <div style={{ flex: 1, padding: '32px', borderRight: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: billData.is_paid ? '#10b981' : '#0f172a', transition: 'all 0.6s', overflowY: 'auto', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: '16px', right: '16px', backgroundColor: 'rgba(14, 165, 233, 0.15)', border: '1px solid #0ea5e9', color: '#38bdf8', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', zIndex: 5 }}>
+                  <Receipt size={14} color="#0ea5e9" />
+                  <span>FINALIZED BILL</span>
+                </div>
                 {isSuccess && (
                    <div style={{ position: 'absolute', inset: 0, backgroundColor: '#10b981', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.3s ease-out' }}>
                       <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', marginBottom: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
@@ -1244,7 +1248,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                            placeholder="Enter Mobile No" 
                            value={customerPhone} 
                            onChange={(e) => setCustomerPhone(e.target.value)}
-                           style={{ border: 'none', width: '100%', outline: 'none', fontWeight: 800, fontSize: '13px', background: 'transparent', color: '#ffffff' }}
+                           style={{ border: 'none', width: '100%', outline: 'none', fontWeight: 800, fontSize: '13px', backgroundColor: 'transparent', color: '#ffffff', WebkitAppearance: 'none' }}
                         />
                      </div>
                    )}

@@ -532,7 +532,7 @@ const Dashboard = () => {
                   <button
                     onClick={() => {
                       setShowCreateDropdown(false);
-                      setAddTableModalOpen(true);
+                      setAddTableOpen(true);
                     }}
                     style={{
                       display: 'flex',
@@ -902,25 +902,25 @@ const TableCard = React.memo(({ table, isOwner, onOpen, onEdit, onDelete, onSwap
           }
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-           {isOwner && (
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                 {table.active_order_id && (
-                    <button 
-                       onClick={onSwap}
-                       style={{ color: '#0ea5e9', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 900, fontSize: '11px', textTransform: 'uppercase' }}
-                    >
-                       Swap
-                    </button>
-                 )}
+           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              {table.active_order_id && (
+                 <button 
+                    onClick={onSwap}
+                    style={{ color: '#0ea5e9', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 900, fontSize: '11px', textTransform: 'uppercase' }}
+                 >
+                    Swap
+                 </button>
+              )}
+              {isOwner && (
                  <button 
                     onClick={(e) => onDelete(e, table)} 
                     style={{ color: '#f43f5e', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                     title="Delete Table"
                  >
                     <Trash2 size={14} />
-                  </button>
-              </div>
-           )}
+                 </button>
+              )}
+           </div>
            <div style={{
              width: '12px',
              height: '12px',
