@@ -208,52 +208,62 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
   return docDefinition;
 };
 
-/**
- * Generates the PDF blob, creates a File object, and shares via navigator.share (if supported) or triggers fallback download & WhatsApp chat link.
- */
 export const shareBillPDFViaWhatsApp = (billData, hotelInfo = {}, customerPhone = '') => {
   return new Promise((resolve, reject) => {
     try {
-      const docDef = createBillPDFDocDefinition(billData, hotelInfo);
-      const pdfDocGenerator = pdfMake.createPdf(docDef);
+      const billId = billData.id || billData.bill_id || 'receipt';
+      const cleanPhone = customerPhone ? customerPhone.replace(/\D/g, '') : '';
+      const finalPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+      const hotelName = hotelInfo.hotel_name || hotelInfo.name || 'BestBill';
 
-      pdfDocGenerator.getBlob(async (blob) => {
-        const billId = billData.id || billData.bill_id || 'receipt';
-        const fileName = `Bill_${billId}.pdf`;
-        const file = new File([blob], fileName, { type: 'application/pdf' });
+      const whatsappText = `*--- ${hotelName.toUpperCase()} RECEIPT ---*\n` +
+        `Bill No: #${billId}\n` +
+        `Grand Total: ₹${parseFloat(billData.final_amount || 0).toFixed(2)}\n\n` +
+        `Thank you for your visit!`;
 
-        const cleanPhone = customerPhone ? customerPhone.replace(/\D/g, '') : '';
-        const finalPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-        const hotelName = hotelInfo.hotel_name || hotelInfo.name || 'BestBill';
+      // Optimization: PDF generation with pdfMake can freeze the UI because it parses large fonts synchronously.
+      // We wrap the heavy work in a setTimeout to give the UI time to show the loading toast properly.
+      setTimeout(() => {
+        try {
+          const docDef = createBillPDFDocDefinition(billData, hotelInfo);
+          const pdfDocGenerator = pdfMake.createPdf(docDef);
 
-        const whatsappText = `*--- ${hotelName.toUpperCase()} RECEIPT ---*\n` +
-          `Bill No: #${billId}\n` +
-          `Grand Total: ₹${parseFloat(billData.final_amount || 0).toFixed(2)}\n\n` +
-          `Thank you for your visit!`;
+          pdfDocGenerator.getBlob(async (blob) => {
+            const fileName = `Bill_${billId}.pdf`;
+            const file = new File([blob], fileName, { type: 'application/pdf' });
 
-        // Check if Web Share API is available and can share files
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: `Bill Receipt #${billId}`,
-              text: whatsappText
-            });
-            resolve({ success: true, method: 'native_share' });
-            return;
-          } catch (shareErr) {
-            console.log('[PDF SHARE] Native share cancelled or failed, falling back to download + link:', shareErr);
-          }
+            // Check if Web Share API is available and can share files
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              try {
+                await navigator.share({
+                  files: [file],
+                  title: `Bill Receipt #${billId}`,
+                  text: whatsappText
+                });
+                resolve({ success: true, method: 'native_share' });
+                return;
+              } catch (shareErr) {
+                console.log('[PDF SHARE] Native share cancelled or failed, falling back to download + link:', shareErr);
+              }
+            }
+
+            // Fallback: Download PDF & open WhatsApp Web/App
+            pdfDocGenerator.download(fileName);
+            if (finalPhone) {
+              const waUrl = `https://wa.me/${finalPhone}?text=${encodeURIComponent(whatsappText)}`;
+              window.open(waUrl, '_blank');
+            } else {
+              // If no phone provided, just share text without number (WhatsApp will prompt for contact)
+              const waUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`;
+              window.open(waUrl, '_blank');
+            }
+            resolve({ success: true, method: 'download_fallback' });
+          });
+        } catch (err) {
+          console.error('[PDF BILL GENERATION ERROR]', err);
+          reject(err);
         }
-
-        // Fallback: Download PDF & open WhatsApp Web/App
-        pdfDocGenerator.download(fileName);
-        if (finalPhone) {
-          const waUrl = `https://wa.me/${finalPhone}?text=${encodeURIComponent(whatsappText)}`;
-          window.open(waUrl, '_blank');
-        }
-        resolve({ success: true, method: 'download_fallback' });
-      });
+      }, 100); // Small delay to unblock main thread and render loading state
     } catch (err) {
       console.error('[PDF BILL ERROR]', err);
       reject(err);

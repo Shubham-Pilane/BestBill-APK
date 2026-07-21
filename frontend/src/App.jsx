@@ -108,13 +108,14 @@ function App() {
             position="top-right" 
             toastOptions={{
               style: {
-                background: '#1e293b',
-                color: '#ffffff',
-                borderRadius: '16px',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                fontWeight: 800,
-                fontSize: '13px',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+                background: 'var(--bg-card)',
+                color: 'var(--text-primary)',
+                borderRadius: '12px',
+                border: '1px solid var(--border-rgba-05)',
+                fontWeight: 600,
+                fontSize: '14px',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+                backdropFilter: 'blur(8px)',
               },
               success: {
                 iconTheme: {

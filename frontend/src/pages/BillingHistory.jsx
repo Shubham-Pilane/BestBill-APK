@@ -12,6 +12,14 @@ if (pdfFonts && pdfFonts.pdfMake) {
   pdfMake.vfs = pdfFonts.pdfMake.vfs;
 }
 
+// Utility to safely parse SQLite timestamps (YYYY-MM-DD HH:MM:SS) into cross-platform valid Dates
+const safeDate = (dateString) => {
+    if (!dateString) return new Date();
+    // Replace space with 'T' for iOS/Safari ISO-8601 compatibility
+    const safeStr = typeof dateString === 'string' ? dateString.replace(' ', 'T') : dateString;
+    return new Date(safeStr);
+};
+
 const BillingHistory = () => {
     const { user } = useAuth();
     const [bills, setBills] = useState([]);
@@ -74,13 +82,13 @@ const BillingHistory = () => {
     const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
     const currentBills = filteredBills.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    const todayBills = bills.filter(b => new Date(b.created_at).toDateString() === new Date().toDateString());
+    const todayBills = bills.filter(b => safeDate(b.created_at).toDateString() === new Date().toDateString());
     const todayRevenue = todayBills.reduce((acc, b) => acc + parseFloat(b.final_amount || 0), 0);
 
     // --- Analytics View Logic ---
     const getFilteredAnalyticsBills = () => {
         return bills.filter(b => {
-            const billDate = new Date(b.created_at);
+            const billDate = safeDate(b.created_at);
             if (analyticsFilter === 'Today') {
                 return billDate.toDateString() === new Date().toDateString();
             } else if (analyticsFilter === 'Month') {
@@ -412,7 +420,7 @@ const BillingHistory = () => {
                                     currentBills.map(bill => (
                                         <tr key={bill.id} style={{ transition: 'background-color 0.2s' }} onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--bg-base)'} onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                                             <td style={tdStyle}>#{bill.id}</td>
-                                            <td style={tdStyle}>{new Date(bill.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                                            <td style={tdStyle}>{safeDate(bill.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td>
                                             <td style={tdStyle}>
                                                 <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 800, backgroundColor: isParcel(bill.table_number) ? 'rgba(245, 158, 11, 0.1)' : 'rgba(14, 165, 233, 0.1)', color: isParcel(bill.table_number) ? '#f59e0b' : '#0ea5e9' }}>
                                                     {isParcel(bill.table_number) ? 'PARCEL' : 'DINE-IN'}
@@ -671,7 +679,7 @@ const BillingHistory = () => {
                             <span>TABLE NO: {selectedBill.table_number}</span>
                             <span>BILL NO: #{selectedBill.id}</span>
                         </div>
-                        <div style={{ fontSize: '13px', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>DATE: {new Date(selectedBill.created_at).toLocaleDateString()} {new Date(selectedBill.created_at).toLocaleTimeString()}</div>
+                        <div style={{ fontSize: '13px', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>DATE: {safeDate(selectedBill.created_at).toLocaleDateString()} {safeDate(selectedBill.created_at).toLocaleTimeString()}</div>
                         </div>
 
                         <div style={{ marginBottom: '24px' }}>

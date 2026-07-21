@@ -457,20 +457,7 @@ input:-webkit-autofill:active {
   transition: background-color 5000s ease-in-out 0s !important;
 }
 
-/* Global react-hot-toast Dark Theme Overrides */
-div[data-react-hot-toast],
-div[class*="go"] {
-  background-color: #1e293b !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6) !important;
-}
 
-div[data-react-hot-toast] *,
-div[class*="go"] * {
-  color: #ffffff !important;
-}
 
 /* Ensure inputs inside dark wrappers never display white backgrounds */
 div[style*="#1e293b"] input,
