@@ -740,30 +740,45 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     // ----------------------------------------
     // BILLS HISTORICAL ROUTES
     // ----------------------------------------
+    // ----------------------------------------
+    // BILLS HISTORICAL ROUTES
+    // ----------------------------------------
     if (path === '/bills/history' && methodUpper === 'GET') {
-      const result = await db.query(`
-        SELECT b.*, 
-               COALESCE(t.table_number, 'Counter') as table_number
-        FROM bills b 
-        JOIN orders o ON b.order_id = o.id 
-        LEFT JOIN tables t ON o.table_id = t.id
-        WHERE t.hotel_id = $1
-        ORDER BY b.created_at DESC`,
-        [user.hotel_id]
-      );
+      const result = await db.query('SELECT * FROM bills ORDER BY id DESC');
       
-      const bills = result.rows;
-      for (let b of bills) {
-        const itemsRes = await db.query(`
-          SELECT oi.quantity, mi.name, mi.price 
-          FROM order_items oi 
-          JOIN menu_items mi ON oi.menu_item_id = mi.id 
-          WHERE oi.order_id = $1`, 
+      const bills = [];
+      for (let b of result.rows) {
+        let tableNumber = 'Counter';
+        if (b.order_id) {
+          const orderRes = await db.query(
+            `SELECT COALESCE(t.table_number, 'Parcel Counter') as table_number 
+             FROM orders o 
+             LEFT JOIN tables t ON o.table_id = t.id 
+             WHERE o.id = $1`,
+            [b.order_id]
+          );
+          if (orderRes.rows.length > 0 && orderRes.rows[0].table_number) {
+            tableNumber = orderRes.rows[0].table_number;
+          }
+        }
+
+        const itemsRes = await db.query(
+          `SELECT oi.quantity, mi.name, mi.price 
+           FROM order_items oi 
+           JOIN menu_items mi ON oi.menu_item_id = mi.id 
+           WHERE oi.order_id = $1`,
           [b.order_id]
         );
-        b.items_json = JSON.stringify(itemsRes.rows);
-        b.items = itemsRes.rows;
-        b.is_paid = b.is_paid === 1 || b.is_paid === true;
+
+        bills.push({
+          ...b,
+          table_number: tableNumber,
+          subtotal: b.total_amount,
+          items_json: JSON.stringify(itemsRes.rows),
+          items: itemsRes.rows,
+          parsedItems: itemsRes.rows,
+          is_paid: b.is_paid === 1 || b.is_paid === true
+        });
       }
 
       return { status: 200, data: bills };
@@ -775,41 +790,65 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       if (isNaN(billId)) {
         return { status: 400, data: { message: 'Invalid Bill ID' } };
       }
-      const billRes = await db.query(`
-        SELECT b.*, o.table_id,
-               COALESCE(t.table_number, 'Parcel Counter') as table_number,
-               h.name as hotel_name, h.phone as hotel_phone, h.location as hotel_location, h.gst_percentage, h.upi_id, h.fssai_number, h.email as hotel_email
-        FROM bills b
-        LEFT JOIN orders o ON b.order_id = o.id
-        LEFT JOIN tables t ON o.table_id = t.id
-        LEFT JOIN hotels h ON h.id = $2 OR h.id = 1
-        WHERE b.id = $1`,
-        [billId, Number(user?.hotel_id || 1)]
-      );
 
-      let bill = billRes.rows[0];
-      if (!bill || !bill.id) {
-        const fallbackRes = await db.query('SELECT * FROM bills WHERE id = $1', [billId]);
-        if (fallbackRes.rows.length === 0) return { status: 404, data: { message: 'Bill not found' } };
-        bill = fallbackRes.rows[0];
+      const billRes = await db.query('SELECT * FROM bills WHERE id = $1', [billId]);
+      if (billRes.rows.length === 0) {
+        return { status: 404, data: { message: 'Bill not found' } };
       }
 
-      const itemsRes = await db.query(`
-        SELECT oi.quantity, mi.name, mi.price 
-        FROM order_items oi 
-        JOIN menu_items mi ON oi.menu_item_id = mi.id 
-        WHERE oi.order_id = $1`,
+      const bill = billRes.rows[0];
+
+      let tableNumber = 'Counter';
+      if (bill.order_id) {
+        const orderRes = await db.query(
+          `SELECT COALESCE(t.table_number, 'Parcel Counter') as table_number 
+           FROM orders o 
+           LEFT JOIN tables t ON o.table_id = t.id 
+           WHERE o.id = $1`,
+          [bill.order_id]
+        );
+        if (orderRes.rows.length > 0 && orderRes.rows[0].table_number) {
+          tableNumber = orderRes.rows[0].table_number;
+        }
+      }
+
+      const hotelRes = await db.query(
+        'SELECT name, phone, location, gst_percentage, upi_id, fssai_number, email FROM hotels WHERE id = $1 OR id = 1',
+        [user?.hotel_id || 1]
+      );
+      const hotel = hotelRes.rows[0] || {};
+
+      const itemsRes = await db.query(
+        `SELECT oi.quantity, mi.name, mi.price 
+         FROM order_items oi 
+         JOIN menu_items mi ON oi.menu_item_id = mi.id 
+         WHERE oi.order_id = $1`,
         [bill.order_id]
       );
 
       return {
         status: 200,
         data: {
-          ...bill,
+          id: bill.id,
+          order_id: bill.order_id,
+          total_amount: bill.total_amount,
           subtotal: bill.total_amount,
+          gst: bill.gst,
+          final_amount: bill.final_amount,
+          discount_percentage: bill.discount_percentage,
+          is_paid: bill.is_paid === 1 || bill.is_paid === true,
+          payment_method: bill.payment_method,
+          created_at: bill.created_at,
+          table_number: tableNumber,
+          hotel_name: hotel.name || 'BESTBILL',
+          hotel_phone: hotel.phone || '',
+          hotel_location: hotel.location || '',
+          gst_percentage: hotel.gst_percentage || 0,
+          upi_id: hotel.upi_id || '',
+          fssai_number: hotel.fssai_number || '',
+          email: hotel.email || '',
           items: itemsRes.rows,
-          parsedItems: itemsRes.rows,
-          is_paid: bill.is_paid === 1 || bill.is_paid === true
+          parsedItems: itemsRes.rows
         }
       };
     }
