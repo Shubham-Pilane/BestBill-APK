@@ -523,7 +523,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
                 {/* Suggestions Dropdown */}
                 {suggestions.length > 0 && (
-                  <div className="search-suggestions-scrollbar" style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'var(--bg-card)', borderRadius: '16px', marginTop: '6px', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', zIndex: 100, border: '1px solid var(--border-color)', overflowY: 'auto', maxHeight: '300px' }}>
+                  <div className="search-suggestions-scrollbar" style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'var(--bg-card)', borderRadius: '16px', marginTop: '6px', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', zIndex: 100, border: '1px solid var(--border-color)', overflowY: 'auto', maxHeight: '280px' }}>
                     {suggestions.map(s => (
                       <div key={s.id} onClick={() => { addToOrder(s); setSearchQuery(''); setSuggestions([]); }} style={{ padding: '12px 18px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', color: 'var(--text-primary)', fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -533,6 +533,30 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                         <span style={{ color: '#10b981' }}>₹{s.price}</span>
                       </div>
                     ))}
+                    {suggestions.length > 4 && (
+                      <div style={{
+                        position: 'sticky',
+                        bottom: 0,
+                        backgroundColor: 'var(--bg-card)',
+                        borderTop: '1px solid var(--border-color)',
+                        padding: '8px 12px',
+                        textAlign: 'center',
+                        fontSize: '11px',
+                        fontWeight: 900,
+                        color: '#0ea5e9',
+                        letterSpacing: '0.05em',
+                        textTransform: 'uppercase',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        boxShadow: '0 -4px 10px rgba(0,0,0,0.3)',
+                        zIndex: 10
+                      }}>
+                        <span>SCROLL FOR MORE RESULTS</span>
+                        <ChevronDown size={14} />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

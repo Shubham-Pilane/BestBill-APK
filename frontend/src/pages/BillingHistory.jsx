@@ -203,13 +203,35 @@ const BillingHistory = () => {
         { value: '8', label: 'September' }, { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', label: 'December' }
     ];
 
-    // --- Actions ---
-    const handleBillClick = async (billId) => {
+    const handleBillClick = async (billOrId) => {
+        const targetId = typeof billOrId === 'object' ? billOrId.id : billOrId;
+        const existingBill = typeof billOrId === 'object' 
+            ? billOrId 
+            : bills.find(b => Number(b.id) === Number(targetId));
+
         try {
-             const res = await api.get(`/bills/${billId}`);
-             setSelectedBill(res.data);
+             const res = await api.get(`/bills/${targetId}`);
+             const mergedItems = (res.data?.items && res.data.items.length > 0) 
+                 ? res.data.items 
+                 : (existingBill?.items || existingBill?.parsedItems || []);
+
+             setSelectedBill({
+                 ...existingBill,
+                 ...res.data,
+                 items: mergedItems,
+                 parsedItems: mergedItems
+             });
         } catch (err) {
-             toast.error('Failed to load bill details');
+             if (existingBill) {
+                 const fallbackItems = existingBill.items || existingBill.parsedItems || [];
+                 setSelectedBill({
+                     ...existingBill,
+                     items: fallbackItems,
+                     parsedItems: fallbackItems
+                 });
+             } else {
+                 toast.error('Failed to load bill details');
+             }
         }
     };
 
@@ -402,7 +424,7 @@ const BillingHistory = () => {
                                                 )}
                                             </td>
                                             <td style={tdStyle}>
-                                                <button onClick={() => handleBillClick(bill.id)} style={{ padding: '6px 12px', backgroundColor: 'var(--bg-border)', border: 'none', borderRadius: '6px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}>
+                                                <button onClick={() => handleBillClick(bill)} style={{ padding: '6px 12px', backgroundColor: 'var(--bg-border)', border: 'none', borderRadius: '6px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}>
                                                     View Details
                                                 </button>
                                             </td>

@@ -780,15 +780,15 @@ export async function handleRequest(method, url, body = null, headers = {}) {
                COALESCE(t.table_number, 'Parcel Counter') as table_number,
                h.name as hotel_name, h.phone as hotel_phone, h.location as hotel_location, h.gst_percentage, h.upi_id, h.fssai_number, h.email as hotel_email
         FROM bills b
-        JOIN orders o ON b.order_id = o.id
+        LEFT JOIN orders o ON b.order_id = o.id
         LEFT JOIN tables t ON o.table_id = t.id
-        LEFT JOIN hotels h ON h.id = $2
+        LEFT JOIN hotels h ON h.id = $2 OR h.id = 1
         WHERE b.id = $1`,
-        [billId, Number(user.hotel_id)]
+        [billId, Number(user?.hotel_id || 1)]
       );
 
       let bill = billRes.rows[0];
-      if (!bill) {
+      if (!bill || !bill.id) {
         const fallbackRes = await db.query('SELECT * FROM bills WHERE id = $1', [billId]);
         if (fallbackRes.rows.length === 0) return { status: 404, data: { message: 'Bill not found' } };
         bill = fallbackRes.rows[0];
