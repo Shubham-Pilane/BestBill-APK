@@ -39,47 +39,57 @@ const loadDbFile = async () => {
     try {
       const file = await Filesystem.readFile({
         path: 'bestbill.db',
-        directory: Directory.Documents
+        directory: Directory.Data
       });
-      console.log('[LOCAL DB] Loaded SQLite database file from storage');
+      console.log('[LOCAL DB] Loaded SQLite database file from Directory.Data');
       return base64ToUint8(file.data);
-    } catch (e) {
-      console.log('[LOCAL DB] Database file not found, creating fresh database');
-      return null;
-    }
-  } else {
-    // Browser local storage fallback (stored as hex/base64 string)
-    const base64 = localStorage.getItem('bestbill_db');
-    if (base64) {
-      console.log('[LOCAL DB] Loaded database from LocalStorage');
-      return base64ToUint8(base64);
-    }
-    return null;
-  }
-};
-
-// Save database file (throttled/debounced to avoid UI lag)
-const saveDbFile = () => {
-  if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(async () => {
-    try {
-      const data = db.export();
-      const base64 = uint8ToBase64(data);
-      if (isNative()) {
-        await Filesystem.writeFile({
+    } catch (e1) {
+      try {
+        const file2 = await Filesystem.readFile({
           path: 'bestbill.db',
-          data: base64,
           directory: Directory.Documents
         });
-        console.log('[LOCAL DB] Database auto-saved to persistent storage');
-      } else {
-        localStorage.setItem('bestbill_db', base64);
-        console.log('[LOCAL DB] Database auto-saved to LocalStorage');
-      }
-    } catch (err) {
-      console.error('[LOCAL DB] Failed to auto-save database:', err.message);
+        console.log('[LOCAL DB] Loaded SQLite database file from Directory.Documents');
+        return base64ToUint8(file2.data);
+      } catch (e2) {}
     }
-  }, 1000);
+  }
+
+  // Fallback to LocalStorage
+  const base64 = localStorage.getItem('bestbill_db');
+  if (base64) {
+    console.log('[LOCAL DB] Loaded database from LocalStorage fallback');
+    return base64ToUint8(base64);
+  }
+  return null;
+};
+
+// Save database file (saves to LocalStorage immediately & writes to file)
+const saveDbFile = () => {
+  if (!db) return;
+  try {
+    const data = db.export();
+    const base64 = uint8ToBase64(data);
+    localStorage.setItem('bestbill_db', base64);
+    
+    if (isNative()) {
+      Filesystem.writeFile({
+        path: 'bestbill.db',
+        data: base64,
+        directory: Directory.Data,
+        recursive: true
+      }).catch(() => {
+        Filesystem.writeFile({
+          path: 'bestbill.db',
+          data: base64,
+          directory: Directory.Documents,
+          recursive: true
+        }).catch(err => console.error('[LOCAL DB FS SAVE ERR]', err));
+      });
+    }
+  } catch (err) {
+    console.error('[LOCAL DB SAVE ERR]', err.message);
+  }
 };
 
 // Core Tables Initialization DDL
@@ -325,16 +335,25 @@ export const saveDbFileNow = async () => {
   try {
     const data = db.export();
     const base64 = uint8ToBase64(data);
+    localStorage.setItem('bestbill_db', base64);
     if (isNative()) {
-      await Filesystem.writeFile({
-        path: 'bestbill.db',
-        data: base64,
-        directory: Directory.Documents
-      });
-      console.log('[LOCAL DB] Persistent DB saved immediately to storage');
-    } else {
-      localStorage.setItem('bestbill_db', base64);
-      console.log('[LOCAL DB] Persistent DB saved immediately to LocalStorage');
+      try {
+        await Filesystem.writeFile({
+          path: 'bestbill.db',
+          data: base64,
+          directory: Directory.Data,
+          recursive: true
+        });
+      } catch (e1) {
+        try {
+          await Filesystem.writeFile({
+            path: 'bestbill.db',
+            data: base64,
+            directory: Directory.Documents,
+            recursive: true
+          });
+        } catch (e2) {}
+      }
     }
   } catch (err) {
     console.error('[LOCAL DB] Immediate save failed:', err.message);
