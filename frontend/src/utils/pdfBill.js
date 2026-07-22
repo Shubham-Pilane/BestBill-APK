@@ -5,6 +5,11 @@ if (pdfFonts && pdfFonts.pdfMake) {
   pdfMake.vfs = pdfFonts.pdfMake.vfs;
 }
 
+const formatAmount = (val) => {
+  const num = Number(val) || 0;
+  return Number.isInteger(num) ? num.toString() : num.toFixed(2);
+};
+
 /**
  * Generates a professionally formatted PDF bill document definition using pdfMake.
  */
@@ -45,8 +50,8 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
       { text: index++, alignment: 'center' },
       { text: 'Room Charge', bold: true },
       { text: '1', alignment: 'center' },
-      { text: roomCharge.toFixed(2), alignment: 'right' },
-      { text: roomCharge.toFixed(2), alignment: 'right' }
+      { text: formatAmount(roomCharge), alignment: 'right' },
+      { text: formatAmount(roomCharge), alignment: 'right' }
     ]);
   }
 
@@ -58,8 +63,8 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
       { text: index++, alignment: 'center' },
       { text: item.name || 'Item' },
       { text: qty.toString(), alignment: 'center' },
-      { text: price.toFixed(2), alignment: 'right' },
-      { text: amount.toFixed(2), alignment: 'right' }
+      { text: formatAmount(price), alignment: 'right' },
+      { text: formatAmount(amount), alignment: 'right' }
     ]);
   });
 
@@ -167,12 +172,12 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
             table: {
               widths: ['*', 'auto'],
               body: [
-                ['Subtotal:', { text: `₹${subtotal.toFixed(2)}`, alignment: 'right' }],
-                gstPercentage > 0 ? [`GST (${gstPercentage}%):`, { text: `₹${gstAmount.toFixed(2)}`, alignment: 'right' }] : null,
-                discountPercentage > 0 ? [`Discount (${discountPercentage}%):`, { text: `-₹${discountVal.toFixed(2)}`, alignment: 'right' }] : null,
+                ['Subtotal:', { text: `₹${formatAmount(subtotal)}`, alignment: 'right' }],
+                gstPercentage > 0 ? [`GST (${gstPercentage}%):`, { text: `₹${formatAmount(gstAmount)}`, alignment: 'right' }] : null,
+                discountPercentage > 0 ? [`Discount (${discountPercentage}%):`, { text: `-₹${formatAmount(discountVal)}`, alignment: 'right' }] : null,
                 [
                   { text: 'GRAND TOTAL:', bold: true, fontSize: 13, color: '#0f172a' },
-                  { text: `₹${finalAmount.toFixed(2)}`, bold: true, fontSize: 14, color: '#0ea5e9', alignment: 'right' }
+                  { text: `₹${formatAmount(finalAmount)}`, bold: true, fontSize: 14, color: '#0ea5e9', alignment: 'right' }
                 ]
               ].filter(Boolean)
             },
@@ -239,12 +244,12 @@ export const shareBillPDFViaWhatsApp = (billData, hotelInfo = {}, customerPhone 
       if (items && items.length > 0) {
         itemsText = `\n*Items:*\n`;
         items.forEach(item => {
-          itemsText += `• ${item.name || 'Item'} x ${item.quantity || 1} = ₹${parseFloat((item.price || 0) * (item.quantity || 1)).toFixed(2)}\n`;
+          itemsText += `• ${item.name || 'Item'} x ${item.quantity || 1} = ₹${formatAmount((item.price || 0) * (item.quantity || 1))}\n`;
         });
       }
 
       const discount = parseFloat(billData.discount_amount || 0);
-      const discountText = discount > 0 ? `\n*Discount:* ₹${discount.toFixed(2)}` : '';
+      const discountText = discount > 0 ? `\n*Discount:* ₹${formatAmount(discount)}` : '';
 
       const totalVal = parseFloat(billData.final_amount || billData.total_amount || 0);
       const subtotalVal = parseFloat(billData.subtotal || billData.total_amount || 0);
@@ -260,10 +265,10 @@ export const shareBillPDFViaWhatsApp = (billData, hotelInfo = {}, customerPhone 
         `Date: ${formatDate(billData.created_at || Date.now())}\n` +
         `${itemsText}\n` +
         `*------------------------*\n` +
-        `*Subtotal:* ₹${subtotalVal.toFixed(2)}` +
+        `*Subtotal:* ₹${formatAmount(subtotalVal)}` +
         `${discountText}\n` +
-        `*GST (${gstPercent}%):* ₹${gstVal.toFixed(2)}\n` +
-        `*GRAND TOTAL:* ₹${totalVal.toFixed(2)}\n\n` +
+        `*GST (${gstPercent}%):* ₹${formatAmount(gstVal)}\n` +
+        `*GRAND TOTAL:* ₹${formatAmount(totalVal)}\n\n` +
         `*Thank You! Visit Again!*`;
 
       if (finalPhone) {

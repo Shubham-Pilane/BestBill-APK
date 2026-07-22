@@ -2,11 +2,35 @@ import { jsPDF } from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { FileOpener } from '@capacitor-community/file-opener';
 
 try {
   applyPlugin(jsPDF);
 } catch (e) {
   console.warn('Plugin registration note:', e);
+}
+
+// Global Notification Tap Listener to open PDF on notification click
+if (Capacitor.isNativePlatform()) {
+  try {
+    LocalNotifications.addListener('localNotificationActionPerformed', async (action) => {
+      console.log('Local Notification Tapped:', action);
+      const fileUri = action.notification?.extra?.fileUri;
+      if (fileUri) {
+        try {
+          await FileOpener.open({
+            filePath: fileUri,
+            contentType: 'application/pdf'
+          });
+        } catch (openErr) {
+          console.error('Failed to open PDF on notification click:', openErr);
+        }
+      }
+    });
+  } catch (e) {
+    console.warn('Listener setup warning:', e);
+  }
 }
 
 export async function exportAnalyticsPdf(reportData) {
@@ -105,8 +129,9 @@ export async function exportAnalyticsPdf(reportData) {
       return new Promise((resolve) => {
         reader.onloadend = async () => {
           const base64data = reader.result.split(',')[1];
+          let writeResult;
           try {
-            const writeResult = await Filesystem.writeFile({
+            writeResult = await Filesystem.writeFile({
               path: `Download/${fileName}`,
               data: base64data,
               directory: Directory.ExternalStorage,
@@ -128,7 +153,35 @@ export async function exportAnalyticsPdf(reportData) {
               });
             });
 
-            resolve({ success: true, fileName, uri: writeResult?.uri });
+            const fileUri = writeResult?.uri;
+
+            // Trigger System Notification
+            if (fileUri) {
+              try {
+                const perm = await LocalNotifications.requestPermissions();
+                if (perm.display === 'granted') {
+                  const notifId = Math.floor(Math.random() * 100000);
+                  await LocalNotifications.schedule({
+                    notifications: [
+                      {
+                        title: 'PDF Report Downloaded',
+                        body: `Tap to open ${fileName}`,
+                        id: notifId,
+                        schedule: { at: new Date(Date.now() + 500) },
+                        extra: {
+                          fileUri: fileUri,
+                          fileName: fileName
+                        }
+                      }
+                    ]
+                  });
+                }
+              } catch (notifErr) {
+                console.warn('Local Notification schedule failed:', notifErr);
+              }
+            }
+
+            resolve({ success: true, fileName, uri: fileUri });
           } catch (e) {
             console.error('Capacitor File Error:', e);
             resolve({ success: false, error: e.message });

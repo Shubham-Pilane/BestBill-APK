@@ -271,7 +271,7 @@ const BillingHistory = () => {
             });
 
             if (res && res.success !== false) {
-                toast.success('PDF report exported successfully!', { id: toastId });
+                toast.success('PDF report downloaded! Tap notification to open.', { id: toastId, duration: 4000 });
             } else {
                 toast.error('Failed to export PDF report', { id: toastId });
             }

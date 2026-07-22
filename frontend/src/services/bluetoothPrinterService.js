@@ -1,3 +1,8 @@
+const formatAmount = (val) => {
+  const num = Number(val) || 0;
+  return Number.isInteger(num) ? num.toString() : num.toFixed(2);
+};
+
 const padText = (text, length, align = 'left') => {
   text = String(text !== undefined && text !== null ? text : '');
   if (text.length > length) {
@@ -231,8 +236,8 @@ export function formatBill(data, printerSize = '80mm') {
 
   data.items.forEach(item => {
     const qty = item.quantity || item.qty || 1;
-    const rate = Number(item.price).toFixed(2);
-    const amt = (item.price * qty).toFixed(2);
+    const rate = formatAmount(item.price);
+    const amt = formatAmount(item.price * qty);
     const nameStr = toTitleCase(String(item.name));
     
     const firstChunk = nameStr.substring(0, itemLen);
@@ -257,18 +262,18 @@ export function formatBill(data, printerSize = '80mm') {
 
   // Totals
   const labelLen = LINE_WIDTH - amtLen - 1;
-  builder.text(padText('Subtotal:', labelLen) + ' ' + padText(Number(data.subtotal).toFixed(2), amtLen, 'right'));
-  builder.text(padText(`GST (${data.gst_percentage}%):`, labelLen) + ' ' + padText(Number(data.gst).toFixed(2), amtLen, 'right'));
+  builder.text(padText('Subtotal:', labelLen) + ' ' + padText(formatAmount(data.subtotal), amtLen, 'right'));
+  builder.text(padText(`GST (${data.gst_percentage}%):`, labelLen) + ' ' + padText(formatAmount(data.gst), amtLen, 'right'));
   
   if (data.discountPercentage > 0) {
     const preVal = Number(data.subtotal) + Number(data.gst);
     const discAmt = preVal * (data.discountPercentage / 100);
-    builder.text(padText(`Discount (${data.discountPercentage}%):`, labelLen) + ' ' + padText(`-${discAmt.toFixed(2)}`, amtLen, 'right'));
+    builder.text(padText(`Discount (${data.discountPercentage}%):`, labelLen) + ' ' + padText(`-${formatAmount(discAmt)}`, amtLen, 'right'));
   }
 
   builder.line('-', LINE_WIDTH)
     .bold(true)
-    .text(padText('GRAND TOTAL:', labelLen) + ' ' + padText(Number(data.finalAmount).toFixed(2), amtLen, 'right'))
+    .text(padText('GRAND TOTAL:', labelLen) + ' ' + padText(formatAmount(data.finalAmount), amtLen, 'right'))
     .bold(false)
     .line('=', LINE_WIDTH);
 
