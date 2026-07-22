@@ -1,5 +1,6 @@
 import initSqlJs from 'sql.js';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { App } from '@capacitor/app';
 
 let db = null;
 let SQL = null;
@@ -317,6 +318,78 @@ function sanitizeQuery(sql) {
   return cleaned;
 }
 
+// Immediate sync save (flushes DB to storage)
+export const saveDbFileNow = async () => {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  if (!db) return;
+  try {
+    const data = db.export();
+    const base64 = uint8ToBase64(data);
+    if (isNative()) {
+      await Filesystem.writeFile({
+        path: 'bestbill.db',
+        data: base64,
+        directory: Directory.Documents
+      });
+      console.log('[LOCAL DB] Persistent DB saved immediately to storage');
+    } else {
+      localStorage.setItem('bestbill_db', base64);
+      console.log('[LOCAL DB] Persistent DB saved immediately to LocalStorage');
+    }
+  } catch (err) {
+    console.error('[LOCAL DB] Immediate save failed:', err.message);
+  }
+};
+
+// Lifecycle listeners for instant state persistence
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => saveDbFileNow());
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveDbFileNow();
+  });
+  if (isNative() && window.Capacitor) {
+    try {
+      App.addListener('appStateChange', ({ isActive }) => {
+        if (!isActive) {
+          console.log('[LOCAL DB] App paused/backgrounded -> Flushing DB immediately');
+          saveDbFileNow();
+        }
+      });
+    } catch (e) {
+      console.warn('Capacitor App listener note:', e);
+    }
+  }
+}
+
+// Seed default hotel, user, tables and menu items if fresh DB
+const ensureDefaultSeedData = () => {
+  try {
+    const hotelCheck = db.exec("SELECT COUNT(*) as count FROM hotels");
+    const count = hotelCheck[0]?.values[0]?.[0] || 0;
+    if (count === 0) {
+      console.log('[LOCAL DB] No hotel found. Seeding default hotel, user, categories, menu & tables...');
+      db.run("INSERT INTO users (id, name, email, password, role, hotel_id) VALUES (1, 'Owner', 'owner@bestbill.com', '$2a$10$e8461719999999999999999999999999999999999999999999999', 'owner', 1)");
+      db.run("INSERT INTO hotels (id, owner_id, name, phone, location, gst_percentage) VALUES (1, 1, 'BestBill Hotel', '9822401802', 'Main Market', 0)");
+      db.run("INSERT INTO categories (id, hotel_id, name) VALUES (1, 1, 'General')");
+      
+      // Default Menu Items
+      db.run("INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES (1, 1, 'Pani Puri', 40, 'Crispy Puris with Spicy Flavored Water', 1)");
+      db.run("INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES (1, 1, 'Sev Puri', 60, 'Crunchy Puri topped with Sev & Chutneys', 1)");
+      db.run("INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES (1, 1, 'Masala Dosa', 80, 'South Indian Rice Crepe with Potato Filling', 1)");
+      db.run("INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES (1, 1, 'Tea', 15, 'Hot Masala Tea', 1)");
+      db.run("INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES (1, 1, 'Coffee', 25, 'Hot Brewed Coffee', 1)");
+
+      // Default Tables 1 to 6
+      for (let i = 1; i <= 6; i++) {
+        db.run("INSERT INTO tables (hotel_id, table_number, capacity, floor) VALUES (1, ?, 4, 'Floor 1')", [i.toString()]);
+      }
+      saveDbFileNow();
+    }
+  } catch (err) {
+    console.error('[LOCAL DB SEED ERROR]', err);
+  }
+};
+
 export const initDb = async () => {
   if (db) return db;
 
@@ -334,11 +407,12 @@ export const initDb = async () => {
       db = new SQL.Database();
       console.log('[LOCAL DB] Fresh database initialized. Running DDL...');
       db.run(DDL_SCHEMA);
-      saveDbFile();
+      saveDbFileNow();
     }
     
-    // Enable Foreign Keys
+    // Enable Foreign Keys & Seed Defaults
     db.run('PRAGMA foreign_keys = ON;');
+    ensureDefaultSeedData();
     return db;
   } catch (err) {
     console.error('[LOCAL DB INIT ERROR]', err);
@@ -382,15 +456,46 @@ export const query = async (text, params = []) => {
         }
         stmt.free();
 
-        // Emulate RETURNING clause by executing last_insert_rowid() if it was an insert returning
+        // Emulate RETURNING clause by fetching inserted/updated row if RETURNING yielded empty or partial rows
         let returningRows = rows;
-        if (sanitizedSql.toUpperCase().includes('RETURNING') && rows.length === 0) {
+        if (sanitizedSql.toUpperCase().includes('RETURNING')) {
+          const upperSql = sanitizedSql.toUpperCase();
+          let tableName = null;
+          
+          if (upperSql.includes('INTO ')) {
+            const match = upperSql.match(/INTO\s+([a-zA-Z0-9_]+)/i);
+            if (match) tableName = match[1].toLowerCase();
+          } else if (upperSql.includes('UPDATE ')) {
+            const match = upperSql.match(/UPDATE\s+([a-zA-Z0-9_]+)/i);
+            if (match) tableName = match[1].toLowerCase();
+          }
+
           const lastIdRes = db.exec('SELECT last_insert_rowid() as id');
           const lastId = lastIdRes[0]?.values[0]?.[0];
-          returningRows = [{ id: lastId }];
+
+          if (tableName && lastId) {
+            try {
+              const fullRowRes = db.exec(`SELECT * FROM ${tableName} WHERE id = ${lastId}`);
+              if (fullRowRes.length > 0 && fullRowRes[0].values.length > 0) {
+                const columns = fullRowRes[0].columns;
+                const values = fullRowRes[0].values[0];
+                const fullRow = {};
+                columns.forEach((col, idx) => {
+                  fullRow[col] = values[idx];
+                });
+                returningRows = [fullRow];
+              }
+            } catch (e) {
+              console.warn('[LOCAL DB] RETURNING fallback fetch note:', e.message);
+            }
+          }
+
+          if (returningRows.length === 0 && lastId) {
+            returningRows = [{ id: lastId }];
+          }
         }
 
-        // Auto save on write queries even if they use RETURNING (which is treated as isSelect)
+        // Auto save on write queries even if they use RETURNING
         const upperSql = sanitizedSql.trim().toUpperCase();
         if (upperSql.startsWith('INSERT') || upperSql.startsWith('UPDATE') || upperSql.startsWith('DELETE') || upperSql.startsWith('REPLACE') || upperSql.includes('RETURNING')) {
           saveDbFile();
