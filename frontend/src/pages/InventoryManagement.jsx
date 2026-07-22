@@ -23,10 +23,14 @@ import {
 } from 'lucide-react';
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
-if (pdfFonts && pdfFonts.pdfMake) {
-  pdfMake.vfs = pdfFonts.pdfMake.vfs;
-}
+const getVfs = () => {
+  if (pdfFonts && pdfFonts.pdfMake) return pdfFonts.pdfMake.vfs;
+  if (pdfFonts && pdfFonts.default && pdfFonts.default.pdfMake) return pdfFonts.default.pdfMake.vfs;
+  return pdfFonts;
+};
 
 const InventoryManagement = () => {
     const { user } = useAuth();
@@ -53,6 +57,14 @@ const InventoryManagement = () => {
         lowStockItems: 0,
         inventoryValue: 0
     });
+
+    const totalIngredientsCount = useMemo(() => items.length || metrics.totalItems || metrics.totalIngredients || 0, [items, metrics]);
+    const lowStockItemsCount = useMemo(() => {
+        if (items.length > 0) {
+            return items.filter(item => (parseFloat(item.current_stock) || 0) <= (parseFloat(item.minimum_stock) || 0)).length;
+        }
+        return metrics.lowStockItems || 0;
+    }, [items, metrics]);
 
     // Modals
     const [showItemModal, setShowItemModal] = useState(false);
@@ -230,7 +242,35 @@ const InventoryManagement = () => {
             defaultStyle: { fontSize: 9 }
         };
 
-        pdfMake.createPdf(docDefinition).download(`Inventory_Ledger_Report_${start}_to_${end}.pdf`);
+        const pdfDoc = pdfMake.createPdf(docDefinition, null, null, getVfs());
+        const fileName = `Inventory_Ledger_Report_${start}_to_${end}.pdf`;
+
+        if (Capacitor.isNativePlatform()) {
+            const toastId = toast.loading('Exporting PDF...');
+            pdfDoc.getBase64(async (base64data) => {
+                try {
+                    await Filesystem.writeFile({
+                        path: `Download/${fileName}`,
+                        data: base64data,
+                        directory: Directory.ExternalStorage,
+                        recursive: true
+                    }).catch(async (e) => {
+                        console.warn('ExternalStorage/Download blocked, falling back to Documents', e);
+                        return await Filesystem.writeFile({
+                            path: fileName,
+                            data: base64data,
+                            directory: Directory.Documents
+                        });
+                    });
+                    toast.success(`PDF exported successfully as ${fileName}`, { id: toastId });
+                } catch (err) {
+                    console.error('Save PDF failed:', err);
+                    toast.error('Failed to export PDF: ' + err.message, { id: toastId });
+                }
+            });
+        } else {
+            pdfDoc.download(fileName);
+        }
     };
 
     useEffect(() => {
@@ -556,7 +596,7 @@ const InventoryManagement = () => {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Total Ingredients</span>
-                        <span style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', marginTop: '4px' }}>{metrics.totalItems}</span>
+                        <span style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', marginTop: '4px' }}>{totalIngredientsCount}</span>
                     </div>
                 </div>
 
@@ -566,7 +606,7 @@ const InventoryManagement = () => {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Low Stock Items</span>
-                        <span style={{ fontSize: '24px', fontWeight: 900, color: '#ef4444', marginTop: '4px' }}>{metrics.lowStockItems}</span>
+                        <span style={{ fontSize: '24px', fontWeight: 900, color: '#ef4444', marginTop: '4px' }}>{lowStockItemsCount}</span>
                     </div>
                 </div>
 

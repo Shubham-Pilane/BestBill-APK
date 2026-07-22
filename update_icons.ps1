@@ -1,6 +1,6 @@
 Add-Type -AssemblyName System.Drawing
 
-$sourceImagePath = "C:\Users\shubh\.gemini\antigravity-ide\brain\ae5063c9-fcf6-437f-aa12-9047ce5dfeac\bestbill_launcher_logo_1784633885854.png"
+$sourceImagePath = "$PSScriptRoot\bestbill_logo.jpeg"
 
 if (-not (Test-Path $sourceImagePath)) {
     Write-Host "Source image not found: $sourceImagePath"
@@ -70,5 +70,9 @@ foreach ($d in $densities) {
     Create-BestBillIcon -width $sz -height $sz -outputPath (Join-Path $dir "ic_launcher_foreground.png") -isRound $false
     Write-Host "Generated launcher icons for $($d.folder) ($($sz)x$($sz))"
 }
+
+$webLogoPath = "d:\BestBill-apk\frontend\public\logo.png"
+Create-BestBillIcon -width 512 -height 512 -outputPath $webLogoPath -isRound $false
+Write-Host "Generated web logo at $webLogoPath (512x512)"
 
 $sourceImage.Dispose()

@@ -599,12 +599,13 @@ const Profile = () => {
             const res = await api.put('/hotel', hotelData);
             updateUser({ 
                 ...user, 
-                hotel_name: res.data.name, 
-                hotel_address: res.data.address,
-                upi_id: res.data.upi_id, 
-                gst_percentage: res.data.gst_percentage,
-                printer_size: res.data.printer_size,
-                billing_method: res.data.billing_method
+                hotel_name: hotelData.name, 
+                hotel_phone: hotelData.phone,
+                hotel_location: hotelData.address,
+                upi_id: hotelData.upi_id, 
+                gst_percentage: hotelData.gst_percentage,
+                printer_size: hotelData.printer_size || user?.printer_size,
+                billing_method: hotelData.billing_method || user?.billing_method
             });
             toast.success('Hotel configuration persisted!', { id: t });
         } catch (err) {

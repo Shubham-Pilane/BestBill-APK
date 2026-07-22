@@ -2,15 +2,20 @@ import { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
+import { exportBillingHistoryPdf } from '../utils/pdfExporter';
 import { Receipt, History, IndianRupee, Calendar, Search, Ban, CheckCircle, Phone, Printer, MessageCircle, BarChart2, Download, ArrowLeft, ArrowUp, ArrowDown } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
-if (pdfFonts && pdfFonts.pdfMake) {
-  pdfMake.vfs = pdfFonts.pdfMake.vfs;
-}
+const getVfs = () => {
+  if (pdfFonts && pdfFonts.pdfMake) return pdfFonts.pdfMake.vfs;
+  if (pdfFonts && pdfFonts.default && pdfFonts.default.pdfMake) return pdfFonts.default.pdfMake.vfs;
+  return pdfFonts;
+};
 
 // Utility to safely parse SQLite timestamps (YYYY-MM-DD HH:MM:SS) into cross-platform valid Dates
 const safeDate = (dateString) => {
@@ -29,6 +34,13 @@ const BillingHistory = () => {
     const [customerPhone, setCustomerPhone] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 15;
+    const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const [activeView, setActiveView] = useState('history'); // 'history' or 'analytics'
     const [analyticsFilter, setAnalyticsFilter] = useState('Today'); // 'Today', 'Month', 'Year', 'Custom'
@@ -226,97 +238,83 @@ const BillingHistory = () => {
         }
     };
 
-    const exportPDF = () => {
-        const docDefinition = {
-            content: [
-                { text: (user?.hotel_name || 'BESTBILL').toUpperCase(), style: 'header', alignment: 'center' },
-                { text: user?.hotel_location || 'Address not available', alignment: 'center', margin: [0, 0, 0, 5] },
-                { text: `Mobile: ${user?.hotel_phone || 'N/A'}`, alignment: 'center' },
-                user?.fssai_number ? { text: `FSSAI: ${user.fssai_number}`, alignment: 'center' } : {},
-                { text: `${analyticsFilter} Sales Report`, style: 'subheader', alignment: 'center', margin: [0, 15, 0, 10] },
-            ],
-            styles: {
-                header: { fontSize: 22, bold: true },
-                subheader: { fontSize: 16, bold: true },
-                tableHeader: { bold: true, fontSize: 12, color: 'black', fillColor: '#eeeeee' }
-            },
-            defaultStyle: { fontSize: 10 }
-        };
-
-        if (analyticsFilter === 'Today' || analyticsFilter === 'Custom' || analyticsFilter === 'Month') {
+    const exportPDF = async () => {
+        const toastId = toast.loading('Exporting PDF report...');
+        try {
+            let dateRangeText = '';
             if (analyticsFilter === 'Today') {
-                docDefinition.content.push({ text: `Date: ${new Date().toLocaleDateString()}`, margin: [0, 0, 0, 10] });
+                dateRangeText = new Date().toLocaleDateString();
             } else if (analyticsFilter === 'Custom') {
-                docDefinition.content.push({ text: `Period: ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`, margin: [0, 0, 0, 10] });
-            } else {
-                docDefinition.content.push({ text: `Selected Month: ${monthsList.find(m => m.value === selectedMonth)?.label} ${selectedYear}`, margin: [0, 0, 0, 10] });
+                dateRangeText = `${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`;
+            } else if (analyticsFilter === 'Month') {
+                dateRangeText = `${monthsList.find(m => m.value === selectedMonth)?.label} ${selectedYear}`;
+            } else if (analyticsFilter === 'Year') {
+                dateRangeText = `Year ${selectedYear}`;
             }
-            
-            // Revenue Summary
-            docDefinition.content.push({
-                table: {
-                    widths: ['*', '*'],
-                    body: [
-                        [{text: 'Revenue Type', style: 'tableHeader'}, {text: 'Amount (₹)', style: 'tableHeader'}],
-                        ['Dine-In Revenue', totalDineInRevenue.toFixed(2)],
-                        ['Parcel Revenue', totalParcelRevenue.toFixed(2)],
-                        ['Cash Collection', totalCashRevenue.toFixed(2)],
-                        ['Online Collection', totalOnlineRevenue.toFixed(2)],
-                        [{text: 'Total Revenue', bold: true}, {text: grandTotalRevenue.toFixed(2), bold: true}]
-                    ]
-                },
-                margin: [0, 0, 0, 20]
-            });
-        } else if (analyticsFilter === 'Year') {
-            docDefinition.content.push({ text: `Selected Year: ${selectedYear}`, margin: [0, 0, 0, 10] });
-            
-            const yearlyBody = [
-                [
-                    {text: 'Month', style: 'tableHeader'}, 
-                    {text: 'Cash Collection', style: 'tableHeader'}, 
-                    {text: 'Online Collection', style: 'tableHeader'}, 
-                    {text: 'Parcel Revenue', style: 'tableHeader'}, 
-                    {text: 'Dine-In Revenue', style: 'tableHeader'}, 
-                    {text: 'Total Revenue', style: 'tableHeader'}
-                ]
-            ];
-            
-            let yrTotalCash = 0, yrTotalOnline = 0, yrTotalParcel = 0, yrTotalDine = 0, yrTotal = 0;
-            
-            yearlyData.forEach(row => {
-                yearlyBody.push([
-                    row.month, 
-                    row.cashRev.toFixed(2), 
-                    row.onlineRev.toFixed(2), 
-                    row.parcelRev.toFixed(2), 
-                    row.dineInRev.toFixed(2), 
-                    row.totalRev.toFixed(2)
+
+            let tableHeaders = [];
+            let tableData = [];
+            let sectionTitle = '';
+
+            if (analyticsFilter === 'Year') {
+                sectionTitle = 'Monthly Performance Breakdown';
+                tableHeaders = ['Month', 'Cash Coll.', 'Online Coll.', 'Parcel Rev.', 'Dine-In Rev.', 'Total Rev.'];
+                let yrTotalCash = 0, yrTotalOnline = 0, yrTotalParcel = 0, yrTotalDine = 0, yrTotal = 0;
+                yearlyData.forEach(row => {
+                    tableData.push([
+                        row.month,
+                        `Rs. ${row.cashRev.toFixed(2)}`,
+                        `Rs. ${row.onlineRev.toFixed(2)}`,
+                        `Rs. ${row.parcelRev.toFixed(2)}`,
+                        `Rs. ${row.dineInRev.toFixed(2)}`,
+                        `Rs. ${row.totalRev.toFixed(2)}`
+                    ]);
+                    yrTotalCash += row.cashRev;
+                    yrTotalOnline += row.onlineRev;
+                    yrTotalParcel += row.parcelRev;
+                    yrTotalDine += row.dineInRev;
+                    yrTotal += row.totalRev;
+                });
+                tableData.push([
+                    'TOTAL',
+                    `Rs. ${yrTotalCash.toFixed(2)}`,
+                    `Rs. ${yrTotalOnline.toFixed(2)}`,
+                    `Rs. ${yrTotalParcel.toFixed(2)}`,
+                    `Rs. ${yrTotalDine.toFixed(2)}`,
+                    `Rs. ${yrTotal.toFixed(2)}`
                 ]);
-                yrTotalCash += row.cashRev;
-                yrTotalOnline += row.onlineRev;
-                yrTotalParcel += row.parcelRev;
-                yrTotalDine += row.dineInRev;
-                yrTotal += row.totalRev;
-            });
-            
-            yearlyBody.push([
-                {text: 'TOTAL', bold: true}, 
-                {text: yrTotalCash.toFixed(2), bold: true}, 
-                {text: yrTotalOnline.toFixed(2), bold: true}, 
-                {text: yrTotalParcel.toFixed(2), bold: true}, 
-                {text: yrTotalDine.toFixed(2), bold: true}, 
-                {text: yrTotal.toFixed(2), bold: true}
-            ]);
+            } else {
+                sectionTitle = 'Top Sold Items Summary';
+                tableHeaders = ['Item Description', 'Qty Sold', 'Revenue Generated'];
+                (itemSalesSummary || []).slice(0, 30).forEach(item => {
+                    tableData.push([
+                        item.name,
+                        item.quantity.toString(),
+                        `Rs. ${item.totalRevenue.toFixed(2)}`
+                    ]);
+                });
+            }
 
-            docDefinition.content.push({
-                table: {
-                    widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto'],
-                    body: yearlyBody
-                }
+            const res = await exportBillingHistoryPdf({
+                hotelName: user?.hotel_name || user?.name || 'BESTBILL',
+                dateRangeText,
+                summary: {
+                    total_revenue: grandTotalRevenue,
+                    cash_collection: totalCashRevenue,
+                    online_collection: totalOnlineRevenue,
+                    dine_in_sales: totalDineInRevenue,
+                    parcel_sales: totalParcelRevenue
+                },
+                tableData,
+                tableHeaders,
+                sectionTitle
             });
+
+            toast.success(`PDF exported successfully as ${res?.fileName || 'Report.pdf'}!`, { id: toastId });
+        } catch (err) {
+            console.error('Export PDF error:', err);
+            toast.error('Failed to export PDF: ' + (err.message || 'Error'), { id: toastId });
         }
-
-        pdfMake.createPdf(docDefinition).download(`${analyticsFilter}_Sales_Report.pdf`);
     };
 
     const handleSort = (key) => {
@@ -659,82 +657,80 @@ const BillingHistory = () => {
 
             {/* Bill Details Modal */}
             {selectedBill && (
-                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', backdropFilter: 'blur(16px)' }}>
-                <div className="order-modal-container" style={{width: '100%', maxWidth: '850px', backgroundColor: 'var(--bg-card)', borderRadius: '40px', overflow: 'hidden', display: 'flex', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.5)' }}>
-                    <div style={{ flex: 1, padding: '48px', borderRight: '1px solid var(--bg-border)', backgroundColor: selectedBill.is_paid ? '#10b981' : 'var(--bg-base)', transition: 'all 0.6s', overflowY: 'auto', position: 'relative' }}>
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '12px' : '40px', backdropFilter: 'blur(16px)' }}>
+                <div className="order-modal-container" style={{ width: '100%', maxWidth: '850px', maxHeight: isMobile ? '92vh' : '90vh', backgroundColor: 'var(--bg-card)', borderRadius: isMobile ? '24px' : '40px', overflowY: 'auto', display: 'flex', flexDirection: isMobile ? 'column' : 'row', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.5)', border: '1px solid var(--bg-border)' }}>
+                    <div style={{ flex: 1, padding: isMobile ? '20px 16px' : '40px', borderRight: isMobile ? 'none' : '1px solid var(--bg-border)', borderBottom: isMobile ? '1px solid var(--bg-border)' : 'none', backgroundColor: selectedBill.is_paid ? '#10b981' : 'var(--bg-base)', transition: 'all 0.6s', position: 'relative' }}>
                         {selectedBill.is_paid && (
                         <div style={{ position: 'absolute', top: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
-                            <div style={{backgroundColor: 'var(--bg-card)', padding: '24px', borderRadius: '50%', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-                                <CheckCircle size={100} color="#10b981" />
+                            <div style={{ backgroundColor: 'var(--bg-card)', padding: '16px', borderRadius: '50%', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+                                <CheckCircle size={isMobile ? 60 : 100} color="#10b981" />
                             </div>
                         </div>
                         )}
-                        <div style={{ textAlign: 'center', marginBottom: '24px', opacity: selectedBill.is_paid ? 0.3 : 1 }}>
-                        <h1 style={{ margin: 0, fontWeight: 950, fontSize: '28px', color: selectedBill.is_paid ? 'white' : 'var(--text-primary)' }}>{(selectedBill.hotel_name || user?.hotel_name || 'BESTBILL').toUpperCase()}</h1>
-                        <div style={{ color: selectedBill.is_paid ? 'white' : 'var(--text-muted)', fontWeight: 800, fontSize: '14px', marginTop: '4px' }}>{selectedBill.hotel_location}</div>
+                        <div style={{ textAlign: 'center', marginBottom: '20px', opacity: selectedBill.is_paid ? 0.3 : 1 }}>
+                        <h1 style={{ margin: 0, fontWeight: 950, fontSize: isMobile ? '20px' : '28px', color: selectedBill.is_paid ? 'white' : 'var(--text-primary)' }}>{(selectedBill.hotel_name || user?.hotel_name || 'BESTBILL').toUpperCase()}</h1>
+                        <div style={{ color: selectedBill.is_paid ? 'white' : 'var(--text-muted)', fontWeight: 800, fontSize: '13px', marginTop: '4px' }}>{selectedBill.hotel_location}</div>
                         </div>
                         
-                        <div style={{ borderTop: '2px dashed var(--text-muted)', borderBottom: '2px dashed var(--text-muted)', padding: '16px 0', marginBottom: '24px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 900, color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
+                        <div style={{ borderTop: '2px dashed var(--text-muted)', borderBottom: '2px dashed var(--text-muted)', padding: '12px 0', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 900, color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
                             <span>TABLE NO: {selectedBill.table_number}</span>
                             <span>BILL NO: #{selectedBill.id}</span>
                         </div>
-                        <div style={{ fontSize: '13px', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>DATE: {safeDate(selectedBill.created_at).toLocaleDateString()} {safeDate(selectedBill.created_at).toLocaleTimeString()}</div>
+                        <div style={{ fontSize: '12px', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)', marginTop: '4px' }}>DATE: {safeDate(selectedBill.created_at).toLocaleDateString()} {safeDate(selectedBill.created_at).toLocaleTimeString()}</div>
                         </div>
 
-                        <div style={{ marginBottom: '24px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 60px 100px', borderBottom: '1px dashed var(--text-muted)', paddingBottom: '8px', marginBottom: '12px', fontSize: '12px', fontWeight: 900, color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
+                        <div style={{ marginBottom: '20px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 40px 75px', borderBottom: '1px dashed var(--text-muted)', paddingBottom: '6px', marginBottom: '10px', fontSize: '11px', fontWeight: 900, color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
                             <span>Item</span><span style={{ textAlign: 'right' }}>Price</span><span style={{ textAlign: 'right' }}>Qty</span><span style={{ textAlign: 'right' }}>Total</span>
                         </div>
                         {(selectedBill.items || []).length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '16px 0', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)', fontWeight: 800, fontSize: '14px', fontStyle: 'italic' }}>
+                            <div style={{ textAlign: 'center', padding: '16px 0', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)', fontWeight: 800, fontSize: '13px', fontStyle: 'italic' }}>
                                 Item details cleared for performance
                             </div>
                         ) : (
                             (selectedBill.items || []).map((i, idx) => (
-                                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 60px 100px', fontSize: '15px', fontWeight: 800, marginBottom: '8px', color: selectedBill.is_paid ? 'white' : 'var(--text-primary)' }}>
+                                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 40px 75px', fontSize: isMobile ? '13px' : '15px', fontWeight: 800, marginBottom: '6px', color: selectedBill.is_paid ? 'white' : 'var(--text-primary)' }}>
                                 <span>{i.name}</span><span style={{ textAlign: 'right' }}>₹{Math.round(i.price)}</span><span style={{ textAlign: 'right' }}>{i.quantity}</span><span style={{ textAlign: 'right' }}>₹{(i.price * i.quantity).toFixed(2)}</span>
                                 </div>
                             ))
                         )}
                         </div>
 
-                        <div style={{ borderTop: '1px dashed var(--text-muted)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 800 }}><span>SUBTOTAL</span><span>₹{parseFloat(selectedBill.subtotal || 0).toFixed(2)}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 800 }}><span>GST</span><span>₹{parseFloat(selectedBill.gst || 0).toFixed(2)}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '42px', fontWeight: 1000, color: selectedBill.is_paid ? 'white' : '#10b981', borderTop: '4px double var(--text-muted)', marginTop: '12px', paddingTop: '12px' }}><span>TOTAL</span><span>₹{parseFloat(selectedBill.final_amount).toFixed(2)}</span></div>
+                        <div style={{ borderTop: '1px dashed var(--text-muted)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>SUBTOTAL</span><span>₹{parseFloat(selectedBill.subtotal || 0).toFixed(2)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>GST</span><span>₹{parseFloat(selectedBill.gst || 0).toFixed(2)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: isMobile ? '24px' : '42px', fontWeight: 1000, color: selectedBill.is_paid ? 'white' : '#10b981', borderTop: '4px double var(--text-muted)', marginTop: '8px', paddingTop: '8px' }}><span>TOTAL</span><span>₹{parseFloat(selectedBill.final_amount).toFixed(2)}</span></div>
                         </div>
 
-                        <div style={{ marginTop: '48px' }}>
                         {selectedBill.is_paid && (
-                            <div style={{textAlign: 'center', padding: '24px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '24px', color: 'white', fontWeight: 950, fontSize: '20px' }}>SUCCESSFULLY SETTLED</div>
+                        <div style={{ marginTop: '24px', textAlign: 'center', padding: '16px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '16px', color: 'white', fontWeight: 950, fontSize: '16px' }}>SUCCESSFULLY SETTLED</div>
                         )}
-                        </div>
                     </div>
 
-                    <div style={{ width: '380px', padding: '48px', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                        <div style={{textAlign: 'center', backgroundColor: 'white', padding: '24px', borderRadius: '32px', display: 'inline-block', margin: '0 auto' }}>
-                        <QRCodeCanvas id="history-qr-canvas" value={`upi://pay?pa=${user?.upi_id || ''}&pn=${encodeURIComponent(selectedBill.hotel_name || user?.hotel_name || 'BESTBILL')}&am=${selectedBill.final_amount}&cu=INR`} size={180} />
+                    <div style={{ width: isMobile ? '100%' : '380px', padding: isMobile ? '20px 16px' : '40px', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div style={{ textAlign: 'center', backgroundColor: 'white', padding: '16px', borderRadius: '24px', display: 'inline-block', margin: '0 auto' }}>
+                        <QRCodeCanvas id="history-qr-canvas" value={`upi://pay?pa=${user?.upi_id || ''}&pn=${encodeURIComponent(selectedBill.hotel_name || user?.hotel_name || 'BESTBILL')}&am=${selectedBill.final_amount}&cu=INR`} size={isMobile ? 140 : 180} />
                         </div>
-                        <div style={{backgroundColor: 'var(--bg-base)', padding: '20px', borderRadius: '24px', display: 'flex', alignItems: 'center', gap: '12px', border: '1px solid var(--bg-border)' }}>
+                        <div style={{ backgroundColor: 'var(--bg-base)', padding: '14px 16px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid var(--bg-border)' }}>
                             <Phone size={18} color="var(--text-muted)" />
                             <input 
                             placeholder="Customer Mobile No" 
                             value={customerPhone} 
                             onChange={(e) => setCustomerPhone(e.target.value)}
-                            style={{ border: 'none', width: '100%', outline: 'none', fontWeight: 800, fontSize: '15px', background: 'transparent', color: 'var(--text-primary)' }}
+                            style={{ border: 'none', width: '100%', outline: 'none', fontWeight: 800, fontSize: '14px', background: 'transparent', color: 'var(--text-primary)' }}
                             />
                         </div>
 
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <button onClick={printBill} style={{flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '800', fontSize: '14px' }}>
-                                <Printer size={18} /> Print
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '800', fontSize: '13px' }}>
+                                <Printer size={16} /> Print
                             </button>
-                            <button onClick={shareViaWhatsApp} style={{ flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: '#10b981', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '800', fontSize: '14px' }}>
-                                <MessageCircle size={18} /> WhatsApp
+                            <button onClick={shareViaWhatsApp} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#10b981', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '800', fontSize: '13px' }}>
+                                <MessageCircle size={16} /> WhatsApp
                             </button>
                         </div>
-                        <button onClick={() => setSelectedBill(null)} style={{width: '100%', padding: '20px', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '20px', fontWeight: 900, cursor: 'pointer' }}>CLOSE</button>
+                        <button onClick={() => setSelectedBill(null)} style={{ width: '100%', padding: '16px', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', fontSize: '14px' }}>CLOSE</button>
                     </div>
                 </div>
                 </div>

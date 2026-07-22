@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import ConfirmModal from '../components/ConfirmModal';
 import { toast } from 'react-hot-toast';
-import { Plus, Utensils, Tag, IndianRupee, Layers, ListChecks, Trash2, Edit2, X, Save, Search, UploadCloud } from 'lucide-react';
+import { Plus, Utensils, Tag, IndianRupee, Layers, ListChecks, Trash2, Edit2, X, Check, Save, Search, UploadCloud } from 'lucide-react';
 
 const MenuManagement = () => {
   const [categories, setCategories] = useState([]);
@@ -320,7 +320,7 @@ const MenuManagement = () => {
                 
                 <div style={{ display: 'flex', gap: '8px' }}>
                    {editingCatId === cat.id ? (
-                      <button onClick={() => saveCategoryUpdate(cat.id)} style={{ color: '#10b981', background: 'none', border: 'none', cursor: 'pointer' }}><Save size={16} /></button>
+                      <button onClick={() => saveCategoryUpdate(cat.id)} style={{ color: '#10b981', background: 'none', border: 'none', cursor: 'pointer' }}><Check size={16} strokeWidth={3} /></button>
                    ) : (
                       <button onClick={() => { setEditingCatId(cat.id); setEditCatName(cat.name); }} style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}><Edit2 size={16} /></button>
                    )}
@@ -474,7 +474,7 @@ const MenuManagement = () => {
                       {editingItemId === item.id ? (
                         <>
                           <button onClick={() => setEditingItemId(null)} style={{ padding: '8px', color: 'var(--text-muted)', background: 'rgba(100, 116, 139, 0.1)', border: 'none', borderRadius: '10px', cursor: 'pointer' }}><X size={18} /></button>
-                          <button onClick={() => saveItemUpdate(item.id)} style={{ padding: '8px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', border: 'none', borderRadius: '10px', cursor: 'pointer' }}><Save size={18} /></button>
+                          <button onClick={() => saveItemUpdate(item.id)} style={{ padding: '8px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', border: 'none', borderRadius: '10px', cursor: 'pointer' }}><Check size={18} strokeWidth={3} /></button>
                         </>
                       ) : (
                         <>

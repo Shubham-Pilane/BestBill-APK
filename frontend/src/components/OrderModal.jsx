@@ -247,7 +247,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       setShowBill(true);
       toast.success('Bill finalized!', {
         icon: '🧾',
-        style: { borderRadius: '16px', background: 'var(--bg-card)', color: '#fff', fontWeight: 900 }
+        style: { borderRadius: '16px', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 900 }
       });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Billing failed');
@@ -399,6 +399,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
         customerPhone
       );
       toast.success('WhatsApp PDF bill generated!', { id: toastId });
+      if (!billData.is_paid) {
+        await confirmPayment(selectedPaymentMethod);
+      } else {
+        onClose();
+      }
     } catch (e) {
       toast.error('Failed to share PDF bill: ' + e.message, { id: toastId });
     }
@@ -413,10 +418,10 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
   return (
     <div className="order-modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
-      <div className="order-modal-container" style={{ width: '100%', maxWidth: '1280px', height: '92vh', backgroundColor: '#0b1120', borderRadius: '32px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 30px 90px rgba(0,0,0,0.9)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+      <div className="order-modal-container" style={{ width: '100%', maxWidth: '1280px', height: '92vh', backgroundColor: 'var(--bg-base)', borderRadius: '32px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 30px 90px rgba(0,0,0,0.9)', border: '1px solid var(--border-color)' }}>
         
         {/* Header - Matching Screenshot Style */}
-        <div className="order-modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0f172a' }}>
+        <div className="order-modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{
               width: '48px', 
@@ -439,7 +444,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               }
             </div>
             <div>
-              <h2 style={{ fontSize: '20px', fontWeight: 900, color: '#ffffff', margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {String(table.table_number || '').toLowerCase().includes('parcel') 
                   ? 'Parcel Counter Summary' 
                   : String(table.table_number || '').toLowerCase().includes('token') 
@@ -461,9 +466,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               width: '40px', 
               height: '40px', 
               borderRadius: '50%', 
-              backgroundColor: 'rgba(255, 255, 255, 0.06)', 
-              border: '1px solid rgba(255, 255, 255, 0.08)', 
-              color: 'rgba(255, 255, 255, 0.7)', 
+              backgroundColor: 'var(--border-rgba-05)', 
+              border: '1px solid var(--border-color)', 
+              color: 'var(--text-secondary)', 
               cursor: 'pointer', 
               display: 'flex', 
               alignItems: 'center', 
@@ -479,14 +484,14 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
         <div className="order-modal-content" style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           
           {/* Left Panel: Search & Menu Items */}
-          <div className="order-modal-menu" style={{ flex: 1, borderRight: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, backgroundColor: '#0b1120' }}>
+          <div className="order-modal-menu" style={{ flex: 1, borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, backgroundColor: 'var(--bg-base)' }}>
             
             {/* Top Bar: Search Input & Category Scroll Bar */}
-            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#0f172a', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: 'var(--bg-card)', borderBottom: '1px solid var(--border-color)' }}>
               
               {/* Search Menu Input */}
               <div className="search-bar-container" style={{ position: 'relative', width: '100%' }}>
-                <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255, 255, 255, 0.4)' }}>
+                <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
                   <Search size={16} />
                 </div>
                 <input 
@@ -498,9 +503,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                      width: '100%', 
                      padding: '12px 40px 12px 44px', 
                      borderRadius: '16px', 
-                     backgroundColor: 'rgba(15, 23, 42, 0.9)', 
-                     border: '1px solid rgba(255, 255, 255, 0.1)', 
-                     color: '#ffffff', 
+                     backgroundColor: 'var(--input-bg)', 
+                     border: '1px solid var(--border-color)', 
+                     color: 'var(--text-primary)', 
                      fontWeight: 700, 
                      outline: 'none', 
                      fontSize: '14px',
@@ -518,9 +523,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
                 {/* Suggestions Dropdown */}
                 {suggestions.length > 0 && (
-                  <div className="search-suggestions-scrollbar" style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#0f172a', borderRadius: '16px', marginTop: '6px', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', zIndex: 100, border: '1px solid rgba(255, 255, 255, 0.1)', overflowY: 'auto', maxHeight: '300px' }}>
+                  <div className="search-suggestions-scrollbar" style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'var(--bg-card)', borderRadius: '16px', marginTop: '6px', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', zIndex: 100, border: '1px solid var(--border-color)', overflowY: 'auto', maxHeight: '300px' }}>
                     {suggestions.map(s => (
-                      <div key={s.id} onClick={() => { addToOrder(s); setSearchQuery(''); setSuggestions([]); }} style={{ padding: '12px 18px', cursor: 'pointer', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', color: '#ffffff', fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div key={s.id} onClick={() => { addToOrder(s); setSearchQuery(''); setSuggestions([]); }} style={{ padding: '12px 18px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', color: 'var(--text-primary)', fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <Plus size={14} color="#0ea5e9" />
                           <span>{s.name}</span>
@@ -542,8 +547,8 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     border: 'none', 
                     fontWeight: 800, 
                     cursor: 'pointer', 
-                    backgroundColor: selectedCategory === 'all' ? '#0ea5e9' : 'rgba(255, 255, 255, 0.06)', 
-                    color: '#ffffff', 
+                    backgroundColor: selectedCategory === 'all' ? '#0ea5e9' : 'var(--border-rgba-05)', 
+                    color: selectedCategory === 'all' ? '#ffffff' : 'var(--text-secondary)', 
                     fontSize: '11px', 
                     whiteSpace: 'nowrap',
                     letterSpacing: '0.03em',
@@ -562,8 +567,8 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                       border: 'none', 
                       fontWeight: 800, 
                       cursor: 'pointer', 
-                      backgroundColor: selectedCategory === cat.id ? '#0ea5e9' : 'rgba(255, 255, 255, 0.06)', 
-                      color: '#ffffff', 
+                      backgroundColor: selectedCategory === cat.id ? '#0ea5e9' : 'var(--border-rgba-05)', 
+                      color: selectedCategory === cat.id ? '#ffffff' : 'var(--text-secondary)', 
                       fontSize: '11px', 
                       whiteSpace: 'nowrap',
                       letterSpacing: '0.03em',
@@ -588,8 +593,8 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     key={item.id} 
                     onClick={() => { if (currentQty === 0) addToOrder(item); }} 
                     style={{ 
-                      backgroundColor: currentQty > 0 ? 'rgba(14, 165, 233, 0.1)' : 'rgba(15, 23, 42, 0.6)', 
-                      border: currentQty > 0 ? '1px solid #0ea5e9' : '1px solid rgba(14, 165, 233, 0.25)', 
+                      backgroundColor: currentQty > 0 ? 'rgba(14, 165, 233, 0.1)' : 'var(--bg-card)', 
+                      border: currentQty > 0 ? '1px solid #0ea5e9' : '1px solid var(--border-color)', 
                       padding: '14px 18px', 
                       borderRadius: '16px', 
                       cursor: 'pointer', 
@@ -601,12 +606,12 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, paddingRight: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{item.name}</span>
-                        <span style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 800, backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                        <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{item.name}</span>
+                        <span style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: 800, backgroundColor: 'var(--bg-base)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
                           {item.category_name || 'Item'}
                         </span>
                       </div>
-                      <p style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', margin: 0, fontWeight: 500 }}>
+                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontWeight: 500 }}>
                         {item.description || 'Standard culinary selection'}
                       </p>
                     </div>
@@ -687,17 +692,17 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 return (
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '16px', flexWrap: 'wrap' }}>
                     <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}
-                      style={{ ...btn, padding: '0 10px', backgroundColor: currentPage === 1 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.08)', color: currentPage === 1 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)', cursor: currentPage === 1 ? 'default' : 'pointer' }}
+                      style={{ ...btn, padding: '0 10px', backgroundColor: currentPage === 1 ? 'var(--border-rgba-05)' : 'var(--border-rgba-1)', color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === 1 ? 'default' : 'pointer' }}
                     >&#8249; Prev</button>
                     {getPages().map((p, i) => p === '...' ? (
-                      <span key={`e${i}`} style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 800, padding: '0 4px' }}>...</span>
+                      <span key={`e${i}`} style={{ color: 'var(--text-muted)', fontWeight: 800, padding: '0 4px' }}>...</span>
                     ) : (
                       <button key={p} onClick={() => setCurrentPage(p)}
-                        style={{ ...btn, backgroundColor: currentPage === p ? '#0ea5e9' : 'rgba(255,255,255,0.08)', color: currentPage === p ? 'white' : 'rgba(255,255,255,0.7)' }}
+                        style={{ ...btn, backgroundColor: currentPage === p ? '#0ea5e9' : 'var(--border-rgba-1)', color: currentPage === p ? 'white' : 'var(--text-secondary)' }}
                       >{p}</button>
                     ))}
                     <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}
-                      style={{ ...btn, padding: '0 10px', backgroundColor: currentPage === totalPages ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.08)', color: currentPage === totalPages ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)', cursor: currentPage === totalPages ? 'default' : 'pointer' }}
+                      style={{ ...btn, padding: '0 10px', backgroundColor: currentPage === totalPages ? 'var(--border-rgba-05)' : 'var(--border-rgba-1)', color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === totalPages ? 'default' : 'pointer' }}
                     >Next &#8250;</button>
                   </div>
                 );
@@ -832,13 +837,6 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     />
                   </div>
 
-                  <input 
-                    type="text" 
-                    value={kitchenNotes} 
-                    onChange={e => setKitchenNotes(e.target.value)}
-                    placeholder="Kitchen notes (e.g. less spicy)..." 
-                    style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', backgroundColor: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#ffffff', fontWeight: 600, outline: 'none', fontSize: '11px', boxSizing: 'border-box' }} 
-                  />
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>Final Due</span>
@@ -868,27 +866,27 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
           {/* Right Panel: Desktop Active Selection Cart */}
           {!isMobile && (
-            <div className="order-modal-cart" style={{ width: '400px', backgroundColor: '#070c18', display: 'flex', flexDirection: 'column' }}>
+            <div className="order-modal-cart" style={{ width: '400px', backgroundColor: 'var(--bg-base)', display: 'flex', flexDirection: 'column' }}>
               
               {/* Active Selection Header */}
-              <div style={{ padding: '18px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '10px' }}>
                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'rgba(14, 165, 233, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9' }}>
                     <Receipt size={16} />
                  </div>
-                 <h3 style={{ fontSize: '16px', fontWeight: 900, color: '#ffffff', margin: 0 }}>Active Selection</h3>
+                 <h3 style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Active Selection</h3>
               </div>
-
+ 
               {/* Cart Items List */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {orderItems.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255, 255, 255, 0.3)', fontSize: '13px', fontStyle: 'italic' }}>
+                  <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '13px', fontStyle: 'italic' }}>
                     No items selected yet. Tap items on the left to add.
                   </div>
                 ) : (
                   orderItems.map(item => (
-                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: 'rgba(15, 23, 42, 0.9)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
                       <div>
-                        <div style={{ color: '#ffffff', fontWeight: 900, fontSize: '14px' }}>{item.name}</div>
+                        <div style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px' }}>{item.name}</div>
                         {editingPriceId === item.id ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
                              <span style={{ color: '#10b981', fontSize: '12px' }}>₹</span>
@@ -901,7 +899,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                onKeyDown={e => e.key === 'Enter' && savePriceChange(item.id, item.menu_item_id)}
                                style={{ width: '75px', backgroundColor: '#0f172a', border: '1px solid #10b981', color: '#10b981', borderRadius: '6px', padding: '3px 6px', fontSize: '12px', outline: 'none', fontWeight: 800 }}
                              />
-                             <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px' }}>/ unit</span>
+                             <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>/ unit</span>
                           </div>
                         ) : (
                           <div 
@@ -909,7 +907,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                             style={{ color: '#10b981', fontSize: '12px', fontWeight: 900, cursor: 'pointer', display: 'inline-block', borderBottom: '1px dashed rgba(16,185,129,0.4)', marginTop: '2px' }}
                             title="Tap to Edit Unit Price"
                           >
-                             ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '10px', marginLeft: '4px' }}>(₹{Math.round(item.price)} each)</span>}
+                             ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'var(--text-secondary)', fontSize: '10px', marginLeft: '4px' }}>(₹{Math.round(item.price)} each)</span>}
                           </div>
                         )}
                       </div>
@@ -919,15 +917,15 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                         <button 
                           onClick={() => updateQuantity(item.id, -1)} 
                           disabled={!item.id}
-                          style={{ cursor: !item.id ? 'not-allowed' : 'pointer', opacity: !item.id ? 0.3 : 1, border: 'none', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ cursor: !item.id ? 'not-allowed' : 'pointer', opacity: !item.id ? 0.3 : 1, border: 'none', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                           <Minus size={13} />
                         </button>
-                        <span style={{ color: '#ffffff', fontWeight: 900, fontSize: '14px', minWidth: '16px', textAlign: 'center' }}>{item.quantity}</span>
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px', minWidth: '16px', textAlign: 'center' }}>{item.quantity}</span>
                         <button 
                           onClick={() => updateQuantity(item.id, 1)} 
                           disabled={!item.id}
-                          style={{ cursor: !item.id ? 'not-allowed' : 'pointer', opacity: !item.id ? 0.3 : 1, border: 'none', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ cursor: !item.id ? 'not-allowed' : 'pointer', opacity: !item.id ? 0.3 : 1, border: 'none', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                           <Plus size={13} />
                         </button>
@@ -938,48 +936,45 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               </div>
 
               {/* Desktop Cart Footer */}
-              <div style={{ padding: '16px 20px', backgroundColor: '#0f172a', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card)', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>LOYALTY DISCOUNT (%)</span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>LOYALTY DISCOUNT (%)</span>
                   <input 
                      type="number" 
                      value={discount} 
                      onChange={e => setDiscount(Math.max(0, Math.min(100, e.target.value)))} 
-                     style={{ width: '45px', background: 'none', border: 'none', borderBottom: '2px solid #0ea5e9', color: '#ffffff', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '13px' }} 
+                     style={{ width: '45px', background: 'none', border: 'none', borderBottom: '2px solid #0ea5e9', color: 'var(--text-primary)', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '13px' }} 
                   />
                 </div>
 
                 <div>
-                  <input 
-                    type="text" 
-                    value={kitchenNotes} 
-                    onChange={e => setKitchenNotes(e.target.value)}
-                    placeholder="Kitchen notes (e.g. less spicy)..." 
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '10px', backgroundColor: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#ffffff', fontWeight: 600, outline: 'none', fontSize: '12px', boxSizing: 'border-box' }} 
-                  />
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
-                  <span style={{ fontSize: '20px', fontWeight: 900, color: '#ffffff' }}>Final Due</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>Final Due</span>
                   <span style={{ color: '#10b981', fontSize: '22px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
                 </div>
 
-                {user?.role === 'waiter' ? (
-                  <button 
-                    disabled={orderItems.length === 0} 
-                    onClick={sendToKitchen} 
-                    style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '14px', cursor: 'pointer', opacity: orderItems.length === 0 ? 0.3 : 1, transition: '0.2s', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)' }}
-                  >
-                    SEND TO KITCHEN
-                  </button>
-                ) : (table.table_number === 'Parcel Counter' || user?.simpleKotEnabled) ? (
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button disabled={orderItems.length === 0} onClick={sendToKitchen} style={{ flex: 1, padding: '14px 8px', borderRadius: '14px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '13px', cursor: 'pointer', opacity: orderItems.length === 0 ? 0.3 : 1, transition: '0.2s' }}>SEND TO KITCHEN</button>
-                    <button disabled={orderItems.length === 0} onClick={generateBill} style={{ flex: 1, padding: '14px 8px', borderRadius: '14px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '13px', cursor: 'pointer', opacity: orderItems.length === 0 ? 0.3 : 1, transition: '0.2s' }}>SETTLE BILL</button>
-                  </div>
-                ) : (
-                  <button disabled={orderItems.length === 0} onClick={generateBill} style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '14px', cursor: 'pointer', opacity: orderItems.length === 0 ? 0.3 : 1, transition: '0.2s', boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)' }}>SETTLE TRANSACTION</button>
-                )}
+                <button 
+                  disabled={orderItems.length === 0} 
+                  onClick={generateBill} 
+                  style={{ 
+                    width: '100%', 
+                    padding: '14px', 
+                    borderRadius: '14px', 
+                    backgroundColor: '#0ea5e9', 
+                    color: '#ffffff', 
+                    border: 'none', 
+                    fontWeight: 900, 
+                    fontSize: '14px', 
+                    cursor: 'pointer', 
+                    opacity: orderItems.length === 0 ? 0.3 : 1, 
+                    transition: '0.2s', 
+                    boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)' 
+                  }}
+                >
+                  {table.table_number === 'Parcel Counter' ? 'SETTLE BILL' : 'SETTLE TRANSACTION'}
+                </button>
               </div>
             </div>
           )}
@@ -989,12 +984,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       {/* Bill & Settlement Modal */}
       {showBill && billData && (
         <div className="bill-modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backdropFilter: 'blur(10px)' }}>
-          <div className="bill-container" style={{ width: '100%', maxWidth: '850px', maxHeight: '90vh', backgroundColor: '#0f172a', borderRadius: '32px', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', position: 'relative' }}>
-             <div style={{ flex: 1, padding: '32px', borderRight: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: billData.is_paid ? '#10b981' : '#0f172a', transition: 'all 0.6s', overflowY: 'auto', position: 'relative' }}>
-                <div style={{ position: 'absolute', top: '16px', right: '16px', backgroundColor: 'rgba(14, 165, 233, 0.15)', border: '1px solid #0ea5e9', color: '#38bdf8', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', zIndex: 5 }}>
-                  <Receipt size={14} color="#0ea5e9" />
-                  <span>FINALIZED BILL</span>
-                </div>
+          <div className="bill-container" style={{ width: '100%', maxWidth: '850px', maxHeight: '90vh', backgroundColor: 'var(--bg-card)', borderRadius: '32px', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.8)', border: '1px solid var(--border-color)', position: 'relative' }}>
+             <div style={{ flex: 1, padding: '32px', borderRight: '1px solid var(--border-color)', backgroundColor: billData.is_paid ? '#10b981' : 'var(--bg-card)', transition: 'all 0.6s', overflowY: 'auto', position: 'relative' }}>
+
                 {isSuccess && (
                    <div style={{ position: 'absolute', inset: 0, backgroundColor: '#10b981', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.3s ease-out' }}>
                       <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', marginBottom: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
@@ -1011,34 +1003,38 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                       </div>
                    </div>
                 )}
-                <div style={{ textAlign: 'center', marginBottom: '20px', opacity: billData.is_paid ? 0.3 : 1 }}>
-                   <h1 style={{ margin: 0, fontWeight: 950, fontSize: '24px', color: '#ffffff' }}>{(billData.hotel_name || user?.hotel_name || 'BESTBILL').toUpperCase()}</h1>
-                   <div style={{ color: 'rgba(255,255,255,0.7)', fontWeight: 800, fontSize: '13px', marginTop: '4px' }}>{billData.hotel_location}</div>
-                </div>
+                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '20px', opacity: billData.is_paid ? 0.3 : 1 }}>
+                    <div style={{ backgroundColor: 'rgba(14, 165, 233, 0.15)', border: '1px solid #0ea5e9', color: billData.is_paid ? '#ffffff' : 'var(--text-primary)', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', zIndex: 5 }}>
+                      <Receipt size={14} color="#0ea5e9" />
+                      <span>FINALIZED BILL</span>
+                    </div>
+                    <h1 style={{ margin: 0, fontWeight: 950, fontSize: '24px', color: billData.is_paid ? '#ffffff' : 'var(--text-primary)', textAlign: 'center' }}>{(billData.hotel_name || user?.hotel_name || 'BESTBILL').toUpperCase()}</h1>
+                    <div style={{ color: billData.is_paid ? 'rgba(255,255,255,0.7)' : 'var(--text-secondary)', fontWeight: 800, fontSize: '13px', textAlign: 'center' }}>{billData.hotel_location}</div>
+                 </div>
                 
-                <div style={{ borderTop: '2px dashed rgba(255, 255, 255, 0.1)', borderBottom: '2px dashed rgba(255, 255, 255, 0.1)', padding: '14px 0', marginBottom: '20px' }}>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 900, color: '#ffffff' }}>
+                <div style={{ borderTop: '2px dashed var(--border-color)', borderBottom: '2px dashed var(--border-color)', padding: '14px 0', marginBottom: '20px' }}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 900, color: billData.is_paid ? '#ffffff' : 'var(--text-primary)' }}>
                       <span>TABLE NO: {table.table_numberByFloor || table.table_number}</span>
                       <span>BILL NO: #{billData.id}</span>
                    </div>
-                   <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>DATE: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</div>
+                   <div style={{ fontSize: '12px', color: billData.is_paid ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)' }}>DATE: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</div>
                 </div>
-
+ 
                 <div style={{ marginBottom: '20px' }}>
-                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 60px 30px 70px' : '1fr 80px 60px 100px', borderBottom: '1px dashed rgba(255, 255, 255, 0.1)', paddingBottom: '6px', marginBottom: '10px', fontSize: '11px', fontWeight: 900, color: 'rgba(255,255,255,0.7)' }}>
+                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 60px 30px 70px' : '1fr 80px 60px 100px', borderBottom: '1px dashed var(--border-color)', paddingBottom: '6px', marginBottom: '10px', fontSize: '11px', fontWeight: 900, color: billData.is_paid ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)' }}>
                       <span>Item</span><span style={{ textAlign: 'right' }}>Price</span><span style={{ textAlign: 'right' }}>Qty</span><span style={{ textAlign: 'right' }}>Total</span>
                    </div>
                    {billData.items.map((i, idx) => (
-                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 60px 30px 70px' : '1fr 80px 60px 100px', fontSize: isMobile ? '12px' : '14px', fontWeight: 800, marginBottom: '6px', color: '#ffffff' }}>
+                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 60px 30px 70px' : '1fr 80px 60px 100px', fontSize: isMobile ? '12px' : '14px', fontWeight: 800, marginBottom: '6px', color: billData.is_paid ? '#ffffff' : 'var(--text-primary)' }}>
                         <span style={{ paddingRight: '8px' }}>{i.name}</span><span style={{ textAlign: 'right' }}>₹{Math.round(i.price)}</span><span style={{ textAlign: 'right' }}>{i.quantity}</span><span style={{ textAlign: 'right' }}>₹{(i.price * i.quantity).toFixed(2)}</span>
                       </div>
                    ))}
                 </div>
-
-                <div style={{ borderTop: '1px dashed rgba(255, 255, 255, 0.1)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '6px', color: 'rgba(255,255,255,0.8)' }}>
+ 
+                <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '6px', color: billData.is_paid ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)' }}>
                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>SUBTOTAL</span><span>₹{parseFloat(billData.subtotal).toFixed(2)}</span></div>
                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>GST</span><span>₹{parseFloat(billData.gst).toFixed(2)}</span></div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '32px', fontWeight: 1000, color: '#10b981', borderTop: '2px double rgba(255, 255, 255, 0.1)', marginTop: '10px', paddingTop: '10px' }}><span>TOTAL</span><span>₹{parseFloat(billData.final_amount).toFixed(2)}</span></div>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '32px', fontWeight: 1000, color: '#10b981', borderTop: '2px double var(--border-color)', marginTop: '10px', paddingTop: '10px' }}><span>TOTAL</span><span>₹{parseFloat(billData.final_amount).toFixed(2)}</span></div>
                 </div>
 
                 <div style={{ marginTop: '32px' }}>
@@ -1051,7 +1047,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               </div>
 
               {/* Settlement Right Side */}
-              <div style={{ width: isMobile ? '100%' : '340px', padding: isMobile ? '20px' : '28px', backgroundColor: '#0b1120', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', borderTop: isMobile ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+              <div style={{ width: isMobile ? '100%' : '340px', padding: isMobile ? '20px' : '28px', backgroundColor: 'var(--bg-base)', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', borderTop: isMobile ? '1px solid var(--border-color)' : 'none' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                      {!billData.is_paid && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1062,9 +1058,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                               style={{ 
                                 flex: 1, 
                                 padding: '12px 6px', 
-                                backgroundColor: selectedPaymentMethod === 'cash' ? '#10b981' : '#1e293b', 
-                                color: '#ffffff', 
-                                border: selectedPaymentMethod === 'cash' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', 
+                                backgroundColor: selectedPaymentMethod === 'cash' ? '#10b981' : 'var(--bg-card)', 
+                                color: selectedPaymentMethod === 'cash' ? '#ffffff' : 'var(--text-secondary)', 
+                                border: selectedPaymentMethod === 'cash' ? 'none' : '1px solid var(--border-color)', 
                                 borderRadius: '10px', 
                                 fontWeight: 900, 
                                 cursor: 'pointer', 
@@ -1081,9 +1077,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                               style={{ 
                                 flex: 1, 
                                 padding: '12px 6px', 
-                                backgroundColor: selectedPaymentMethod === 'upi' ? '#0ea5e9' : '#1e293b', 
-                                color: '#ffffff', 
-                                border: selectedPaymentMethod === 'upi' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', 
+                                backgroundColor: selectedPaymentMethod === 'upi' ? '#0ea5e9' : 'var(--bg-card)', 
+                                color: selectedPaymentMethod === 'upi' ? '#ffffff' : 'var(--text-secondary)', 
+                                border: selectedPaymentMethod === 'upi' ? 'none' : '1px solid var(--border-color)', 
                                 borderRadius: '10px', 
                                 fontWeight: 900, 
                                 cursor: 'pointer', 
@@ -1100,9 +1096,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                               style={{ 
                                 flex: 1, 
                                 padding: '12px 6px', 
-                                backgroundColor: selectedPaymentMethod === 'credit' ? '#f59e0b' : '#1e293b', 
-                                color: '#ffffff', 
-                                border: selectedPaymentMethod === 'credit' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', 
+                                backgroundColor: selectedPaymentMethod === 'credit' ? '#f59e0b' : 'var(--bg-card)', 
+                                color: selectedPaymentMethod === 'credit' ? '#ffffff' : 'var(--text-secondary)', 
+                                border: selectedPaymentMethod === 'credit' ? 'none' : '1px solid var(--border-color)', 
                                 borderRadius: '10px', 
                                 fontWeight: 900, 
                                 cursor: 'pointer', 
@@ -1128,9 +1124,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                     borderRadius: '12px', 
                                     fontSize: '13px', 
                                     fontWeight: 900, 
-                                    backgroundColor: partyType === 'customer' ? '#0ea5e9' : '#1e293b', 
-                                    color: '#ffffff', 
-                                    border: '1px solid ' + (partyType === 'customer' ? '#0ea5e9' : 'rgba(255,255,255,0.1)'), 
+                                    backgroundColor: partyType === 'customer' ? '#0ea5e9' : 'var(--bg-card)', 
+                                    color: partyType === 'customer' ? '#ffffff' : 'var(--text-secondary)', 
+                                    border: '1px solid ' + (partyType === 'customer' ? '#0ea5e9' : 'var(--border-color)'), 
                                     cursor: 'pointer'
                                   }}
                                 >
@@ -1146,9 +1142,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                     borderRadius: '12px', 
                                     fontSize: '13px', 
                                     fontWeight: 900, 
-                                    backgroundColor: partyType === 'vendor' ? '#0ea5e9' : '#1e293b', 
-                                    color: '#ffffff', 
-                                    border: '1px solid ' + (partyType === 'vendor' ? '#0ea5e9' : 'rgba(255,255,255,0.1)'), 
+                                    backgroundColor: partyType === 'vendor' ? '#0ea5e9' : 'var(--bg-card)', 
+                                    color: partyType === 'vendor' ? '#ffffff' : 'var(--text-secondary)', 
+                                    border: '1px solid ' + (partyType === 'vendor' ? '#0ea5e9' : 'var(--border-color)'), 
                                     cursor: 'pointer'
                                   }}
                                 >
@@ -1165,9 +1161,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                     style={{ 
                                       padding: '12px 14px', 
                                       borderRadius: '12px', 
-                                      border: '1px solid rgba(255, 255, 255, 0.1)', 
-                                      backgroundColor: '#1e293b', 
-                                      color: '#ffffff', 
+                                      border: '1px solid var(--border-color)', 
+                                      backgroundColor: 'var(--bg-card)', 
+                                      color: 'var(--text-primary)', 
                                       fontWeight: 800, 
                                       fontSize: '13px', 
                                       outline: 'none', 
@@ -1182,9 +1178,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                     style={{ 
                                       padding: '12px 14px', 
                                       borderRadius: '12px', 
-                                      border: '1px solid rgba(255, 255, 255, 0.1)', 
-                                      backgroundColor: '#1e293b', 
-                                      color: '#ffffff', 
+                                      border: '1px solid var(--border-color)', 
+                                      backgroundColor: 'var(--bg-card)', 
+                                      color: 'var(--text-primary)', 
                                       fontWeight: 800, 
                                       fontSize: '13px', 
                                       outline: 'none', 
@@ -1196,7 +1192,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                               ) : (
                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                    {vendors.length === 0 ? (
-                                     <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', textAlign: 'center', padding: '12px', backgroundColor: '#1e293b', borderRadius: '12px' }}>No vendors registered.</div>
+                                     <div style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', padding: '12px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>No vendors registered.</div>
                                    ) : (
                                      <select 
                                        value={selectedVendorId || ''} 
@@ -1204,9 +1200,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                        style={{
                                          padding: '12px 14px', 
                                          borderRadius: '12px', 
-                                         border: '1px solid rgba(255, 255, 255, 0.1)', 
-                                         backgroundColor: '#1e293b', 
-                                         color: '#ffffff', 
+                                         border: '1px solid var(--border-color)', 
+                                         backgroundColor: 'var(--bg-card)', 
+                                         color: 'var(--text-primary)', 
                                          fontWeight: 800, 
                                          fontSize: '13px', 
                                          outline: 'none', 
@@ -1250,13 +1246,13 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   </div>
   
                   {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
-                     <div style={{ backgroundColor: '#1e293b', padding: '14px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                        <Phone size={16} color="rgba(255, 255, 255, 0.5)" />
+                     <div style={{ backgroundColor: 'var(--bg-card)', padding: '14px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid var(--border-color)' }}>
+                        <Phone size={16} color="var(--text-muted)" />
                         <input 
                            placeholder="Enter Mobile No" 
                            value={customerPhone} 
                            onChange={(e) => setCustomerPhone(e.target.value)}
-                           style={{ border: 'none', width: '100%', outline: 'none', fontWeight: 800, fontSize: '13px', backgroundColor: 'transparent', color: '#ffffff', WebkitAppearance: 'none' }}
+                           style={{ border: 'none', width: '100%', outline: 'none', fontWeight: 800, fontSize: '13px', backgroundColor: 'transparent', color: 'var(--text-primary)', WebkitAppearance: 'none' }}
                         />
                      </div>
                    )}

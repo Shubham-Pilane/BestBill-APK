@@ -710,54 +710,56 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if (path === '/bills/history' && methodUpper === 'GET') {
       const result = await db.query(`
         SELECT b.*, 
-               COALESCE(t.table_number, 'Counter') as table_number,
-               (
-                  SELECT json_group_array(json_object('name', mi.name, 'quantity', oi.quantity, 'price', mi.price))
-                  FROM order_items oi
-                  JOIN menu_items mi ON oi.menu_item_id = mi.id
-                  WHERE oi.order_id = b.order_id
-               ) as items_json
+               COALESCE(t.table_number, 'Counter') as table_number
         FROM bills b 
         JOIN orders o ON b.order_id = o.id 
-        LEFT JOIN tables t ON o.table_id = t.id 
-        JOIN hotels h ON h.id = $1
-        WHERE (t.hotel_id = $1 OR h.id = $1)
+        LEFT JOIN tables t ON o.table_id = t.id
+        WHERE t.hotel_id = $1
         ORDER BY b.created_at DESC`,
         [user.hotel_id]
       );
       
-      // Parse items_json
-      const items = result.rows.map(row => {
-        let parsed = [];
-        try {
-          parsed = JSON.parse(row.items_json);
-        } catch (e) {}
-        return {
-          ...row,
-          items: parsed,
-          is_paid: row.is_paid === 1 || row.is_paid === true
-        };
-      });
+      const bills = result.rows;
+      for (let b of bills) {
+        const itemsRes = await db.query(`
+          SELECT oi.quantity, mi.name, mi.price 
+          FROM order_items oi 
+          JOIN menu_items mi ON oi.menu_item_id = mi.id 
+          WHERE oi.order_id = $1`, 
+          [b.order_id]
+        );
+        b.items_json = JSON.stringify(itemsRes.rows);
+        b.items = itemsRes.rows;
+        b.is_paid = b.is_paid === 1 || b.is_paid === true;
+      }
 
-      return { status: 200, data: items };
+      return { status: 200, data: bills };
     }
 
     if (path.startsWith('/bills/') && methodUpper === 'GET' && !path.endsWith('/history') && !path.includes('/print') && !path.includes('/pay')) {
-      const billId = parseInt(path.split('/')[2]);
+      const parts = path.split('/');
+      const billId = parseInt(parts[2]);
+      if (isNaN(billId)) {
+        return { status: 400, data: { message: 'Invalid Bill ID' } };
+      }
       const billRes = await db.query(`
         SELECT b.*, o.table_id,
-               COALESCE(t.table_number, 'Counter') as table_number,
+               COALESCE(t.table_number, 'Parcel Counter') as table_number,
                h.name as hotel_name, h.phone as hotel_phone, h.location as hotel_location, h.gst_percentage, h.upi_id, h.fssai_number, h.email as hotel_email
         FROM bills b
         JOIN orders o ON b.order_id = o.id
         LEFT JOIN tables t ON o.table_id = t.id
-        JOIN hotels h ON h.id = $2
+        LEFT JOIN hotels h ON h.id = $2
         WHERE b.id = $1`,
         [billId, Number(user.hotel_id)]
       );
 
-      if (billRes.rows.length === 0) return { status: 404, data: { message: 'Bill not found' } };
-      const bill = billRes.rows[0];
+      let bill = billRes.rows[0];
+      if (!bill) {
+        const fallbackRes = await db.query('SELECT * FROM bills WHERE id = $1', [billId]);
+        if (fallbackRes.rows.length === 0) return { status: 404, data: { message: 'Bill not found' } };
+        bill = fallbackRes.rows[0];
+      }
 
       const itemsRes = await db.query(`
         SELECT oi.quantity, mi.name, mi.price 
@@ -773,6 +775,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
           ...bill,
           subtotal: bill.total_amount,
           items: itemsRes.rows,
+          parsedItems: itemsRes.rows,
           is_paid: bill.is_paid === 1 || bill.is_paid === true
         }
       };
@@ -876,6 +879,39 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 200, data: credits.rows.map(c => ({ ...c, amount: Number(c.amount) })) };
     }
 
+
+    if (path.startsWith('/credit/transactions/') && methodUpper === 'GET' && !path.endsWith('/settle')) {
+      const creditId = parseInt(path.split('/')[3]);
+      const creditRes = await db.query(
+        `SELECT c.*, s.name as vendor_name, s.phone as vendor_phone, s.gst_number as vendor_gst
+         FROM credits c
+         LEFT JOIN suppliers s ON c.vendor_id = s.id
+         WHERE c.id = $1 AND c.hotel_id = $2`,
+        [creditId, user.hotel_id]
+      );
+      if (creditRes.rows.length === 0) return { status: 404, data: { error: 'Not found' } };
+      
+      const credit = creditRes.rows[0];
+      let bill = null;
+      let items = [];
+      
+      if (credit.bill_id) {
+        const billRes = await db.query('SELECT * FROM bills WHERE id = $1', [credit.bill_id]);
+        if (billRes.rows.length > 0) {
+          bill = billRes.rows[0];
+          const itemsRes = await db.query(
+            `SELECT oi.quantity, mi.name, mi.price 
+             FROM order_items oi 
+             JOIN menu_items mi ON oi.menu_item_id = mi.id 
+             WHERE oi.order_id = $1`, 
+             [bill.order_id]
+          );
+          items = itemsRes.rows;
+        }
+      }
+      return { status: 200, data: { credit, bill, items } };
+    }
+
     if ((path === '/credit/save' || path === '/credit/transactions') && methodUpper === 'POST') {
       const { bill_id, party_type, amount, vendor_id, customer_name, customer_phone } = body;
       await db.query(
@@ -906,22 +942,24 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/credit/vendors' && methodUpper === 'POST') {
-      const { name, phone, email, gstin } = body;
+      const { name, phone, email, gstin, gst_number, address } = body;
+      const gst = gstin || gst_number || null;
       const res = await db.query(
-        'INSERT INTO suppliers (hotel_id, name, phone, email, gstin) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-        [user.hotel_id, name, phone || null, email || null, gstin || null]
+        'INSERT INTO suppliers (hotel_id, name, phone, email, address, gst_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [user.hotel_id, name, phone || null, email || null, address || null, gst]
       );
       return { status: 201, data: res.rows[0] };
     }
 
     if (path.startsWith('/credit/vendors/') && methodUpper === 'PUT') {
       const vendorId = parseInt(path.split('/')[3]);
-      const { name, phone, email, gstin } = body;
+      const { name, phone, email, gstin, gst_number, address } = body;
+      const gst = gstin || gst_number || null;
       await db.query(
-        'UPDATE suppliers SET name = $1, phone = $2, email = $3, gstin = $4 WHERE id = $5 AND hotel_id = $6',
-        [name, phone || null, email || null, gstin || null, vendorId, user.hotel_id]
+        'UPDATE suppliers SET name = $1, phone = $2, email = $3, address = $4, gst_number = $5 WHERE id = $6 AND hotel_id = $7',
+        [name, phone || null, email || null, address || null, gst, vendorId, user.hotel_id]
       );
-      return { status: 200, data: { success: true } };
+      return { status: 200, data: { id: vendorId, name, phone, email, address, gst_number: gst } };
     }
 
     if (path.startsWith('/credit/vendors/') && methodUpper === 'DELETE') {
@@ -935,13 +973,16 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     // ----------------------------------------
     if (path === '/inventory/dashboard' && methodUpper === 'GET') {
       const totalRes = await db.query('SELECT count(*) as count FROM inventory_items WHERE hotel_id = $1', [user.hotel_id]);
-      const lowRes = await db.query('SELECT count(*) as count FROM inventory_items WHERE hotel_id = $1 AND current_stock < minimum_stock', [user.hotel_id]);
+      const lowRes = await db.query('SELECT count(*) as count FROM inventory_items WHERE hotel_id = $1 AND current_stock <= minimum_stock', [user.hotel_id]);
       const valRes = await db.query('SELECT SUM(current_stock * purchase_rate) as total FROM inventory_items WHERE hotel_id = $1', [user.hotel_id]);
+      const count = Number(totalRes.rows[0]?.count || 0);
+      const lowCount = Number(lowRes.rows[0]?.count || 0);
       return {
         status: 200,
         data: {
-          totalIngredients: totalRes.rows[0]?.count || 0,
-          lowStockItems: lowRes.rows[0]?.count || 0,
+          totalItems: count,
+          totalIngredients: count,
+          lowStockItems: lowCount,
           inventoryValue: Number(valRes.rows[0]?.total || 0)
         }
       };
@@ -1083,12 +1124,13 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/hotel' && methodUpper === 'PUT') {
-      const { name, phone, location, upi_id, gst_percentage } = body;
+      const { name, phone, location, address, upi_id, gst_percentage, fssai_number, email } = body;
+      const loc = location || address || '';
       await db.query(
-        'UPDATE hotels SET name = $1, phone = $2, location = $3, upi_id = $4, gst_percentage = $5 WHERE id = $6',
-        [name, phone, location, upi_id, gst_percentage, user.hotel_id]
+        'UPDATE hotels SET name = $1, phone = $2, location = $3, upi_id = $4, gst_percentage = $5, fssai_number = $6, email = $7 WHERE id = $8',
+        [name, phone, loc, upi_id, gst_percentage, fssai_number || null, email || null, user.hotel_id]
       );
-      return { status: 200, data: { success: true } };
+      return { status: 200, data: { success: true, name, phone, location: loc, upi_id, gst_percentage, fssai_number, email } };
     }
 
     if (path === '/hotel/waiters' && methodUpper === 'GET') {

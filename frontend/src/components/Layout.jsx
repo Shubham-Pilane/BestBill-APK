@@ -244,9 +244,11 @@ const Layout = ({ children }) => {
           </div>
           {user && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-               <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155' }}>
-                  <UserCircle size={20} color="var(--text-secondary)" />
-               </div>
+               <Link to="/profile" style={{ display: 'block', textDecoration: 'none', cursor: 'pointer' }}>
+                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155' }}>
+                    <UserCircle size={20} color="var(--text-secondary)" />
+                 </div>
+               </Link>
             </div>
           )}
         </header>

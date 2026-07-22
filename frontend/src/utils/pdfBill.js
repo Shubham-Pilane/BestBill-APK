@@ -212,60 +212,70 @@ export const shareBillPDFViaWhatsApp = (billData, hotelInfo = {}, customerPhone 
   return new Promise((resolve, reject) => {
     try {
       const billId = billData.id || billData.bill_id || 'receipt';
-      const cleanPhone = customerPhone ? customerPhone.replace(/\D/g, '') : '';
+      const cleanPhone = customerPhone ? customerPhone.replace(/\\D/g, '') : '';
       const finalPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-      const hotelName = hotelInfo.hotel_name || hotelInfo.name || 'BestBill';
+      const hotelName = hotelInfo.hotel_name || hotelInfo.hotelName || 'BESTBILL';
+      const address = hotelInfo.hotel_address || hotelInfo.hotel_location || hotelInfo.location || hotelInfo.address || '';
+      const phone = hotelInfo.hotel_phone || hotelInfo.hotel_contact || hotelInfo.phone || '';
 
-      const whatsappText = `*--- ${hotelName.toUpperCase()} RECEIPT ---*\n` +
+      const items = billData.parsedItems || billData.items || [];
+      const isPaid = billData.is_paid || billData.status === 'paid';
+      const paymentMethod = billData.payment_method || 'CASH';
+
+      const formatDate = (dateInput) => {
+        const d = new Date(dateInput);
+        const month = d.getMonth() + 1;
+        const day = d.getDate();
+        const year = d.getFullYear();
+        let hours = d.getHours();
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        return `${month}/${day}/${year} ${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+      };
+
+      let itemsText = '';
+      if (items && items.length > 0) {
+        itemsText = `\n*Items:*\n`;
+        items.forEach(item => {
+          itemsText += `• ${item.name || 'Item'} x ${item.quantity || 1} = ₹${parseFloat((item.price || 0) * (item.quantity || 1)).toFixed(2)}\n`;
+        });
+      }
+
+      const discount = parseFloat(billData.discount_amount || 0);
+      const discountText = discount > 0 ? `\n*Discount:* ₹${discount.toFixed(2)}` : '';
+
+      const totalVal = parseFloat(billData.final_amount || billData.total_amount || 0);
+      const subtotalVal = parseFloat(billData.subtotal || billData.total_amount || 0);
+      const gstVal = parseFloat(billData.gst || 0);
+      const gstPercent = billData.gst_percentage !== undefined ? billData.gst_percentage : (hotelInfo.gst_percentage || 0);
+
+      const whatsappText = `*--- ${hotelName.toUpperCase()} ---*\n` +
+        (address ? `*Address:* ${address}\n` : '') +
+        (phone ? `*Phone:* ${phone}\n` : '') +
+        `\n` +
+        `Table No: ${billData.table_number || billData.table || 'N/A'}\n` +
         `Bill No: #${billId}\n` +
-        `Grand Total: ₹${parseFloat(billData.final_amount || 0).toFixed(2)}\n\n` +
-        `Thank you for your visit!`;
+        `Date: ${formatDate(billData.created_at || Date.now())}\n` +
+        `${itemsText}\n` +
+        `*------------------------*\n` +
+        `*Subtotal:* ₹${subtotalVal.toFixed(2)}` +
+        `${discountText}\n` +
+        `*GST (${gstPercent}%):* ₹${gstVal.toFixed(2)}\n` +
+        `*GRAND TOTAL:* ₹${totalVal.toFixed(2)}\n\n` +
+        `*Thank You! Visit Again!*`;
 
-      // Optimization: PDF generation with pdfMake can freeze the UI because it parses large fonts synchronously.
-      // We wrap the heavy work in a setTimeout to give the UI time to show the loading toast properly.
-      setTimeout(() => {
-        try {
-          const docDef = createBillPDFDocDefinition(billData, hotelInfo);
-          const pdfDocGenerator = pdfMake.createPdf(docDef);
-
-          pdfDocGenerator.getBlob(async (blob) => {
-            const fileName = `Bill_${billId}.pdf`;
-            const file = new File([blob], fileName, { type: 'application/pdf' });
-
-            // Check if Web Share API is available and can share files
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-              try {
-                await navigator.share({
-                  files: [file],
-                  title: `Bill Receipt #${billId}`,
-                  text: whatsappText
-                });
-                resolve({ success: true, method: 'native_share' });
-                return;
-              } catch (shareErr) {
-                console.log('[PDF SHARE] Native share cancelled or failed, falling back to download + link:', shareErr);
-              }
-            }
-
-            // Fallback: Download PDF & open WhatsApp Web/App
-            pdfDocGenerator.download(fileName);
-            if (finalPhone) {
-              const waUrl = `https://wa.me/${finalPhone}?text=${encodeURIComponent(whatsappText)}`;
-              window.open(waUrl, '_blank');
-            } else {
-              // If no phone provided, just share text without number (WhatsApp will prompt for contact)
-              const waUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`;
-              window.open(waUrl, '_blank');
-            }
-            resolve({ success: true, method: 'download_fallback' });
-          });
-        } catch (err) {
-          console.error('[PDF BILL GENERATION ERROR]', err);
-          reject(err);
-        }
-      }, 100); // Small delay to unblock main thread and render loading state
+      if (finalPhone) {
+        const waUrl = `https://wa.me/${finalPhone}?text=${encodeURIComponent(whatsappText)}`;
+        window.open(waUrl, '_blank');
+      } else {
+        const waUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`;
+        window.open(waUrl, '_blank');
+      }
+      resolve({ success: true, method: 'whatsapp_text' });
     } catch (err) {
-      console.error('[PDF BILL ERROR]', err);
+      console.error('[WHATSAPP BILL ERROR]', err);
       reject(err);
     }
   });

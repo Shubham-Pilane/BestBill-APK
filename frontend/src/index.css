@@ -467,3 +467,11 @@ div[style*="rgb(30, 41, 59)"] input,
   color: #ffffff !important;
 }
 
+.theme-light .bill-container input {
+  color: var(--text-primary) !important;
+}
+.theme-light .bill-container input::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.8;
+}
+

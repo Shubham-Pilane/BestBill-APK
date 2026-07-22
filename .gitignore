@@ -52,3 +52,8 @@ sdk/
 
 # Compiled APKs
 *.apk
+
+# JDK downloads and manual tool leftovers
+**/jdk-*/
+**/*.zip
+**/bestbill_logo.jpeg

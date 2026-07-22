@@ -32,6 +32,13 @@ const CreditManagement = () => {
   });
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Filters
   const [partyType, setPartyType] = useState('all'); // 'all', 'customer', 'vendor'
@@ -484,27 +491,27 @@ const CreditManagement = () => {
 
       {/* Credit Details Modal */}
       {selectedTx && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', backdropFilter: 'blur(10px)' }}>
-          <div className="order-modal-container" style={{ width: '100%', maxWidth: '850px', maxHeight: '90vh', backgroundColor: 'var(--bg-card)', borderRadius: '40px', overflow: 'hidden', display: 'flex', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.5)', border: '1px solid var(--border-rgba-05)', position: 'relative' }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '12px' : '40px', backdropFilter: 'blur(10px)' }}>
+          <div className="order-modal-container" style={{ width: '100%', maxWidth: '850px', maxHeight: isMobile ? '92vh' : '90vh', backgroundColor: 'var(--bg-card)', borderRadius: isMobile ? '24px' : '40px', overflowY: 'auto', display: 'flex', flexDirection: isMobile ? 'column' : 'row', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.5)', border: '1px solid var(--border-rgba-05)', position: 'relative' }}>
             
             {/* Modal Body */}
             {loadingDetails ? (
-              <div style={{ flex: 1, padding: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-card)' }}>
+              <div style={{ flex: 1, padding: isMobile ? '40px' : '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-card)' }}>
                 <div style={{ display: 'inline-block', width: '40px', height: '40px', borderRadius: '50%', border: '4px solid var(--bg-border)', borderTopColor: '#f59e0b', animation: 'spin 1s linear infinite' }}></div>
                 <p style={{ margin: '16px 0 0', fontWeight: 800, color: 'var(--text-muted)' }}>Retrieving credit records...</p>
               </div>
             ) : txDetails ? (
               <>
                 {/* Left Side: Invoice Summary */}
-                <div style={{ flex: 1, padding: '40px', backgroundColor: 'var(--bg-base)', overflowY: 'auto', borderRight: '1px solid var(--bg-border)' }}>
+                <div style={{ flex: 1, padding: isMobile ? '20px 16px' : '40px', backgroundColor: 'var(--bg-base)', borderRight: isMobile ? 'none' : '1px solid var(--bg-border)', borderBottom: isMobile ? '1px solid var(--bg-border)' : 'none' }}>
                   
                   {/* Status Banner */}
                   {txDetails.credit.status === 'settled' ? (
-                    <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981', color: '#10b981', padding: '14px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', fontWeight: 700, fontSize: '13px' }}>
+                    <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981', color: '#10b981', padding: '12px 14px', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontWeight: 700, fontSize: '13px' }}>
                       <CheckCircle size={16} /> Credit Balance Settled successfully.
                     </div>
                   ) : (
-                    <div style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', border: '1px solid #f43f5e', color: '#f43f5e', padding: '14px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', fontWeight: 700, fontSize: '13px' }}>
+                    <div style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', border: '1px solid #f43f5e', color: '#f43f5e', padding: '12px 14px', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontWeight: 700, fontSize: '13px' }}>
                       <Clock size={16} /> Credit Outstanding Payment pending.
                     </div>
                   )}
@@ -512,52 +519,52 @@ const CreditManagement = () => {
                   {/* Bill Details */}
                   {txDetails.bill ? (
                     <>
-                      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                        <h4 style={{ margin: 0, fontWeight: 950, fontSize: '20px', color: 'var(--text-primary)' }}>{(txDetails.bill.hotel_name || user?.hotel_name || 'BESTBILL').toUpperCase()}</h4>
+                      <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                        <h4 style={{ margin: 0, fontWeight: 950, fontSize: isMobile ? '18px' : '20px', color: 'var(--text-primary)' }}>{(txDetails.bill.hotel_name || user?.hotel_name || 'BESTBILL').toUpperCase()}</h4>
                         <div style={{ color: 'var(--text-muted)', fontWeight: 700, fontSize: '12px', marginTop: '4px' }}>{txDetails.bill.hotel_location}</div>
                       </div>
 
-                      <div style={{ borderTop: '1px dashed var(--bg-border)', borderBottom: '1px dashed var(--bg-border)', padding: '12px 0', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800, color: 'var(--text-secondary)' }}>
+                      <div style={{ borderTop: '1px dashed var(--bg-border)', borderBottom: '1px dashed var(--bg-border)', padding: '10px 0', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 800, color: 'var(--text-secondary)' }}>
                           <span>BILL NO: #{txDetails.bill.id}</span>
                           <span>DATE: {new Date(txDetails.bill.created_at).toLocaleDateString()}</span>
                         </div>
                       </div>
 
-                      <div style={{ marginBottom: '20px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 50px 80px', borderBottom: '1px dashed var(--bg-border)', paddingBottom: '6px', marginBottom: '10px', fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      <div style={{ marginBottom: '16px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 55px 40px 70px', borderBottom: '1px dashed var(--bg-border)', paddingBottom: '6px', marginBottom: '8px', fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                           <span>Item</span><span style={{ textAlign: 'right' }}>Price</span><span style={{ textAlign: 'right' }}>Qty</span><span style={{ textAlign: 'right' }}>Total</span>
                         </div>
                         {txDetails.items.length === 0 ? (
                           <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '13px' }}>No items recorded or cleared.</div>
                         ) : (
                           txDetails.items.map((i, idx) => (
-                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 50px 80px', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: 'var(--text-primary)' }}>
+                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 55px 40px 70px', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: 'var(--text-primary)' }}>
                               <span>{i.name}</span><span style={{ textAlign: 'right' }}>₹{Math.round(i.price)}</span><span style={{ textAlign: 'right' }}>{i.quantity}</span><span style={{ textAlign: 'right' }}>₹{(i.price * i.quantity).toFixed(2)}</span>
                             </div>
                           ))
                         )}
                       </div>
 
-                      <div style={{ borderTop: '1px dashed var(--bg-border)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      <div style={{ borderTop: '1px dashed var(--bg-border)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}><span>SUBTOTAL</span><span>₹{parseFloat(txDetails.bill.total_amount).toFixed(2)}</span></div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}><span>GST ({txDetails.bill.gst_percentage || 0}%)</span><span>₹{parseFloat(txDetails.bill.gst).toFixed(2)}</span></div>
                         {txDetails.bill.discount_percentage > 0 && (
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#f43f5e' }}><span>DISCOUNT ({txDetails.bill.discount_percentage}%)</span><span>-₹{( (parseFloat(txDetails.bill.total_amount) + parseFloat(txDetails.bill.gst)) * txDetails.bill.discount_percentage / 100).toFixed(2)}</span></div>
                         )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '24px', fontWeight: 1000, color: '#10b981', borderTop: '2px double var(--bg-border)', marginTop: '8px', paddingTop: '8px' }}><span>TOTAL DUE</span><span>₹{parseFloat(txDetails.bill.final_amount).toFixed(2)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '20px', fontWeight: 1000, color: '#10b981', borderTop: '2px double var(--bg-border)', marginTop: '6px', paddingTop: '6px' }}><span>TOTAL DUE</span><span>₹{parseFloat(txDetails.bill.final_amount).toFixed(2)}</span></div>
                       </div>
                     </>
                   ) : (
-                    <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                      <FileText size={48} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-                      <p>Linked invoice data is unavailable.</p>
+                    <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                      <FileText size={40} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
+                      <p style={{ margin: 0 }}>Linked invoice data is unavailable.</p>
                     </div>
                   )}
                 </div>
 
                 {/* Right Side: Credit / Settlement Info */}
-                <div style={{ width: '360px', padding: '40px', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '28px', overflowY: 'auto' }}>
+                <div style={{ width: isMobile ? '100%' : '360px', padding: isMobile ? '20px 16px' : '40px', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)' }}>Account Details</h3>
                     <button 
