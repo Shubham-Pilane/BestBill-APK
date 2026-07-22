@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
-import { exportBillingHistoryPdf } from '../utils/pdfExporter';
+import { exportAnalyticsPdf } from '../utils/pdfExporter';
 import { Receipt, History, IndianRupee, Calendar, Search, Ban, CheckCircle, Phone, Printer, MessageCircle, BarChart2, Download, ArrowLeft, ArrowUp, ArrowDown } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
@@ -252,65 +252,29 @@ const BillingHistory = () => {
                 dateRangeText = `Year ${selectedYear}`;
             }
 
-            let tableHeaders = [];
-            let tableData = [];
-            let sectionTitle = '';
-
-            if (analyticsFilter === 'Year') {
-                sectionTitle = 'Monthly Performance Breakdown';
-                tableHeaders = ['Month', 'Cash Coll.', 'Online Coll.', 'Parcel Rev.', 'Dine-In Rev.', 'Total Rev.'];
-                let yrTotalCash = 0, yrTotalOnline = 0, yrTotalParcel = 0, yrTotalDine = 0, yrTotal = 0;
-                yearlyData.forEach(row => {
-                    tableData.push([
-                        row.month,
-                        `Rs. ${row.cashRev.toFixed(2)}`,
-                        `Rs. ${row.onlineRev.toFixed(2)}`,
-                        `Rs. ${row.parcelRev.toFixed(2)}`,
-                        `Rs. ${row.dineInRev.toFixed(2)}`,
-                        `Rs. ${row.totalRev.toFixed(2)}`
-                    ]);
-                    yrTotalCash += row.cashRev;
-                    yrTotalOnline += row.onlineRev;
-                    yrTotalParcel += row.parcelRev;
-                    yrTotalDine += row.dineInRev;
-                    yrTotal += row.totalRev;
-                });
-                tableData.push([
-                    'TOTAL',
-                    `Rs. ${yrTotalCash.toFixed(2)}`,
-                    `Rs. ${yrTotalOnline.toFixed(2)}`,
-                    `Rs. ${yrTotalParcel.toFixed(2)}`,
-                    `Rs. ${yrTotalDine.toFixed(2)}`,
-                    `Rs. ${yrTotal.toFixed(2)}`
-                ]);
-            } else {
-                sectionTitle = 'Top Sold Items Summary';
-                tableHeaders = ['Item Description', 'Qty Sold', 'Revenue Generated'];
-                (itemSalesSummary || []).slice(0, 30).forEach(item => {
-                    tableData.push([
-                        item.name,
-                        item.quantity.toString(),
-                        `Rs. ${item.totalRevenue.toFixed(2)}`
-                    ]);
-                });
-            }
-
-            const res = await exportBillingHistoryPdf({
+            const res = await exportAnalyticsPdf({
                 hotelName: user?.hotel_name || user?.name || 'BESTBILL',
                 dateRangeText,
                 summary: {
                     total_revenue: grandTotalRevenue,
+                    total_orders: analyticsBills.length,
                     cash_collection: totalCashRevenue,
                     online_collection: totalOnlineRevenue,
                     dine_in_sales: totalDineInRevenue,
                     parcel_sales: totalParcelRevenue
                 },
-                tableData,
-                tableHeaders,
-                sectionTitle
+                topItems: (itemSales || []).map(i => ({
+                    item_name: i.name,
+                    qty: i.quantity,
+                    revenue: i.revenue
+                }))
             });
 
-            toast.success(`PDF exported successfully as ${res?.fileName || 'Report.pdf'}!`, { id: toastId });
+            if (res && res.success !== false) {
+                toast.success('PDF report exported successfully!', { id: toastId });
+            } else {
+                toast.error('Failed to export PDF report', { id: toastId });
+            }
         } catch (err) {
             console.error('Export PDF error:', err);
             toast.error('Failed to export PDF: ' + (err.message || 'Error'), { id: toastId });
