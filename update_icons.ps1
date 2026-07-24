@@ -75,4 +75,8 @@ $webLogoPath = "d:\BestBill-apk\frontend\public\logo.png"
 Create-BestBillIcon -width 512 -height 512 -outputPath $webLogoPath -isRound $false
 Write-Host "Generated web logo at $webLogoPath (512x512)"
 
+$assetsIconPath = "d:\BestBill-apk\frontend\assets\icon.png"
+Create-BestBillIcon -width 1024 -height 1024 -outputPath $assetsIconPath -isRound $false
+Write-Host "Generated assets icon at $assetsIconPath (1024x1024)"
+
 $sourceImage.Dispose()
