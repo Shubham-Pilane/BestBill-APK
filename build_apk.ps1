@@ -48,8 +48,14 @@ Write-Host "Building APK..."
 cd d:\BestBill-apk\frontend\android
 .\gradlew.bat assembleDebug
 
-Write-Host "----------------------------------------"
-Write-Host "APK COMPILED SUCCESSFULLY!"
-Write-Host "You can find your APK file at:"
-Write-Host "d:\BestBill-apk\frontend\android\app\build\outputs\apk\debug\app-debug.apk"
-Write-Host "----------------------------------------"
+# Copy compiled APK to root of BestBill-apk
+$outputApk = "d:\BestBill-apk\frontend\android\app\build\outputs\apk\debug\app-debug.apk"
+if (Test-Path $outputApk) {
+    Copy-Item -Path $outputApk -Destination "d:\BestBill-apk\BestBill.apk" -Force
+    Write-Host "----------------------------------------"
+    Write-Host "UPDATED BESTBILL APK COMPILED SUCCESSFULLY!"
+    Write-Host "Location: d:\BestBill-apk\BestBill.apk"
+    Write-Host "----------------------------------------"
+} else {
+    Write-Host "Build failed. Check error log above."
+}
