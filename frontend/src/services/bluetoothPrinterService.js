@@ -297,6 +297,16 @@ export function formatBill(data, printerSize = '80mm') {
   return builder.build();
 }
 
+// Helper to convert Uint8Array to base64 string
+function uint8ToBase64(bytes) {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 // Bluetooth printing lifecycle manager
 export class BluetoothPrinterService {
   static getSelectedPrinter() {
@@ -305,6 +315,10 @@ export class BluetoothPrinterService {
 
   static getPrinterSize() {
     return localStorage.getItem('cfg_printer_size') || '80mm';
+  }
+
+  static getDriverMode() {
+    return localStorage.getItem('cfg_printer_driver') || 'direct'; // 'direct' or 'rawbt'
   }
 
   static async listPairedDevices() {
@@ -324,7 +338,47 @@ export class BluetoothPrinterService {
     });
   }
 
+  static async discoverUnpairedDevices() {
+    return new Promise((resolve) => {
+      if (window.bluetoothSerial && typeof window.bluetoothSerial.discoverUnpaired === 'function') {
+        window.bluetoothSerial.discoverUnpaired(
+          (devices) => resolve(devices),
+          (err) => {
+            console.error('[BT PRINTER] Discovery failed:', err);
+            resolve([]);
+          }
+        );
+      } else {
+        console.warn('[BT PRINTER] discoverUnpaired is not available on this platform');
+        resolve([]);
+      }
+    });
+  }
+
+  static async printViaRawBT(uint8Array) {
+    try {
+      const base64Str = uint8ToBase64(uint8Array);
+      const rawbtUrl = `rawbt:base64,${base64Str}`;
+      
+      console.log('[BT PRINTER] Triggering RawBT print URI...');
+      if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+        window.location.href = rawbtUrl;
+      } else {
+        window.open(rawbtUrl, '_self');
+      }
+      return true;
+    } catch (err) {
+      console.error('[BT PRINTER] RawBT print error:', err);
+      return false;
+    }
+  }
+
   static async printData(uint8Array) {
+    const driver = this.getDriverMode();
+    if (driver === 'rawbt') {
+      return this.printViaRawBT(uint8Array);
+    }
+
     const macAddress = this.getSelectedPrinter();
     if (!macAddress) {
       console.warn('[BT PRINTER] No Bluetooth printer configured in Settings');
@@ -400,3 +454,4 @@ export class BluetoothPrinterService {
     });
   }
 }
+
