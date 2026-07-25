@@ -98,18 +98,15 @@ class EscposBuilder {
     const pL = len % 256;
     const pH = Math.floor(len / 256);
 
-    // 1. Set QR Code Model (Model 2)
-    this.bytes.push(0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00);
-    // 2. Set QR Code Size (Size 6 dots per module)
-    this.bytes.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06);
-    // 3. Set QR Code Error Correction (Level L)
-    this.bytes.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x44, 0x30);
-    // 4. Store QR Code Data
+    const moduleSize = this.is58mm ? 8 : 10;
+    // Set QR Code Size
+    this.bytes.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, moduleSize);
+    // Store QR Code Data
     this.bytes.push(0x1D, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30);
     for (let i = 0; i < dataBytes.length; i++) {
       this.bytes.push(dataBytes[i]);
     }
-    // 5. Print QR Code
+    // Print QR Code
     this.bytes.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30);
     return this;
   }
@@ -144,10 +141,6 @@ export function formatKOT(data, printerSize = '58mm') {
     .alignLeft()
     .bold()
     .text(tStr);
-    
-  if (data.waiter && data.waiter.toLowerCase() !== 'owner') {
-    builder.text(`WAITER: ${data.waiter}`);
-  }
 
   builder.bold(false)
     .text(`DATE: ${dateStr}`)
@@ -209,6 +202,43 @@ export function formatBill(data, printerSize = '58mm') {
   if (data.hotelLocation) builder.text(data.hotelLocation);
   if (data.hotelPhone) builder.text(`Phone: ${data.hotelPhone}`);
   if (data.hotelFssai) builder.text(`FSSAI: ${data.hotelFssai}`);
+
+  if (data.isToken) {
+    builder.alignCenter()
+      .bold(true)
+      .text('*** CUSTOMER / KITCHEN TOKEN ***')
+      .bold(false)
+      .line('=', LINE_WIDTH)
+      .alignLeft()
+      .bold()
+      .text(`TOKEN NO: #${data.billId}`)
+      .text(`${data.table}`)
+      .bold(false)
+      .text(`Date: ${dateStr}`)
+      .line('-', LINE_WIDTH);
+
+    const qtyLen = 6;
+    const itemLen = LINE_WIDTH - qtyLen - 1;
+    builder.bold(true).text(
+      padText('ITEM', itemLen) + ' ' + padText('QTY', qtyLen, 'right')
+    ).bold(false).line('-', LINE_WIDTH);
+
+    data.items.forEach(item => {
+      const qty = item.quantity || item.qty || 1;
+      const nameStr = toTitleCase(String(item.name));
+      builder.text(padText(nameStr.substring(0, itemLen), itemLen) + ' ' + padText(`x${qty}`, qtyLen, 'right'));
+    });
+
+    builder.line('=', LINE_WIDTH)
+      .alignCenter()
+      .bold(true)
+      .text('PLEASE WAIT FOR YOUR NUMBER')
+      .bold(false)
+      .feed(3)
+      .cut();
+
+    return builder.build();
+  }
 
   if (data.isCreditSettlement) {
     builder.alignCenter()
@@ -298,13 +328,15 @@ export function formatBill(data, printerSize = '58mm') {
   }
 
   // UPI QR Code
-  if (data.upiId && !data.isPaid) {
+  if (data.upiId) {
     const upiLink = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.hotelName)}&am=${data.finalAmount}&cu=INR`;
     builder.alignCenter()
-      .text('SCAN TO PAY')
-      .feed(1)
+      .bold(true)
+      .text('SCAN TO PAY WITH ANY UPI APP')
+      .bold(false)
       .qrCode(upiLink)
-      .feed(1);
+      .text(`UPI ID: ${data.upiId}`)
+      .line('-', LINE_WIDTH);
   }
 
   builder.alignCenter()

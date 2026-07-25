@@ -156,15 +156,6 @@ const Profile = () => {
         }
     };
 
-    const fetchKotStatus = async () => {
-        try {
-            const res = await api.get('/hotel/kot-status');
-            setKotEnabled(res.data.kotEnabled);
-            updateUser({ kotEnabled: res.data.kotEnabled });
-        } catch (err) {
-            console.error('Failed to fetch KOT status', err);
-        }
-    };
 
     const handleToggleKot = (shouldEnable) => {
         if (shouldEnable) {
@@ -210,11 +201,23 @@ const Profile = () => {
         }
     };
 
+    const fetchKotStatus = async () => {
+        try {
+            const res = await api.get('/hotel/kot-status');
+            const isEnabled = res.data.kotEnabled !== undefined ? res.data.kotEnabled : !!res.data.enabled;
+            setKotEnabled(isEnabled);
+            updateUser({ kotEnabled: isEnabled });
+        } catch (err) {
+            console.error('Failed to fetch KOT status', err);
+        }
+    };
+
     const fetchWhatsAppBillingStatus = async () => {
         try {
             const res = await api.get('/hotel/whatsapp-billing-status');
-            setWhatsAppBillingEnabled(res.data.whatsAppBillingEnabled);
-            updateUser({ whatsAppBillingEnabled: res.data.whatsAppBillingEnabled });
+            const isEnabled = res.data.whatsAppBillingEnabled !== undefined ? res.data.whatsAppBillingEnabled : !!res.data.enabled;
+            setWhatsAppBillingEnabled(isEnabled);
+            updateUser({ whatsAppBillingEnabled: isEnabled });
         } catch (err) {
             console.error('Failed to fetch WhatsApp billing status', err);
         }
@@ -267,8 +270,9 @@ const Profile = () => {
     const fetchInventoryStatus = async () => {
         try {
             const res = await api.get('/hotel/inventory-status');
-            setInventoryEnabled(res.data.inventoryEnabled);
-            updateUser({ inventoryEnabled: res.data.inventoryEnabled });
+            const isEnabled = res.data.inventoryEnabled !== undefined ? res.data.inventoryEnabled : !!res.data.enabled;
+            setInventoryEnabled(isEnabled);
+            updateUser({ inventoryEnabled: isEnabled });
         } catch (err) {
             console.error('Failed to fetch inventory status', err);
         }
@@ -321,8 +325,9 @@ const Profile = () => {
     const fetchTokenCounterStatus = async () => {
         try {
             const res = await api.get('/hotel/token-counter-status');
-            setTokenCounterEnabled(res.data.tokenCounterEnabled);
-            updateUser({ tokenCounterEnabled: res.data.tokenCounterEnabled });
+            const isEnabled = res.data.tokenCounterEnabled !== undefined ? res.data.tokenCounterEnabled : !!res.data.enabled;
+            setTokenCounterEnabled(isEnabled);
+            updateUser({ tokenCounterEnabled: isEnabled });
         } catch (err) {
             console.error('Failed to fetch token counter status', err);
         }
@@ -331,8 +336,9 @@ const Profile = () => {
     const fetchSimpleKotStatus = async () => {
         try {
             const res = await api.get('/hotel/simple-kot-status');
-            setSimpleKotEnabled(res.data.simpleKotEnabled);
-            updateUser({ simpleKotEnabled: res.data.simpleKotEnabled });
+            const isEnabled = res.data.simpleKotEnabled !== undefined ? res.data.simpleKotEnabled : !!res.data.enabled;
+            setSimpleKotEnabled(isEnabled);
+            updateUser({ simpleKotEnabled: isEnabled });
         } catch (err) {
             console.error('Failed to fetch simple KOT status', err);
         }
@@ -933,57 +939,7 @@ const Profile = () => {
                     )}
                 </div>
             )}
-            {/* Staff Section */}
-            {isOwner && kotEnabled && (
-                <div style={{ width: '100%' }}>
-                    <div 
-                        onClick={() => setShowStaffSection(!showStaffSection)}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showStaffSection ? '12px' : '0', cursor: 'pointer', backgroundColor: 'var(--bg-card)', padding: '14px 20px', borderRadius: '12px', border: '1px solid var(--border-rgba-05)', transition: 'all 0.2s' }}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <Users size={22} style={{ color: '#f59e0b' }} />
-                            <h2 style={{fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Add New Staff</h2>
-                        </div>
-                        <ChevronDown 
-                            size={20} 
-                            style={{ 
-                                color: 'var(--text-muted)', 
-                                transform: showStaffSection ? 'rotate(180deg)' : 'rotate(0deg)',
-                                transition: 'transform 0.3s ease'
-                            }} 
-                        />
-                    </div>
-                    
-                    {showStaffSection && (
-                        <div className="responsive-grid-12" style={{ gap: '24px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-rgba-05)' }}>
-                            <div style={{ gridColumn: 'span 5', backgroundColor: 'var(--bg-base)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-rgba-05)' }}>
-                                <h3 style={{fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Hire New Staff</h3>
-                                <form onSubmit={handleHiring} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    <input required placeholder="Staff Name" value={staffForm.name} onChange={e => setStaffForm({...staffForm, name: e.target.value})} style={{padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' }} />
-                                    <input required type="email" placeholder="Login Email" value={staffForm.email} onChange={e => setStaffForm({...staffForm, email: e.target.value})} style={{padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' }} />
-                                    <input required type="password" placeholder="Initial Passcode" value={staffForm.password} onChange={e => setStaffForm({...staffForm, password: e.target.value})} style={{padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)' }} />
-                                    <button type="submit" disabled={hiring} style={{ backgroundColor: '#f59e0b', color: 'white', padding: '12px', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', border: 'none' }}>Onboard Staff</button>
-                                </form>
-                            </div>
-                            <div style={{ gridColumn: 'span 7', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {staff.length === 0 ? (
-                                    <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', backgroundColor: 'var(--bg-base)', borderRadius: '12px', border: '2px dashed var(--bg-border)' }}>No active waitstaff protocol</div>
-                                ) : (
-                                    staff.map(s => (
-                                        <div key={s.id} style={{ padding: '12px 16px', backgroundColor: 'var(--bg-base)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                                            <div>
-                                                <div style={{color: 'var(--text-primary)', fontWeight: 600, fontSize: '15px' }}>{s.name}</div>
-                                                <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{s.email}</div>
-                                            </div>
-                                            <button onClick={() => removeStaff(s.id)} style={{ color: '#f43f5e', padding: '12px', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={24} /></button>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
+
 
             {/* System Add-ons Section */}
             {isOwner && (
@@ -1063,6 +1019,42 @@ const Profile = () => {
                                     </button>
                                 </div>
                             </div>
+                            <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
+                            {/* Simple KOT Module */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
+                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Simple KOT</h3>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
+                                        Enable kitchen order tickets and live kitchen display routing.
+                                        This module requires a passcode to unlock.
+                                    </p>
+                                </div>
+                                
+                                {/* Toggle / Radio Control */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)' }}>
+                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="simpleKotModule"
+                                            checked={!simpleKotEnabled} 
+                                            onChange={() => handleToggleSimpleKot(false)}
+                                            style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        Disabled
+                                    </label>
+                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="simpleKotModule"
+                                            checked={simpleKotEnabled} 
+                                            onChange={() => handleToggleSimpleKot(true)}
+                                            style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        Enabled
+                                    </label>
+                                </div>
+                            </div>
+
                             <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
                             {/* WhatsApp Billing Module */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>

@@ -1,16 +1,16 @@
 const MONTHLY_KEYS = {
-  0: 'X8m2K9P4Q7', // Jan
-  1: 'N4w7T3L8R5', // Feb
-  2: 'R9b2Y7Q5K3', // Mar
-  3: 'C3u7M1P8T6', // Apr
-  4: 'H8k5V2N9W4', // May
-  5: 'Z4r8F2W9M7', // Jun
-  6: 'T9p3L7C2Q8', // Jul
-  7: 'B5d8Q2M9X4', // Aug
-  8: 'G3x7R9V2P5', // Sep
-  9: 'Y8j4C2T9N5', // Oct
-  10: 'P2n8W5B9K4', // Nov
-  11: 'L9s4Z7Q2R5'  // Dec
+  0: 'X8m2K9P4Q7v3', // Jan
+  1: 'N4w7T3L8R5j2', // Feb
+  2: 'R9b2Y7Q5K3m4', // Mar
+  3: 'C3u7M1P8T6x9', // Apr
+  4: 'H8k5V2N9W4z7', // May
+  5: 'Z4r8F2W9M7p5', // Jun
+  6: 'T9p3L7C2Q8k4', // Jul
+  7: 'B5d8Q2M9X4y1', // Aug
+  8: 'G3x7R9V2P5n8', // Sep
+  9: 'Y8j4C2T9N5w6', // Oct
+  10: 'P2n8W5B9K4d3', // Nov
+  11: 'L9s4Z7Q2R5h9'  // Dec
 };
 
 const YEARLY_KEYS = {

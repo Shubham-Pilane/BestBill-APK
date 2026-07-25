@@ -510,6 +510,45 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 200, data: { success: true, message: 'KOT printed successfully' } };
     }
 
+    if (path === '/kitchen/orders' && methodUpper === 'GET') {
+      const ordersRes = await db.query(`
+        SELECT o.id as order_id, o.table_id, o.status, o.created_at, o.kot_sent_at, o.waiter_name, o.guest_note, o.is_prepared,
+               t.table_number, t.floor as table_floor
+        FROM orders o
+        JOIN tables t ON o.table_id = t.id
+        WHERE t.hotel_id = $1 AND (o.kot_sent_at IS NOT NULL OR o.status = 'active')
+        ORDER BY COALESCE(o.kot_sent_at, o.created_at) DESC
+        LIMIT 50
+      `, [user.hotel_id]);
+
+      const formattedOrders = [];
+      for (const order of ordersRes.rows) {
+        const itemsRes = await db.query(`
+          SELECT mi.name, oi.quantity, oi.printed_quantity, mi.price
+          FROM order_items oi
+          JOIN menu_items mi ON oi.menu_item_id = mi.id
+          WHERE oi.order_id = $1
+        `, [order.order_id]);
+
+        if (itemsRes.rows.length > 0) {
+          const totalAmt = itemsRes.rows.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+          formattedOrders.push({
+            order_id: order.order_id,
+            table_number: order.table_number,
+            table_floor: order.table_floor || '',
+            waiter_name: order.waiter_name || '',
+            guest_note: order.guest_note || '',
+            is_prepared: order.is_prepared || 0,
+            kot_sent_at: order.kot_sent_at || order.created_at,
+            total_amount: totalAmt,
+            items: itemsRes.rows
+          });
+        }
+      }
+
+      return { status: 200, data: formattedOrders };
+    }
+
     if (path.startsWith('/tables/') && path.endsWith('/swap') && methodUpper === 'POST') {
       const tableId = parseInt(path.split('/')[2]);
       const { targetTableId } = body;
@@ -601,6 +640,40 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if (path.startsWith('/tables/') && path.endsWith('/bill/send') && methodUpper === 'POST') {
       return { status: 200, data: { success: true, message: 'SMS mock sent' } };
+    }
+
+    if ((path === '/bills/history' || path === '/bills') && methodUpper === 'GET') {
+      try {
+        const billsRes = await db.query(`
+          SELECT b.*, t.table_number
+          FROM bills b
+          JOIN orders o ON b.order_id = o.id
+          JOIN tables t ON o.table_id = t.id
+          ORDER BY b.id DESC
+        `);
+
+        const formattedBills = [];
+        for (const bill of billsRes.rows) {
+          const itemsRes = await db.query(`
+            SELECT oi.id, mi.name, oi.quantity, mi.price
+            FROM order_items oi
+            JOIN menu_items mi ON oi.menu_item_id = mi.id
+            WHERE oi.order_id = $1
+          `, [bill.order_id]);
+
+          formattedBills.push({
+            ...bill,
+            items: itemsRes.rows,
+            items_json: JSON.stringify(itemsRes.rows),
+            parsedItems: itemsRes.rows
+          });
+        }
+
+        return { status: 200, data: formattedBills };
+      } catch (e) {
+        console.error('[LOCAL BILLS HISTORY ERROR]', e);
+        return { status: 200, data: [] };
+      }
     }
 
     // ----------------------------------------
@@ -911,7 +984,8 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         gst_percentage: hotel.gst_percentage || 0,
         printerSize: localStorage.getItem('cfg_printer_size') || '58mm',
         isCreditSettlement: body?.isCreditSettlement || false,
-        settlementPaymentMethod: body?.settlementPaymentMethod || body?.paymentMethod || ''
+        settlementPaymentMethod: body?.settlementPaymentMethod || body?.paymentMethod || '',
+        isToken: body?.isToken || false
       };
 
       // Trigger Bluetooth receipt spoler
@@ -1241,17 +1315,25 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     // Settings Configuration Toggles
     if (path === '/hotel/lodging-status') return { status: 200, data: { enabled: false } };
-    if (path === '/hotel/kot-status') return { status: 200, data: { enabled: false } };
-    if (path === '/hotel/simple-kot-status') return { status: 200, data: { enabled: false } };
-    
+    if (path === '/hotel/kot-status') {
+      const isEnabled = localStorage.getItem('cfg_kot') === 'true';
+      return { status: 200, data: { enabled: isEnabled, kotEnabled: isEnabled } };
+    }
+    if (path === '/hotel/simple-kot-status') {
+      const isEnabled = localStorage.getItem('cfg_simple_kot') === 'true';
+      return { status: 200, data: { enabled: isEnabled, simpleKotEnabled: isEnabled } };
+    }
     if (path === '/hotel/whatsapp-billing-status') {
-      return { status: 200, data: { enabled: localStorage.getItem('cfg_whatsapp_billing') === 'true' } };
+      const isEnabled = localStorage.getItem('cfg_whatsapp_billing') === 'true';
+      return { status: 200, data: { enabled: isEnabled, whatsAppBillingEnabled: isEnabled } };
     }
     if (path === '/hotel/inventory-status') {
-      return { status: 200, data: { enabled: localStorage.getItem('cfg_inventory') !== 'false' } };
+      const isEnabled = localStorage.getItem('cfg_inventory') !== 'false';
+      return { status: 200, data: { enabled: isEnabled, inventoryEnabled: isEnabled } };
     }
     if (path === '/hotel/token-counter-status') {
-      return { status: 200, data: { enabled: localStorage.getItem('cfg_token_counter') === 'true' } };
+      const isEnabled = localStorage.getItem('cfg_token_counter') === 'true';
+      return { status: 200, data: { enabled: isEnabled, tokenCounterEnabled: isEnabled } };
     }
 
     if (path === '/hotel/toggle-lodging') {

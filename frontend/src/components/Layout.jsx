@@ -98,22 +98,23 @@ const Layout = ({ children }) => {
       : [
           { name: 'Table Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
           { name: 'Manage Menu', path: '/menu', icon: <UtensilsCrossed size={20} /> },
+          { name: 'Kitchen KOT', path: '/kitchen-kot', icon: <ChefHat size={20} /> },
           { name: 'Billing History', path: '/history', icon: <History size={20} /> },
           { name: 'Credit Management', path: '/credit', icon: <Wallet size={20} /> },
           { name: 'Inventory Management', path: '/inventory', icon: <Boxes size={20} /> },
           { name: 'Profile Settings', path: '/profile', icon: <UserCircle size={20} /> },
         ];
 
-  const kotEnabled = user?.kotEnabled || false;
+  const simpleKotEnabled = user?.simpleKotEnabled || user?.kotEnabled || false;
 
   const navItems = baseNavItems.filter(item => {
-    if (item.path === '/kitchen-kot' && !kotEnabled) return false;
+    if (item.path === '/kitchen-kot' && !simpleKotEnabled) return false;
     if (item.path === '/inventory' && !inventoryEnabled) return false;
     return true;
   });
 
   const handleNavClick = (e, item) => {
-    if (item.path === '/kitchen-kot' && !kotEnabled) {
+    if (item.path === '/kitchen-kot' && !simpleKotEnabled) {
       e.preventDefault();
       toast.error("You need licencse for that to unloack this fetaure contact Shubham Pilane 9822401802", {
         style: {

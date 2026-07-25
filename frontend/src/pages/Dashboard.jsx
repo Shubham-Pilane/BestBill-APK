@@ -837,9 +837,9 @@ const Dashboard = () => {
         onCancel={() => setDeleteConfirmOpen(false)}
       />
 
-      {isOrderModalOpen && (
+      {isOrderModalOpen && selectedTable && (
         <OrderModal
-          table={tables.find(t => t.id === selectedTable.id) || selectedTable}
+          table={tables.find(t => t.id === selectedTable?.id) || selectedTable}
           initialMenu={menuData}
           allTables={tables}
           onClose={() => {

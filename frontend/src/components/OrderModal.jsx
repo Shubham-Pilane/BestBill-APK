@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
-import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, Ticket } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import SwapModal from './SwapModal';
+
 const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) => {
+  if (!table) return null;
   const { user } = useAuth();
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   const [categories, setCategories] = useState(initialMenu?.categories || []);
   const [allItems, setAllItems] = useState([]);
   const [items, setItems] = useState([]);
@@ -35,7 +38,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [selectedVendorId, setSelectedVendorId] = useState('');
   const [vendors, setVendors] = useState([]);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const isTokenCounter = String(table?.table_number || table?.id || '').toLowerCase().includes('token');
+  const isParcelCounter = table?.table_number === 'Parcel Counter';
+  const showKotButton = (user?.simpleKotEnabled || user?.kotEnabled) && !isTokenCounter;
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -69,12 +74,13 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!table || !table.id) return;
       try {
-        const needsOrderFetch = !!table.active_order_id;
+        const needsOrderFetch = !!table?.active_order_id;
         const needsStaticFetch = !initialMenu || !passedTables;
 
         const [catRes, orderRes, tablesRes] = await Promise.all([
-          needsStaticFetch ? api.get('/menu/categories') : Promise.resolve({ data: initialMenu.categories }),
+          needsStaticFetch ? api.get('/menu/categories') : Promise.resolve({ data: initialMenu?.categories }),
           needsOrderFetch ? api.get(`/tables/${table.id}/order`) : Promise.resolve({ data: { items: [] } }),
           needsStaticFetch ? api.get('/tables') : Promise.resolve({ data: passedTables })
         ]);
@@ -83,7 +89,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
             setCategories(catRes.data || []);
             setAllTables(tablesRes.data || []);
         }
-        setOrderItems(orderRes.data.items || []);
+        setOrderItems(orderRes.data?.items || []);
         
         await fetchAllMenu();
         
@@ -95,7 +101,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     };
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [table.id]);
+  }, [table?.id]);
 
   useEffect(() => {
     let filtered = allItems;
@@ -282,6 +288,17 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       toast.error(errorMsg, { id: t });
     }
   };
+  const printToken = async () => {
+    if (!billData) return;
+    try {
+      await api.post(`/bills/${billData.id}/print`, { paymentMethod: selectedPaymentMethod, isToken: true });
+      toast.success('Token ticket sent to printer!');
+    } catch (err) {
+      console.error('Token print failed:', err);
+      toast.error(err.response?.data?.message || 'Token print failed');
+    }
+  };
+
   const printBill = async () => {
     if (!billData) return;
     try {
@@ -301,6 +318,20 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       } catch (confirmErr) {
         toast.error(confirmErr.response?.data?.message || 'Settlement failed');
       }
+    }
+  };
+
+  const settleWithoutPrint = async () => {
+    if (!billData) return;
+    try {
+      if (!billData.is_paid) {
+        await confirmPayment(selectedPaymentMethod);
+      } else {
+        toast.success('Transaction settled!');
+      }
+    } catch (err) {
+      console.error('Settlement failed:', err);
+      toast.error(err.response?.data?.message || 'Settlement failed');
     }
   };
 
@@ -873,11 +904,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                       onClick={sendToKitchen} 
                       style={{ width: '100%', padding: '11px', borderRadius: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '13px', cursor: 'pointer' }}
                     >
-                      SEND TO KITCHEN
+                      PRINT KOT
                     </button>
-                  ) : (table.table_number === 'Parcel Counter' || user?.simpleKotEnabled) ? (
+                  ) : showKotButton ? (
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button disabled={orderItems.length === 0} onClick={sendToKitchen} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>SEND TO KITCHEN</button>
+                      <button disabled={orderItems.length === 0} onClick={sendToKitchen} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>PRINT KOT</button>
                       <button disabled={orderItems.length === 0} onClick={generateBill} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>SETTLE BILL</button>
                     </div>
                   ) : (
@@ -979,26 +1010,69 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   <span style={{ color: '#10b981', fontSize: '22px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
                 </div>
 
-                <button 
-                  disabled={orderItems.length === 0} 
-                  onClick={generateBill} 
-                  style={{ 
-                    width: '100%', 
-                    padding: '14px', 
-                    borderRadius: '14px', 
-                    backgroundColor: '#0ea5e9', 
-                    color: '#ffffff', 
-                    border: 'none', 
-                    fontWeight: 900, 
-                    fontSize: '14px', 
-                    cursor: 'pointer', 
-                    opacity: orderItems.length === 0 ? 0.3 : 1, 
-                    transition: '0.2s', 
-                    boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)' 
-                  }}
-                >
-                  {table.table_number === 'Parcel Counter' ? 'SETTLE BILL' : 'SETTLE TRANSACTION'}
-                </button>
+                {showKotButton ? (
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button 
+                      disabled={orderItems.length === 0} 
+                      onClick={sendToKitchen} 
+                      style={{ 
+                        flex: 1, 
+                        padding: '14px', 
+                        borderRadius: '14px', 
+                        backgroundColor: '#f59e0b', 
+                        color: '#ffffff', 
+                        border: 'none', 
+                        fontWeight: 900, 
+                        fontSize: '13px', 
+                        cursor: 'pointer', 
+                        opacity: orderItems.length === 0 ? 0.3 : 1, 
+                        boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)' 
+                      }}
+                    >
+                      PRINT KOT
+                    </button>
+                    <button 
+                      disabled={orderItems.length === 0} 
+                      onClick={generateBill} 
+                      style={{ 
+                        flex: 1, 
+                        padding: '14px', 
+                        borderRadius: '14px', 
+                        backgroundColor: '#0ea5e9', 
+                        color: '#ffffff', 
+                        border: 'none', 
+                        fontWeight: 900, 
+                        fontSize: '13px', 
+                        cursor: 'pointer', 
+                        opacity: orderItems.length === 0 ? 0.3 : 1, 
+                        boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)' 
+                      }}
+                    >
+                      SETTLE BILL
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    disabled={orderItems.length === 0} 
+                    onClick={generateBill} 
+                    style={{ 
+                      width: '100%', 
+                      padding: '14px', 
+                      borderRadius: '14px', 
+                      backgroundColor: '#0ea5e9', 
+                      color: '#ffffff', 
+                      border: 'none', 
+                      fontWeight: 900, 
+                      fontSize: '14px', 
+                      cursor: 'pointer', 
+                      opacity: orderItems.length === 0 ? 0.3 : 1, 
+                      transition: '0.2s', 
+                      boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)' 
+                    }}
+                  >
+                    {table.table_number === 'Parcel Counter' ? 'SETTLE BILL' : 'SETTLE TRANSACTION'}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1009,7 +1083,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       {showBill && billData && (
         <div className="bill-modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backdropFilter: 'blur(10px)' }}>
           <div className="bill-container" style={{ width: '100%', maxWidth: '850px', maxHeight: '90vh', backgroundColor: 'var(--bg-card)', borderRadius: '32px', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row', boxShadow: '0 50px 100px -20px rgba(0,0,0,0.8)', border: '1px solid var(--border-color)', position: 'relative' }}>
-             <div style={{ flex: 1, padding: '32px', borderRight: '1px solid var(--border-color)', backgroundColor: billData.is_paid ? '#10b981' : 'var(--bg-card)', transition: 'all 0.6s', overflowY: 'auto', position: 'relative' }}>
+             <div className="bill-preview-scroll" style={{ flex: 1, padding: '32px', borderRight: '1px solid var(--border-color)', backgroundColor: billData.is_paid ? '#10b981' : 'var(--bg-card)', transition: 'all 0.6s', overflowY: 'auto', position: 'relative' }}>
 
                 {isSuccess && (
                    <div style={{ position: 'absolute', inset: 0, backgroundColor: '#10b981', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.3s ease-out' }}>
@@ -1061,7 +1135,13 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '32px', fontWeight: 1000, color: '#10b981', borderTop: '2px double var(--border-color)', marginTop: '10px', paddingTop: '10px' }}><span>TOTAL</span><span>₹{parseFloat(billData.final_amount).toFixed(2)}</span></div>
                 </div>
 
-                <div style={{ marginTop: '32px' }}>
+                 {!billData.is_paid && (
+                    <div style={{ position: 'sticky', bottom: 0, zIndex: 30, backgroundColor: 'rgba(16, 185, 129, 0.15)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', padding: '8px 0', borderRadius: '12px', marginTop: '16px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                      <ChevronDown size={22} style={{ animation: 'bounce 1.5s infinite' }} />
+                    </div>
+                 )}
+
+                 <div style={{ marginTop: '16px' }}>
                   {!billData.is_paid ? (
                     <button onClick={rollbackBill} className="btn-modify-invoice" style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1px solid #475569', backgroundColor: '#334155', color: '#ffffff', fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)', transition: 'background-color 0.2s' }}>MODIFY INVOICE</button>
                   ) : (
@@ -1281,16 +1361,37 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                      </div>
                    )}
 
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                     <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
-                        <Printer size={16} /> {!billData.is_paid ? 'Print' : 'Re-Print'}
-                     </button>
-                     {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
-                       <button onClick={shareViaWhatsApp} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#22c55e', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
-                          <MessageCircle size={16} /> WhatsApp
+                  {String(table.table_number || table.id || '').toLowerCase().includes('token') ? (
+                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                       <button onClick={printToken} style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '900', fontSize: '13px', boxShadow: '0 4px 12px rgba(245,158,11,0.25)' }}>
+                          <Ticket size={16} /> Print Token
                        </button>
-                     )}
-                  </div>
+                       <div style={{ display: 'flex', gap: '10px' }}>
+                         <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '900', fontSize: '12px', boxShadow: '0 4px 12px rgba(59,130,246,0.25)' }}>
+                            <Printer size={16} /> Settle & Print
+                         </button>
+                         <button onClick={settleWithoutPrint} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#10b981', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '900', fontSize: '12px', boxShadow: '0 4px 12px rgba(16,185,129,0.25)' }}>
+                            <CheckCircle size={16} /> Settle Without Print
+                         </button>
+                       </div>
+                       {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
+                         <button onClick={shareViaWhatsApp} style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: '#059669', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
+                            <MessageCircle size={16} /> WhatsApp
+                         </button>
+                       )}
+                     </div>
+                  ) : (
+                     <div style={{ display: 'flex', gap: '10px' }}>
+                        <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
+                           <Printer size={16} /> {!billData.is_paid ? 'Print' : 'Re-Print'}
+                        </button>
+                        {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
+                          <button onClick={shareViaWhatsApp} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#22c55e', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
+                             <MessageCircle size={16} /> WhatsApp
+                          </button>
+                        )}
+                     </div>
+                  )}
               </div>
           </div>
         </div>
