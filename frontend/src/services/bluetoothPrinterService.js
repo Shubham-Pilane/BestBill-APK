@@ -213,7 +213,7 @@ export function formatBill(data, printerSize = '80mm') {
   builder.line('=', LINE_WIDTH)
     .alignLeft()
     .bold()
-    .text(`BILL NO: #${data.billId}`)
+    .text(`BILL NO: ${data.billId}`)
     .text(`${data.table}`)
     .bold(false)
     .text(`Date: ${dateStr}`)
@@ -263,7 +263,12 @@ export function formatBill(data, printerSize = '80mm') {
   // Totals
   const labelLen = LINE_WIDTH - amtLen - 1;
   builder.text(padText('Subtotal:', labelLen) + ' ' + padText(formatAmount(data.subtotal), amtLen, 'right'));
-  builder.text(padText(`GST (${data.gst_percentage}%):`, labelLen) + ' ' + padText(formatAmount(data.gst), amtLen, 'right'));
+  
+  const gstPct = Number(data.gst_percentage) || 0;
+  const gstAmt = Number(data.gst) || 0;
+  if (gstPct > 0 || gstAmt > 0) {
+    builder.text(padText(`GST (${gstPct}%):`, labelLen) + ' ' + padText(formatAmount(gstAmt), amtLen, 'right'));
+  }
   
   if (data.discountPercentage > 0) {
     const preVal = Number(data.subtotal) + Number(data.gst);
@@ -360,12 +365,17 @@ export class BluetoothPrinterService {
       const base64Str = uint8ToBase64(uint8Array);
       const rawbtUrl = `rawbt:base64,${base64Str}`;
       
-      console.log('[BT PRINTER] Triggering RawBT print URI...');
-      if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-        window.location.href = rawbtUrl;
-      } else {
-        window.open(rawbtUrl, '_self');
-      }
+      console.log('[BT PRINTER] Triggering RawBT print intent safely...');
+      const link = document.createElement('a');
+      link.href = rawbtUrl;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
+      }, 500);
       return true;
     } catch (err) {
       console.error('[BT PRINTER] RawBT print error:', err);

@@ -609,6 +609,50 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         [method, billId]
       );
       if (result.rows.length === 0) return { status: 404, data: { message: 'Bill record not found' } };
+
+      const bill = result.rows[0];
+      try {
+        const hotelRes = await db.query('SELECT name, phone, location, gst_percentage, upi_id FROM hotels WHERE id = $1', [Number(user.hotel_id)]);
+        const hotel = hotelRes.rows[0] || {};
+        
+        const itemsRes = await db.query(`
+          SELECT oi.quantity, mi.name, mi.price 
+          FROM order_items oi 
+          JOIN menu_items mi ON oi.menu_item_id = mi.id 
+          WHERE oi.order_id = $1`,
+          [bill.order_id]
+        );
+
+        const orderRes = await db.query('SELECT table_id FROM orders WHERE id = $1', [bill.order_id]);
+        let tableName = 'Counter';
+        if (orderRes.rows[0]?.table_id) {
+          const tableQuery = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [orderRes.rows[0].table_id]);
+          if (tableQuery.rows[0]) tableName = `Table ${tableQuery.rows[0].table_number} (${tableQuery.rows[0].floor})`;
+        }
+
+        const printPayload = {
+          type: 'FINAL_BILL',
+          billId: bill.id,
+          table: tableName,
+          subtotal: bill.total_amount,
+          gst: bill.gst,
+          finalAmount: bill.final_amount,
+          discountPercentage: bill.discount_percentage,
+          items: itemsRes.rows.map(i => ({ name: i.name, price: i.price, qty: i.quantity })),
+          hotelName: hotel.name || 'BestBill Hotel',
+          hotelPhone: hotel.phone || '',
+          hotelLocation: hotel.location || '',
+          upiId: '',
+          isPaid: true,
+          gst_percentage: bill.gst_percentage,
+          printerSize: localStorage.getItem('cfg_printer_size') || '80mm'
+        };
+
+        window.dispatchEvent(new CustomEvent('print-job-triggered', { detail: printPayload }));
+      } catch (printErr) {
+        console.error('Failed to trigger bill print:', printErr);
+      }
+
       return { status: 200, data: { success: true, bill: result.rows[0] } };
     }
 
