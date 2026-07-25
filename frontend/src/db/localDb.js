@@ -382,31 +382,7 @@ if (typeof window !== 'undefined') {
 
 // Seed default hotel, user, tables and menu items if fresh DB
 const ensureDefaultSeedData = () => {
-  try {
-    const hotelCheck = db.exec("SELECT COUNT(*) as count FROM hotels");
-    const count = hotelCheck[0]?.values[0]?.[0] || 0;
-    if (count === 0) {
-      console.log('[LOCAL DB] No hotel found. Seeding default hotel, user, categories, menu & tables...');
-      db.run("INSERT INTO users (id, name, email, password, role, hotel_id) VALUES (1, 'Owner', 'owner@bestbill.com', '$2a$10$e8461719999999999999999999999999999999999999999999999', 'owner', 1)");
-      db.run("INSERT INTO hotels (id, owner_id, name, phone, location, gst_percentage) VALUES (1, 1, 'BestBill Hotel', '9822401802', 'Main Market', 0)");
-      db.run("INSERT INTO categories (id, hotel_id, name) VALUES (1, 1, 'General')");
-      
-      // Default Menu Items
-      db.run("INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES (1, 1, 'Pani Puri', 40, 'Crispy Puris with Spicy Flavored Water', 1)");
-      db.run("INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES (1, 1, 'Sev Puri', 60, 'Crunchy Puri topped with Sev & Chutneys', 1)");
-      db.run("INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES (1, 1, 'Masala Dosa', 80, 'South Indian Rice Crepe with Potato Filling', 1)");
-      db.run("INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES (1, 1, 'Tea', 15, 'Hot Masala Tea', 1)");
-      db.run("INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES (1, 1, 'Coffee', 25, 'Hot Brewed Coffee', 1)");
-
-      // Default Tables 1 to 6
-      for (let i = 1; i <= 6; i++) {
-        db.run("INSERT INTO tables (hotel_id, table_number, capacity, floor) VALUES (1, ?, 4, 'Floor 1')", [i.toString()]);
-      }
-      saveDbFileNow();
-    }
-  } catch (err) {
-    console.error('[LOCAL DB SEED ERROR]', err);
-  }
+  // Fresh install: database starts empty so new hotel can register
 };
 
 export const initDb = async () => {

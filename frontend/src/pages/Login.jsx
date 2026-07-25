@@ -556,23 +556,17 @@ const Login = () => {
               {isForgotPassword ? (
                 <>
                   Remember your password?{' '}
-                  <button onClick={() => setIsForgotPassword(false)} style={{ color: '#38bdf8', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 800, textDecoration: 'underline', paddingLeft: '4px' }}>Back to login</button>
+                  <button type="button" onClick={() => setIsForgotPassword(false)} style={{ color: '#38bdf8', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 800, textDecoration: 'underline', paddingLeft: '4px' }}>Back to login</button>
                 </>
               ) : isRegister ? (
                 <>
                   Already have an account?{' '}
-                  <button onClick={() => setIsRegister(false)} style={{ color: '#38bdf8', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 800, textDecoration: 'underline', paddingLeft: '4px' }}>Login now</button>
+                  <button type="button" onClick={() => setIsRegister(false)} style={{ color: '#38bdf8', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 800, textDecoration: 'underline', paddingLeft: '4px' }}>Login now</button>
                 </>
               ) : (
                 <>
-                  {isRegistrationAllowed ? (
-                    <>
-                      Don't have a hotel account?{' '}
-                      <button onClick={() => setIsRegister(true)} style={{ color: '#38bdf8', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 800, textDecoration: 'underline', paddingLeft: '4px' }}>Register here</button>
-                    </>
-                  ) : (
-                    <span style={{ color: '#f43f5e', fontWeight: 800 }}>Free Trial Period Expired. Activation Required.</span>
-                  )}
+                  Don't have a hotel account?{' '}
+                  <button type="button" onClick={() => setIsRegister(true)} style={{ color: '#38bdf8', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 800, textDecoration: 'underline', paddingLeft: '4px' }}>Register here</button>
                 </>
               )}
             </p>

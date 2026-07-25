@@ -128,9 +128,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     // AUTHENTICATION ROUTES
     // ----------------------------------------
     if (path === '/auth/register-status') {
-      const usersRes = await db.query('SELECT count(*) as count FROM users');
-      const count = usersRes.rows[0]?.count || 0;
-      return { status: 200, data: { isRegistrationAllowed: count === 0 } };
+      return { status: 200, data: { isRegistrationAllowed: true } };
     }
 
     if (path === '/auth/register' && methodUpper === 'POST') {
@@ -138,6 +136,10 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const hashedPassword = await bcrypt.hash(password, 10);
       const loc = location || address || '';
       
+      // Clean up default dummy user/hotel if present
+      await db.query("DELETE FROM users WHERE email = 'owner@bestbill.com'");
+      await db.query("DELETE FROM hotels WHERE name = 'BestBill Hotel' AND owner_id NOT IN (SELECT id FROM users)");
+
       // Create user
       const userRes = await db.query(
         'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING *',
@@ -158,9 +160,20 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       // Save registration date for trial validation
       localStorage.setItem('registration_date', new Date().toISOString());
 
-      // Pre-populate some tables for onboarding convenience
-      for (let i = 1; i <= 5; i++) {
-        await db.query('INSERT INTO tables (hotel_id, table_number, floor) VALUES ($1, $2, $3)', [newHotel.id, i.toString(), 'Floor 1']);
+      // Pre-populate category & default menu items
+      const catRes = await db.query('INSERT INTO categories (hotel_id, name) VALUES ($1, $2) RETURNING *', [newHotel.id, 'General']);
+      const catId = catRes.rows[0]?.id;
+      if (catId) {
+        await db.query('INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES ($1, $2, $3, $4, $5, $6)', [newHotel.id, catId, 'Pani Puri', 40, 'Crispy Puris with Spicy Flavored Water', 1]);
+        await db.query('INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES ($1, $2, $3, $4, $5, $6)', [newHotel.id, catId, 'Sev Puri', 60, 'Crunchy Puri topped with Sev & Chutneys', 1]);
+        await db.query('INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES ($1, $2, $3, $4, $5, $6)', [newHotel.id, catId, 'Masala Dosa', 80, 'South Indian Rice Crepe with Potato Filling', 1]);
+        await db.query('INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES ($1, $2, $3, $4, $5, $6)', [newHotel.id, catId, 'Tea', 15, 'Hot Masala Tea', 1]);
+        await db.query('INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES ($1, $2, $3, $4, $5, $6)', [newHotel.id, catId, 'Coffee', 25, 'Hot Brewed Coffee', 1]);
+      }
+
+      // Pre-populate default tables 1 to 6
+      for (let i = 1; i <= 6; i++) {
+        await db.query('INSERT INTO tables (hotel_id, table_number, capacity, floor) VALUES ($1, $2, 4, $3)', [newHotel.id, i.toString(), 'Floor 1']);
       }
 
       return { status: 201, data: { message: 'Registration successful' } };
