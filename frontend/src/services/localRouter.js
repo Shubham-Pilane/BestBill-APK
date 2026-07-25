@@ -128,7 +128,10 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     // AUTHENTICATION ROUTES
     // ----------------------------------------
     if (path === '/auth/register-status') {
-      return { status: 200, data: { isRegistrationAllowed: true } };
+      const usersRes = await db.query("SELECT count(*) as count FROM users WHERE email != 'owner@bestbill.com'");
+      const realUsersCount = usersRes.rows[0]?.count || 0;
+      const isRegistered = realUsersCount > 0;
+      return { status: 200, data: { isRegistered, isRegistrationAllowed: true } };
     }
 
     if (path === '/auth/register' && methodUpper === 'POST') {

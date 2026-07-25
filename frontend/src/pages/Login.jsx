@@ -31,6 +31,9 @@ const Login = () => {
       try {
         const res = await api.get('/auth/register-status');
         setIsRegistrationAllowed(res.data.isRegistrationAllowed);
+        if (!res.data.isRegistered) {
+          setIsRegister(true);
+        }
       } catch (err) {
         console.error('Failed to fetch registration status', err);
       }
