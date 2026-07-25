@@ -163,17 +163,6 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       // Save registration date for trial validation
       localStorage.setItem('registration_date', new Date().toISOString());
 
-      // Pre-populate category & default menu items
-      const catRes = await db.query('INSERT INTO categories (hotel_id, name) VALUES ($1, $2) RETURNING *', [newHotel.id, 'General']);
-      const catId = catRes.rows[0]?.id;
-      if (catId) {
-        await db.query('INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES ($1, $2, $3, $4, $5, $6)', [newHotel.id, catId, 'Pani Puri', 40, 'Crispy Puris with Spicy Flavored Water', 1]);
-        await db.query('INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES ($1, $2, $3, $4, $5, $6)', [newHotel.id, catId, 'Sev Puri', 60, 'Crunchy Puri topped with Sev & Chutneys', 1]);
-        await db.query('INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES ($1, $2, $3, $4, $5, $6)', [newHotel.id, catId, 'Masala Dosa', 80, 'South Indian Rice Crepe with Potato Filling', 1]);
-        await db.query('INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES ($1, $2, $3, $4, $5, $6)', [newHotel.id, catId, 'Tea', 15, 'Hot Masala Tea', 1]);
-        await db.query('INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available) VALUES ($1, $2, $3, $4, $5, $6)', [newHotel.id, catId, 'Coffee', 25, 'Hot Brewed Coffee', 1]);
-      }
-
       // Pre-populate default tables 1 to 6
       for (let i = 1; i <= 6; i++) {
         await db.query('INSERT INTO tables (hotel_id, table_number, capacity, floor) VALUES ($1, $2, 4, $3)', [newHotel.id, i.toString(), 'Floor 1']);
@@ -611,48 +600,6 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       if (result.rows.length === 0) return { status: 404, data: { message: 'Bill record not found' } };
 
       const bill = result.rows[0];
-      try {
-        const hotelRes = await db.query('SELECT name, phone, location, gst_percentage, upi_id FROM hotels WHERE id = $1', [Number(user.hotel_id)]);
-        const hotel = hotelRes.rows[0] || {};
-        
-        const itemsRes = await db.query(`
-          SELECT oi.quantity, mi.name, mi.price 
-          FROM order_items oi 
-          JOIN menu_items mi ON oi.menu_item_id = mi.id 
-          WHERE oi.order_id = $1`,
-          [bill.order_id]
-        );
-
-        const orderRes = await db.query('SELECT table_id FROM orders WHERE id = $1', [bill.order_id]);
-        let tableName = 'Counter';
-        if (orderRes.rows[0]?.table_id) {
-          const tableQuery = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [orderRes.rows[0].table_id]);
-          if (tableQuery.rows[0]) tableName = `Table ${tableQuery.rows[0].table_number} (${tableQuery.rows[0].floor})`;
-        }
-
-        const printPayload = {
-          type: 'FINAL_BILL',
-          billId: bill.id,
-          table: tableName,
-          subtotal: bill.total_amount,
-          gst: bill.gst,
-          finalAmount: bill.final_amount,
-          discountPercentage: bill.discount_percentage,
-          items: itemsRes.rows.map(i => ({ name: i.name, price: i.price, qty: i.quantity })),
-          hotelName: hotel.name || 'BestBill Hotel',
-          hotelPhone: hotel.phone || '',
-          hotelLocation: hotel.location || '',
-          upiId: '',
-          isPaid: true,
-          gst_percentage: bill.gst_percentage,
-          printerSize: localStorage.getItem('cfg_printer_size') || '80mm'
-        };
-
-        window.dispatchEvent(new CustomEvent('print-job-triggered', { detail: printPayload }));
-      } catch (printErr) {
-        console.error('Failed to trigger bill print:', printErr);
-      }
-
       return { status: 200, data: { success: true, bill: result.rows[0] } };
     }
 
@@ -915,34 +862,38 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if (path.startsWith('/bills/') && path.endsWith('/print') && methodUpper === 'POST') {
       const billId = parseInt(path.split('/')[2]);
-      const { paymentMethod } = body || {};
+      const { paymentMethod, items: bodyItems } = body || {};
 
-      const billRes = await db.query(`
-        SELECT b.*, o.table_id,
-               h.name as hotel_name, h.phone as hotel_phone, h.location as hotel_location, h.gst_percentage, h.upi_id, h.printer_size, h.fssai_number, h.email as hotel_email
-        FROM bills b
-        JOIN orders o ON b.order_id = o.id
-        LEFT JOIN tables t ON o.table_id = t.id
-        JOIN hotels h ON h.id = $2
-        WHERE b.id = $1`,
-        [billId, Number(user.hotel_id)]
-      );
-
+      const billRes = await db.query('SELECT * FROM bills WHERE id = $1', [billId]);
       if (billRes.rows.length === 0) return { status: 404, data: { message: 'Bill not found' } };
       const bill = billRes.rows[0];
 
-      const itemsRes = await db.query(`
-        SELECT oi.quantity, mi.name, mi.price 
-        FROM order_items oi 
-        JOIN menu_items mi ON oi.menu_item_id = mi.id 
-        WHERE oi.order_id = $1`,
-        [bill.order_id]
-      );
+      const hotelRes = await db.query('SELECT * FROM hotels WHERE id = $1 OR id = 1', [user?.hotel_id || bill.hotel_id || 1]);
+      const hotel = hotelRes.rows[0] || {};
 
+      let items = [];
       let tableName = 'Counter';
-      if (bill.table_id) {
-        const tableQuery = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [bill.table_id]);
-        if (tableQuery.rows[0]) tableName = `Table ${tableQuery.rows[0].table_number} (${tableQuery.rows[0].floor})`;
+
+      if (bill.order_id) {
+        const orderRes = await db.query('SELECT table_id FROM orders WHERE id = $1', [bill.order_id]);
+        const tableId = orderRes.rows[0]?.table_id;
+        if (tableId) {
+          const tableQuery = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [tableId]);
+          if (tableQuery.rows[0]) tableName = `Table ${tableQuery.rows[0].table_number} (${tableQuery.rows[0].floor})`;
+        }
+
+        const itemsRes = await db.query(`
+          SELECT oi.quantity, mi.name, mi.price 
+          FROM order_items oi 
+          JOIN menu_items mi ON oi.menu_item_id = mi.id 
+          WHERE oi.order_id = $1`,
+          [bill.order_id]
+        );
+        items = itemsRes.rows;
+      }
+
+      if (items.length === 0 && Array.isArray(bodyItems) && bodyItems.length > 0) {
+        items = bodyItems;
       }
 
       const showUPI = (bill.is_paid === 0 || bill.is_paid === false) && (paymentMethod === 'upi' || bill.payment_method === 'upi');
@@ -955,14 +906,16 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         gst: bill.gst,
         finalAmount: bill.final_amount,
         discountPercentage: bill.discount_percentage,
-        items: itemsRes.rows.map(i => ({ name: i.name, price: i.price, qty: i.quantity })),
-        hotelName: bill.hotel_name,
-        hotelPhone: bill.hotel_phone,
-        hotelLocation: bill.hotel_location,
-        upiId: showUPI ? (bill.upi_id || '') : '',
+        items: items.map(i => ({ name: i.name, price: i.price, qty: i.quantity || i.qty || 1 })),
+        hotelName: hotel.name || user?.hotel_name || 'BESTBILL',
+        hotelPhone: hotel.phone || '',
+        hotelLocation: hotel.location || '',
+        upiId: showUPI ? (hotel.upi_id || '') : '',
         isPaid: bill.is_paid === 1 || bill.is_paid === true,
-        gst_percentage: bill.gst_percentage,
-        printerSize: localStorage.getItem('cfg_printer_size') || '80mm'
+        gst_percentage: hotel.gst_percentage || 0,
+        printerSize: localStorage.getItem('cfg_printer_size') || '58mm',
+        isCreditSettlement: body?.isCreditSettlement || false,
+        settlementPaymentMethod: body?.settlementPaymentMethod || body?.paymentMethod || ''
       };
 
       // Trigger Bluetooth receipt spoler
@@ -1061,10 +1014,14 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if (path.startsWith('/credit/transactions/') && path.endsWith('/settle') && methodUpper === 'POST') {
       const creditId = parseInt(path.split('/')[3]);
       const { method } = body;
+      const creditRes = await db.query('SELECT bill_id FROM credits WHERE id = $1 AND hotel_id = $2', [creditId, user.hotel_id]);
       await db.query(
         'UPDATE credits SET status = \'settled\', settled_at = CURRENT_TIMESTAMP, settlement_payment_method = $1 WHERE id = $2 AND hotel_id = $3',
-        [method, creditId, user.hotel_id]
+        [method || 'cash', creditId, user.hotel_id]
       );
+      if (creditRes.rows[0]?.bill_id) {
+        await db.query('UPDATE bills SET is_paid = 1, payment_method = $1 WHERE id = $2', [method || 'cash', creditRes.rows[0].bill_id]);
+      }
       return { status: 200, data: { success: true } };
     }
 
@@ -1355,7 +1312,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if (path === '/hotel/printers-config') {
       const billingPrinter = localStorage.getItem('cfg_bluetooth_mac') || '';
-      const billingSize = localStorage.getItem('cfg_printer_size') || '80mm';
+      const billingSize = localStorage.getItem('cfg_printer_size') || '58mm';
       return {
         status: 200,
         data: {
@@ -1371,7 +1328,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const { printers } = body;
       if (printers?.billing) {
         localStorage.setItem('cfg_bluetooth_mac', printers.billing.deviceName || '');
-        localStorage.setItem('cfg_printer_size', printers.billing.paperSize || '80mm');
+        localStorage.setItem('cfg_printer_size', printers.billing.paperSize || '58mm');
       }
       return { status: 200, data: { success: true } };
     }

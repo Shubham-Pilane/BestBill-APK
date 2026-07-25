@@ -120,7 +120,7 @@ class EscposBuilder {
 }
 
 // Format KOT
-export function formatKOT(data, printerSize = '80mm') {
+export function formatKOT(data, printerSize = '58mm') {
   const is58mm = printerSize === '58mm';
   const LINE_WIDTH = is58mm ? 31 : 42;
   const builder = new EscposBuilder(is58mm);
@@ -193,7 +193,7 @@ export function formatKOT(data, printerSize = '80mm') {
 }
 
 // Format Bill
-export function formatBill(data, printerSize = '80mm') {
+export function formatBill(data, printerSize = '58mm') {
   const is58mm = printerSize === '58mm';
   const LINE_WIDTH = is58mm ? 31 : 42;
   const builder = new EscposBuilder(is58mm);
@@ -209,6 +209,13 @@ export function formatBill(data, printerSize = '80mm') {
   if (data.hotelLocation) builder.text(data.hotelLocation);
   if (data.hotelPhone) builder.text(`Phone: ${data.hotelPhone}`);
   if (data.hotelFssai) builder.text(`FSSAI: ${data.hotelFssai}`);
+
+  if (data.isCreditSettlement) {
+    builder.alignCenter()
+      .bold(true)
+      .text('*** CREDIT SETTLEMENT ***')
+      .bold(false);
+  }
 
   builder.line('=', LINE_WIDTH)
     .alignLeft()
@@ -282,6 +289,14 @@ export function formatBill(data, printerSize = '80mm') {
     .bold(false)
     .line('=', LINE_WIDTH);
 
+  if (data.isCreditSettlement) {
+    const payMode = (data.settlementPaymentMethod || 'CASH').toUpperCase();
+    builder.bold(true)
+      .text(padText('SETTLEMENT MODE:', labelLen) + ' ' + padText(payMode, amtLen, 'right'))
+      .bold(false)
+      .line('-', LINE_WIDTH);
+  }
+
   // UPI QR Code
   if (data.upiId && !data.isPaid) {
     const upiLink = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.hotelName)}&am=${data.finalAmount}&cu=INR`;
@@ -319,11 +334,7 @@ export class BluetoothPrinterService {
   }
 
   static getPrinterSize() {
-    return localStorage.getItem('cfg_printer_size') || '80mm';
-  }
-
-  static getDriverMode() {
-    return localStorage.getItem('cfg_printer_driver') || 'direct'; // 'direct' or 'rawbt'
+    return localStorage.getItem('cfg_printer_size') || '58mm';
   }
 
   static async listPairedDevices() {
@@ -360,35 +371,7 @@ export class BluetoothPrinterService {
     });
   }
 
-  static async printViaRawBT(uint8Array) {
-    try {
-      const base64Str = uint8ToBase64(uint8Array);
-      const rawbtUrl = `rawbt:base64,${base64Str}`;
-      
-      console.log('[BT PRINTER] Triggering RawBT print intent safely...');
-      const link = document.createElement('a');
-      link.href = rawbtUrl;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      setTimeout(() => {
-        if (document.body.contains(link)) {
-          document.body.removeChild(link);
-        }
-      }, 500);
-      return true;
-    } catch (err) {
-      console.error('[BT PRINTER] RawBT print error:', err);
-      return false;
-    }
-  }
-
   static async printData(uint8Array) {
-    const driver = this.getDriverMode();
-    if (driver === 'rawbt') {
-      return this.printViaRawBT(uint8Array);
-    }
-
     const macAddress = this.getSelectedPrinter();
     if (!macAddress) {
       console.warn('[BT PRINTER] No Bluetooth printer configured in Settings');

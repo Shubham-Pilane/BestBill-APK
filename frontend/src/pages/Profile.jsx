@@ -39,11 +39,10 @@ const Profile = () => {
     const [showPass, setShowPass] = useState(false);
     const [loading, setLoading] = useState(false);
     const [printerConfig, setPrinterConfig] = useState({
-        billing: { type: 'usb', printerName: 'billing-printer', ip: '', port: 9100, paperSize: '80mm', charLimit: 42 },
-        kitchen: { type: 'usb', printerName: 'kitchen-printer', ip: '', port: 9100, paperSize: '80mm', charLimit: 42 }
+        billing: { type: 'bluetooth', printerName: '', ip: '', port: 9100, paperSize: '58mm', charLimit: 32 },
+        kitchen: { type: 'usb', printerName: 'kitchen-printer', ip: '', port: 9100, paperSize: '58mm', charLimit: 32 }
     });
     const [installedPrinters, setInstalledPrinters] = useState([]);
-    const [printerDriver, setPrinterDriver] = useState(localStorage.getItem('cfg_printer_driver') || 'direct');
     const [isScanning, setIsScanning] = useState(false);
     const [manualMacInput, setManualMacInput] = useState('');
     const [availableIps, setAvailableIps] = useState([]);
@@ -457,7 +456,7 @@ const Profile = () => {
                     return combined;
                 });
             } else {
-                toast.error('No Bluetooth devices discovered. Pair your printer in phone Bluetooth settings or select RawBT driver.', { id: tId });
+                toast.error('No Bluetooth devices discovered. Make sure printer is powered on and in range.', { id: tId });
             }
         } catch (err) {
             setIsScanning(false);
@@ -480,12 +479,17 @@ const Profile = () => {
 
     const fetchPrinterConfig = async () => {
         try {
+            if (!localStorage.getItem('cfg_printer_size_migrated_v3')) {
+                localStorage.setItem('cfg_printer_size', '58mm');
+                localStorage.setItem('cfg_printer_size_migrated_v3', 'true');
+            }
             const res = await api.get('/hotel/printers-config');
             if (res.data && res.data.printers) {
                 const devName = res.data.printers?.billing?.deviceName || localStorage.getItem('cfg_bluetooth_mac') || '';
+                const size = localStorage.getItem('cfg_printer_size') || res.data.printers?.billing?.paperSize || '58mm';
                 setPrinterConfig({
-                    billing: { type: 'bluetooth', printerName: devName, ip: '', port: 9100, paperSize: res.data.printers?.billing?.paperSize || '80mm', charLimit: 42 },
-                    kitchen: { type: 'usb', printerName: 'kitchen-printer', ip: '', port: 9100, paperSize: '80mm', charLimit: 42 }
+                    billing: { type: 'bluetooth', printerName: devName, ip: '', port: 9100, paperSize: size, charLimit: 32 },
+                    kitchen: { type: 'usb', printerName: 'kitchen-printer', ip: '', port: 9100, paperSize: '58mm', charLimit: 32 }
                 });
                 setSelectedGuestIp(res.data.guestIp || '');
             }
@@ -498,15 +502,16 @@ const Profile = () => {
         e.preventDefault();
         try {
             const selectedMac = manualMacInput.trim() || printerConfig.billing.printerName;
+            const chosenSize = printerConfig.billing.paperSize || '58mm';
             localStorage.setItem('cfg_bluetooth_mac', selectedMac);
-            localStorage.setItem('cfg_printer_size', printerConfig.billing.paperSize || '80mm');
-            localStorage.setItem('cfg_printer_driver', printerDriver);
+            localStorage.setItem('cfg_printer_size', chosenSize);
+            localStorage.setItem('cfg_printer_size_migrated_v2', 'true');
 
             await api.post('/hotel/printers-config', {
                 printers: {
                     billing: {
                         deviceName: selectedMac,
-                        paperSize: printerConfig.billing.paperSize
+                        paperSize: chosenSize
                     }
                 }
             });
@@ -518,34 +523,46 @@ const Profile = () => {
 
     const handleTestPrint = async () => {
         try {
+            const sampleItems = [
+                { name: 'Butter Chicken', price: 280.00, qty: 1 },
+                { name: 'Butter Naan', price: 40.00, qty: 3 },
+                { name: 'Paneer Tikka', price: 220.00, qty: 1 },
+                { name: 'Jeera Rice', price: 140.00, qty: 1 },
+                { name: 'Masala Dosa', price: 90.00, qty: 2 },
+                { name: 'Cold Coffee', price: 70.00, qty: 2 }
+            ];
+
+            const subtotal = sampleItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const gstPct = hotelData.gst_percentage !== undefined && hotelData.gst_percentage !== null ? Number(hotelData.gst_percentage) : 5;
+            const gst = (subtotal * gstPct) / 100;
+            const finalAmount = subtotal + gst;
+
             const testPayload = {
                 type: 'FINAL_BILL',
                 billId: 9999,
-                table: 'Test Table 1',
-                subtotal: 100.00,
-                gst: 5.00,
-                finalAmount: 105.00,
+                table: 'Table 1 (Test Print)',
+                subtotal: subtotal,
+                gst: gst,
+                finalAmount: finalAmount,
                 discountPercentage: 0,
-                items: [
-                    { name: 'Test Food Item', price: 100.00, qty: 1 }
-                ],
-                hotelName: hotelData.name || 'Test Hotel',
+                items: sampleItems,
+                hotelName: hotelData.name || 'Sample Hotel',
                 hotelPhone: hotelData.phone || '9999999999',
-                hotelLocation: hotelData.address || 'Test Location',
+                hotelLocation: hotelData.address || 'Sample Location',
                 upiId: hotelData.upi_id || '',
                 isPaid: false,
-                gst_percentage: hotelData.gst_percentage !== undefined ? hotelData.gst_percentage : 0
+                gst_percentage: gstPct
             };
 
-            const size = printerConfig.billing.paperSize || '80mm';
+            const size = printerConfig.billing.paperSize || '58mm';
             const bytes = formatBill(testPayload, size);
             
-            const tId = toast.loading(printerDriver === 'rawbt' ? 'Sending test print to RawBT...' : 'Sending test print to Bluetooth printer...');
+            const tId = toast.loading('Sending test print to Bluetooth printer...');
             const success = await BluetoothPrinterService.printData(bytes);
             if (success) {
-                toast.success('Test print triggered!', { id: tId });
+                toast.success('Test print triggered successfully!', { id: tId });
             } else {
-                toast.error('Test print failed. Check Bluetooth or RawBT configuration.', { id: tId });
+                toast.error('Test print failed. Check Bluetooth printer configuration.', { id: tId });
             }
         } catch (err) {
             toast.error('Test print error: ' + err.message);
@@ -821,76 +838,80 @@ const Profile = () => {
                                         Bluetooth Billing Printer Setup
                                     </h3>
                                     
-                                    {/* Driver Selection */}
+                                    {/* Step 1: Device Discovery */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>STEP 1: DEVICE DISCOVERY</label>
+                                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                            <button 
+                                                type="button"
+                                                onClick={scanUnpairedPrinters}
+                                                disabled={isScanning}
+                                                style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                            >
+                                                {isScanning ? '🔍 Scanning Unpaired Devices...' : '📡 Scan Unpaired Devices'}
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={fetchInstalledPrinters}
+                                                style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', padding: '10px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
+                                            >
+                                                🔄 Refresh Paired List
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Step 2: Select Bluetooth Printer Device */}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>PRINTING METHOD / DRIVER</label>
+                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>STEP 2: SELECT BLUETOOTH PRINTER DEVICE</label>
                                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                             <select 
-                                                value={printerDriver} 
-                                                onChange={e => setPrinterDriver(e.target.value)}
+                                                value={printerConfig.billing.printerName} 
+                                                onChange={e => setPrinterConfig({
+                                                    ...printerConfig,
+                                                    billing: { ...printerConfig.billing, printerName: e.target.value }
+                                                })}
                                                 style={{width: '100%', padding: '10px 14px', paddingRight: '40px', borderRadius: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 600, appearance: 'none', outline: 'none' }}
                                             >
-                                                <option value="direct">Direct Bluetooth (Native Connection)</option>
-                                                <option value="rawbt">RawBT App Driver (Recommended for Mobile Thermal Printers)</option>
+                                                <option value="">-- Select Device --</option>
+                                                {installedPrinters.map(p => (
+                                                    <option key={p.id} value={p.id}>{p.name || 'Thermal Printer'} ({p.id})</option>
+                                                ))}
                                             </select>
                                             <ChevronDown size={18} style={{ position: 'absolute', right: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                                         </div>
                                     </div>
 
-                                    {/* Device Dropdown for Direct BT */}
-                                    {printerDriver === 'direct' && (
-                                        <>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>SELECT BLUETOOTH PRINTER DEVICE</label>
-                                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                                    <select 
-                                                        value={printerConfig.billing.printerName} 
-                                                        onChange={e => setPrinterConfig({
-                                                            ...printerConfig,
-                                                            billing: { ...printerConfig.billing, printerName: e.target.value }
-                                                        })}
-                                                        style={{width: '100%', padding: '10px 14px', paddingRight: '40px', borderRadius: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 600, appearance: 'none', outline: 'none' }}
-                                                    >
-                                                        <option value="">-- Select Device --</option>
-                                                        {installedPrinters.map(p => (
-                                                            <option key={p.id} value={p.id}>{p.name || 'Thermal Printer'} ({p.id})</option>
-                                                        ))}
-                                                    </select>
-                                                    <ChevronDown size={18} style={{ position: 'absolute', right: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-                                                </div>
-                                            </div>
-
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>OR ENTER PRINTER MAC ADDRESS / NAME MANUALLY</label>
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="e.g. DC:0D:30:XX:XX:XX or Bluetooth Printer"
-                                                    value={manualMacInput}
-                                                    onChange={e => setManualMacInput(e.target.value)}
-                                                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }}
-                                                />
-                                            </div>
-                                        </>
-                                    )}
-
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>PAPER ROLL SIZE</label>
+                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>OR ENTER PRINTER MAC ADDRESS / NAME MANUALLY</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="e.g. DC:0D:30:XX:XX:XX or Bluetooth Printer"
+                                            value={manualMacInput}
+                                            onChange={e => setManualMacInput(e.target.value)}
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }}
+                                        />
+                                    </div>
+
+                                    {/* Step 3: Select Paper Size */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>STEP 3: SELECT PAPER ROLL SIZE</label>
                                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                             <select 
-                                                value={printerConfig.billing.paperSize || '80mm'} 
+                                                value={printerConfig.billing.paperSize || '58mm'} 
                                                 onChange={e => setPrinterConfig({
                                                     ...printerConfig,
                                                     billing: { ...printerConfig.billing, paperSize: e.target.value }
                                                 })}
                                                 style={{width: '100%', padding: '10px 14px', paddingRight: '40px', borderRadius: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 600, appearance: 'none', outline: 'none' }}
                                             >
+                                                <option value="58mm">Compact Receipt (58mm / 2 inch) - Default</option>
                                                 <option value="80mm">Standard Receipt (80mm / 3 inch)</option>
-                                                <option value="58mm">Compact Receipt (58mm / 2 inch)</option>
                                             </select>
                                             <ChevronDown size={18} style={{ position: 'absolute', right: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                                         </div>
                                     </div>
 
+                                    {/* Action Buttons */}
                                     <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
                                         <button 
                                             type="button"
@@ -898,21 +919,6 @@ const Profile = () => {
                                             style={{ backgroundColor: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)', padding: '10px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
                                         >
                                             🖨️ Send Test Print Receipt
-                                        </button>
-                                        <button 
-                                            type="button"
-                                            onClick={fetchInstalledPrinters}
-                                            style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', padding: '10px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
-                                        >
-                                            🔄 Refresh Paired List
-                                        </button>
-                                        <button 
-                                            type="button"
-                                            onClick={scanUnpairedPrinters}
-                                            disabled={isScanning}
-                                            style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '10px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
-                                        >
-                                            {isScanning ? '🔍 Scanning...' : '📡 Scan Unpaired Devices'}
                                         </button>
                                     </div>
                                 </div>

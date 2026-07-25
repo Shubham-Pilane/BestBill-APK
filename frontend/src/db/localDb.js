@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS hotels (
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
     gst_percentage REAL DEFAULT 0,
     is_service_stopped BOOLEAN DEFAULT 0,
-    printer_size TEXT DEFAULT '80mm',
+    printer_size TEXT DEFAULT '58mm',
     billing_method TEXT DEFAULT 'qz',
     fssai_number TEXT,
     email TEXT,

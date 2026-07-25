@@ -52,8 +52,7 @@ powershell -ExecutionPolicy Bypass -File d:\BestBill-apk\build_apk.ps1
 
 ## 🏷️ Output File Naming & CDN Cache Bypassing
 
-- **Primary Output Location**: `d:\BestBill-apk\BestBill_Setup_v1.0.1.apk`
-- **Backup / Secondary Files**: `d:\BestBill-apk\BestBill.apk` and `d:\BestBill-apk\BestBill Setup 1.0.0.apk`
+- **Output Location**: `d:\BestBill-apk\BestBill_Setup_v1.0.1.apk`
 
 > [!IMPORTANT]
 > **CDN & Browser Cache Prevention**:

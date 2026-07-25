@@ -138,7 +138,7 @@ const CreditManagement = () => {
 
   // Settle Outstanding credit transaction
   const handleSettleTransaction = async (method) => {
-    if (!selectedTx) return;
+    if (!selectedTx) return false;
     try {
       await api.post(`/credit/transactions/${selectedTx.id}/settle`, { method });
       toast.success('Credit settled successfully!');
@@ -165,8 +165,10 @@ const CreditManagement = () => {
           }
         }));
       }
+      return true;
     } catch (err) {
       toast.error(err.response?.data?.message || 'Settlement failed');
+      return false;
     }
   };
 
@@ -668,16 +670,24 @@ const CreditManagement = () => {
                               </button>
                               <button 
                                 onClick={async () => {
-                                  await handleSettleTransaction(settlePaymentMethod);
-                                  if (txDetails?.bill?.id) {
-                                    try {
-                                      await api.post(`/bills/${txDetails.bill.id}/print`);
-                                      toast.success('Sent to printer successfully!');
-                                    } catch (err) {
-                                      toast.error('Print failed');
+                                  const billId = txDetails?.bill?.id || txDetails?.credit?.bill_id || selectedTx?.bill_id;
+                                  const ok = await handleSettleTransaction(settlePaymentMethod);
+                                  if (ok) {
+                                    if (billId) {
+                                      try {
+                                        await api.post(`/bills/${billId}/print`, { 
+                                          paymentMethod: settlePaymentMethod, 
+                                          items: txDetails?.items || [], 
+                                          isCreditSettlement: true, 
+                                          settlementPaymentMethod: settlePaymentMethod 
+                                        });
+                                        toast.success('Bill sent to printer successfully!');
+                                      } catch (err) {
+                                        toast.error(err.response?.data?.message || 'Print failed');
+                                      }
+                                    } else {
+                                      toast.success('Credit settled (No linked invoice to print)');
                                     }
-                                  } else {
-                                    setTimeout(() => window.print(), 500);
                                   }
                                 }}
                                 style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid var(--border-rgba-1)', backgroundColor: '#111827', color: 'white', fontWeight: 900, fontSize: '12px', cursor: 'pointer', textTransform: 'uppercase', boxShadow: '0 4px 12px rgba(17, 24, 39, 0.2)' }}
