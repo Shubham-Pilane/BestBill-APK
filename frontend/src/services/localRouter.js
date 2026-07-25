@@ -163,10 +163,6 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       // Save registration date for trial validation
       localStorage.setItem('registration_date', new Date().toISOString());
 
-      // Pre-populate default tables 1 to 6
-      for (let i = 1; i <= 6; i++) {
-        await db.query('INSERT INTO tables (hotel_id, table_number, capacity, floor) VALUES ($1, $2, 4, $3)', [newHotel.id, i.toString(), 'Floor 1']);
-      }
 
       return { status: 201, data: { message: 'Registration successful' } };
     }
