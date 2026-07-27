@@ -160,8 +160,10 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       // Update user hotel ID
       await db.query('UPDATE users SET hotel_id = $1 WHERE id = $2', [newHotel.id, newUser.id]);
       
-      // Save registration date for trial validation
-      localStorage.setItem('registration_date', new Date().toISOString());
+      // Save registration date for trial validation and record native hardware trial start
+      const nowIso = new Date().toISOString();
+      localStorage.setItem('registration_date', nowIso);
+      await licenseService.recordHardwareTrial(nowIso);
 
 
       return { status: 201, data: { message: 'Registration successful' } };

@@ -40,7 +40,8 @@ const Login = () => {
             type: 'PLAN_EXPIRED',
             reason: errorReason,
             phone: '9822401802',
-            email: 'bestbillsolutions@gmail.com'
+            email: 'bestbillsolutions@gmail.com',
+            hardwareId: details.hardwareId
           });
         }
 
@@ -247,6 +248,12 @@ const Login = () => {
                   <a href={`mailto:${blockedInfo.email}`} style={{color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px', textDecoration: 'none' }}>{blockedInfo.email}</a>
                 </div>
               </div>
+
+              {blockedInfo.hardwareId && (
+                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textAlign: 'center', paddingTop: '8px', borderTop: '1px solid var(--border-rgba-05)' }}>
+                  DEVICE HW ID: <code style={{ color: '#0ea5e9', fontWeight: 900, fontSize: '12px' }}>{blockedInfo.hardwareId}</code>
+                </div>
+              )}
             </div>
 
             {blockedInfo.type === 'PLAN_EXPIRED' && (

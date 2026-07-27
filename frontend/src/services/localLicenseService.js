@@ -1,3 +1,57 @@
+import { registerPlugin } from '@capacitor/core';
+import { Device } from '@capacitor/device';
+
+const HardwareTrial = registerPlugin('HardwareTrial');
+
+export async function getHardwareTrialInfo() {
+  try {
+    if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+      const res = await HardwareTrial.getHardwareInfo();
+      if (res && res.hardwareId) {
+        return res;
+      }
+    }
+  } catch (e) {
+    console.warn('[HARDWARE TRIAL] Native check fallback:', e.message);
+  }
+
+  let hwId = 'WEB_DEV_ID';
+  try {
+    const idInfo = await Device.getId();
+    hwId = idInfo.identifier || 'WEB_DEV_ID';
+  } catch (e) {}
+
+  const trialStart = localStorage.getItem('hw_first_reg_' + hwId) || '';
+  return { hardwareId: hwId, firstTrialStart: trialStart };
+}
+
+export async function recordHardwareTrial(timestamp) {
+  const ts = timestamp || new Date().toISOString();
+  try {
+    if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+      const res = await HardwareTrial.recordHardwareTrial({ timestamp: String(ts) });
+      if (res && res.firstTrialStart) {
+        return res;
+      }
+    }
+  } catch (e) {
+    console.warn('[HARDWARE TRIAL] Native record fallback:', e.message);
+  }
+
+  let hwId = 'WEB_DEV_ID';
+  try {
+    const idInfo = await Device.getId();
+    hwId = idInfo.identifier || 'WEB_DEV_ID';
+  } catch (e) {}
+
+  let existing = localStorage.getItem('hw_first_reg_' + hwId);
+  if (!existing) {
+    existing = String(ts);
+    localStorage.setItem('hw_first_reg_' + hwId, existing);
+  }
+  return { hardwareId: hwId, firstTrialStart: existing };
+}
+
 const MONTHLY_KEYS = {
   0: 'X8m2K9P4Q7v3', // Jan
   1: 'N4w7T3L8R5j2', // Feb
@@ -80,10 +134,24 @@ export async function getLicenseDetails() {
     const signature = localStorage.getItem('license_signature') || '';
 
     if (key === 'TRIAL_MODE' || type === 'trial') {
-      // Calculate trial remaining based on user registration
-      // Fallback: 30 days trial
-      const regTime = localStorage.getItem('registration_date') || new Date().toISOString();
-      const expiresDate = new Date(new Date(regTime).getTime() + 30 * 24 * 60 * 60 * 1000);
+      const hwInfo = await getHardwareTrialInfo();
+      let firstStartStr = hwInfo.firstTrialStart;
+      
+      const localRegTime = localStorage.getItem('registration_date');
+      if (!firstStartStr && localRegTime) {
+        const rec = await recordHardwareTrial(localRegTime);
+        firstStartStr = rec.firstTrialStart;
+      } else if (!firstStartStr) {
+        firstStartStr = new Date().toISOString();
+        await recordHardwareTrial(firstStartStr);
+      }
+
+      let regTimeMs = Date.parse(firstStartStr);
+      if (isNaN(regTimeMs)) {
+        regTimeMs = Number(firstStartStr) || Date.now();
+      }
+
+      const expiresDate = new Date(regTimeMs + 30 * 24 * 60 * 60 * 1000);
       const now = new Date();
       const timeDiff = expiresDate.getTime() - now.getTime();
       const daysRemaining = Math.max(0, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
@@ -92,10 +160,11 @@ export async function getLicenseDetails() {
       return {
         type: 'trial',
         key,
-        activatedAt: regTime,
+        activatedAt: new Date(regTimeMs).toISOString(),
         expiresAt: expiresDate.toISOString(),
         daysRemaining,
-        isValid
+        isValid,
+        hardwareId: hwInfo.hardwareId
       };
     }
 
