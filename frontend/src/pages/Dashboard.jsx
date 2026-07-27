@@ -314,7 +314,7 @@ const Dashboard = () => {
             <Hotel color="#0ea5e9" size={24} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <h1 style={{ fontSize: '24px', fontWeight: 950, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>{user?.hotel_name || 'BestBill Hotel'}</h1>
+            <h1 style={{ fontSize: '24px', fontWeight: 950, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>{user?.hotel_name || 'My Hotel'}</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>
               <span>Proprietor: {user?.name || 'A'}</span>
               <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'var(--bg-border)' }}></div>

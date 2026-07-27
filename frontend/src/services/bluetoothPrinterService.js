@@ -1,3 +1,5 @@
+import { toast } from 'react-hot-toast';
+
 const formatAmount = (val) => {
   const num = Number(val) || 0;
   return Number.isInteger(num) ? num.toString() : num.toFixed(2);
@@ -369,6 +371,24 @@ export class BluetoothPrinterService {
     return localStorage.getItem('cfg_printer_size') || '58mm';
   }
 
+  static async isBluetoothEnabled() {
+    return new Promise((resolve) => {
+      if (!window.bluetoothSerial || typeof window.bluetoothSerial.isEnabled !== 'function') {
+        resolve(true);
+        return;
+      }
+      try {
+        window.bluetoothSerial.isEnabled(
+          () => resolve(true),
+          () => resolve(false)
+        );
+      } catch (err) {
+        console.error('[BT PRINTER] Exception checking Bluetooth radio state:', err);
+        resolve(false);
+      }
+    });
+  }
+
   static async listPairedDevices() {
     return new Promise((resolve) => {
       if (window.bluetoothSerial) {
@@ -404,77 +424,167 @@ export class BluetoothPrinterService {
   }
 
   static async printData(uint8Array) {
-    const macAddress = this.getSelectedPrinter();
-    if (!macAddress) {
-      console.warn('[BT PRINTER] No Bluetooth printer configured in Settings');
-      return false;
-    }
-
-    return new Promise((resolve) => {
-      if (!window.bluetoothSerial) {
-        console.warn('[BT PRINTER] Mock print (plugin missing):', uint8Array);
-        resolve(true);
-        return;
+    try {
+      const macAddress = this.getSelectedPrinter();
+      if (!macAddress) {
+        console.warn('[BT PRINTER] No Bluetooth printer configured in Settings');
+        toast.error('No Bluetooth printer configured in Printer Settings');
+        return false;
       }
 
-      const printJob = () => {
-        window.bluetoothSerial.write(
-          uint8Array.buffer,
-          () => {
-            console.log('[BT PRINTER] Bytes printed successfully');
-            resolve(true);
-          },
-          (err) => {
-            console.error('[BT PRINTER] Write failed:', err);
-            resolve(false);
+      if (!window.bluetoothSerial) {
+        console.warn('[BT PRINTER] Mock print (plugin missing):', uint8Array);
+        return true;
+      }
+
+      // Guard: Check if mobile Bluetooth radio is turned ON
+      const btEnabled = await this.isBluetoothEnabled();
+      if (!btEnabled) {
+        console.warn('[BT PRINTER] Mobile Bluetooth is turned OFF');
+        toast.error('Please turn ON Bluetooth on your phone!', { duration: 4000 });
+        
+        // Trigger native Android Bluetooth enable prompt if available
+        if (window.bluetoothSerial && typeof window.bluetoothSerial.enable === 'function') {
+          try {
+            window.bluetoothSerial.enable(
+              () => console.log('[BT PRINTER] Native BT enable prompt accepted'),
+              () => console.warn('[BT PRINTER] Native BT enable prompt declined')
+            );
+          } catch (e) {
+            console.error('[BT PRINTER] Could not open native BT prompt:', e);
           }
-        );
+        }
+        return false;
+      }
+
+      const forceDisconnect = () => {
+        return new Promise((resolve) => {
+          try {
+            window.bluetoothSerial.disconnect(() => resolve(), () => resolve());
+          } catch (e) {
+            resolve();
+          }
+        });
       };
 
-      window.bluetoothSerial.isConnected(
-        () => {
-          printJob();
-        },
-        () => {
-          window.bluetoothSerial.connect(
-            macAddress,
-            () => {
-              console.log('[BT PRINTER] Connected to', macAddress);
-              printJob();
-            },
-            (err) => {
-              console.error('[BT PRINTER] Connection failed:', err);
-              resolve(false);
-            }
-          );
+      const attemptConnect = (mac) => {
+        return new Promise((resolve) => {
+          try {
+            window.bluetoothSerial.connect(
+              mac,
+              () => {
+                console.log('[BT PRINTER] Connected to', mac);
+                resolve(true);
+              },
+              (err) => {
+                console.error('[BT PRINTER] Connection attempt failed:', err);
+                resolve(false);
+              }
+            );
+          } catch (e) {
+            console.error('[BT PRINTER] Native connect threw exception:', e);
+            resolve(false);
+          }
+        });
+      };
+
+      const attemptWrite = () => {
+        return new Promise((resolve) => {
+          try {
+            window.bluetoothSerial.write(
+              uint8Array.buffer,
+              () => {
+                console.log('[BT PRINTER] Bytes printed successfully');
+                resolve(true);
+              },
+              (err) => {
+                console.error('[BT PRINTER] Write failed:', err);
+                resolve(false);
+              }
+            );
+          } catch (e) {
+            console.error('[BT PRINTER] Native write threw exception:', e);
+            resolve(false);
+          }
+        });
+      };
+
+      const connectWithRetry = async () => {
+        await forceDisconnect();
+        let connected = await attemptConnect(macAddress);
+        if (!connected) {
+          console.warn('[BT PRINTER] First connect attempt failed, waiting 400ms before socket retry...');
+          await new Promise((r) => setTimeout(r, 400));
+          await forceDisconnect();
+          connected = await attemptConnect(macAddress);
         }
-      );
-    });
+        return connected;
+      };
+
+      const isConnected = await new Promise((resolve) => {
+        try {
+          window.bluetoothSerial.isConnected(
+            () => resolve(true),
+            () => resolve(false)
+          );
+        } catch (e) {
+          console.error('[BT PRINTER] isConnected check failed:', e);
+          resolve(false);
+        }
+      });
+
+      if (isConnected) {
+        const written = await attemptWrite();
+        if (written) return true;
+        console.warn('[BT PRINTER] Write failed on active socket handle, attempting reconnection...');
+      }
+
+      const reconnected = await connectWithRetry();
+      if (!reconnected) {
+        console.error('[BT PRINTER] Automatic reconnection failed.');
+        toast.error('Could not connect to printer. Ensure printer is ON & in range.');
+        return false;
+      }
+
+      const success = await attemptWrite();
+      if (!success) {
+        toast.error('Printing failed. Please check printer paper & connection.');
+      }
+      return success;
+    } catch (globalErr) {
+      console.error('[BT PRINTER] Uncaught exception in printData:', globalErr);
+      toast.error('Bluetooth error. Please ensure Bluetooth is ON.');
+      return false;
+    }
   }
 
   // Core listener bootstrap
   static bootstrap() {
     console.log('[BT PRINTER] Bootstrapping listeners...');
     window.addEventListener('print-job-triggered', async (e) => {
-      const job = e.detail;
-      console.log('[BT PRINTER] Received local print job:', job);
-      
-      const size = this.getPrinterSize();
-      let printBytes;
+      try {
+        const job = e.detail;
+        console.log('[BT PRINTER] Received local print job:', job);
+        
+        const size = this.getPrinterSize();
+        let printBytes;
 
-      if (job.type === 'KOT') {
-        printBytes = formatKOT(job, size);
-      } else if (job.type === 'FINAL_BILL') {
-        printBytes = formatBill(job, size);
-      }
-
-      if (printBytes) {
-        const success = await this.printData(printBytes);
-        if (success) {
-          console.log('[BT PRINTER] Receipt printed successfully.');
-        } else {
-          console.error('[BT PRINTER] Failed to print receipt.');
+        if (job.type === 'KOT') {
+          printBytes = formatKOT(job, size);
+        } else if (job.type === 'FINAL_BILL') {
+          printBytes = formatBill(job, size);
         }
+
+        if (printBytes) {
+          const success = await this.printData(printBytes);
+          if (success) {
+            console.log('[BT PRINTER] Receipt printed successfully.');
+          } else {
+            console.error('[BT PRINTER] Failed to print receipt.');
+          }
+        }
+      } catch (err) {
+        console.error('[BT PRINTER] Error handling print job event:', err);
       }
     });
   }

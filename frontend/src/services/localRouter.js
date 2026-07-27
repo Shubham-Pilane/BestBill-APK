@@ -139,9 +139,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const hashedPassword = await bcrypt.hash(password, 10);
       const loc = location || address || '';
       
-      // Clean up default dummy user/hotel if present
+      // Clean up orphaned users/hotels if present
       await db.query("DELETE FROM users WHERE email = 'owner@bestbill.com'");
-      await db.query("DELETE FROM hotels WHERE name = 'BestBill Hotel' AND owner_id NOT IN (SELECT id FROM users)");
+      await db.query("DELETE FROM hotels WHERE owner_id NOT IN (SELECT id FROM users)");
 
       // Create user
       const userRes = await db.query(
@@ -215,7 +215,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
             email: dbUser.email,
             role: dbUser.role,
             hotel_id: dbUser.hotel_id,
-            hotel_name: hotel.name || 'BestBill Hotel',
+            hotel_name: hotel.name || '',
             hotel_phone: hotel.phone || '',
             hotel_location: hotel.location || '',
             upi_id: hotel.upi_id || '',
@@ -263,6 +263,24 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 401, data: { message: 'Unauthorized' } };
     }
 
+    // Enforce License Expiration for all protected API requests
+    const licenseDetails = await licenseService.getLicenseDetails();
+    if (!licenseDetails.isValid) {
+      const errorReason = licenseDetails.type === 'trial'
+        ? 'Your 30-day offline free trial has expired. Please contact Shubham Pilane to renew or activate your license. Mobile: 9822401802'
+        : `Your ${licenseDetails.type} license key has expired. Please contact Shubham Pilane to renew your subscription. Mobile: 9822401802`;
+
+      return {
+        status: 403,
+        data: {
+          message: 'PLAN_EXPIRED',
+          reason: errorReason,
+          contact_phone: '9822401802',
+          contact_email: 'bestbillsolutions@gmail.com'
+        }
+      };
+    }
+
     // ----------------------------------------
     // TABLE MANAGEMENT ROUTES
     // ----------------------------------------
@@ -271,26 +289,10 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         `SELECT t.*, o.id as active_order_id 
          FROM tables t 
          LEFT JOIN orders o ON o.table_id = t.id AND o.status = 'active'
-         WHERE t.hotel_id = $1 OR t.hotel_id = 1
+         WHERE t.hotel_id = $1
          ORDER BY t.floor ASC, LENGTH(t.table_number) ASC, t.table_number ASC`,
-        [user?.hotel_id || 1]
+        [user.hotel_id]
       );
-
-      if (tables.rows.length === 0) {
-        const targetHotelId = user?.hotel_id || 1;
-        for (let i = 1; i <= 6; i++) {
-          await db.query('INSERT OR IGNORE INTO tables (hotel_id, table_number, capacity, floor) VALUES ($1, $2, 4, $3)', [targetHotelId, i.toString(), 'Floor 1']);
-        }
-        const retryTables = await db.query(
-          `SELECT t.*, o.id as active_order_id 
-           FROM tables t 
-           LEFT JOIN orders o ON o.table_id = t.id AND o.status = 'active'
-           WHERE t.hotel_id = $1 OR t.hotel_id = 1
-           ORDER BY t.floor ASC, LENGTH(t.table_number) ASC, t.table_number ASC`,
-          [targetHotelId]
-        );
-        return { status: 200, data: retryTables.rows };
-      }
 
       return { status: 200, data: tables.rows };
     }
@@ -616,7 +618,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         total_amount: finalAmount,
         gst_percentage: gstRate,
         items: orderRes.rows,
-        hotel_name: hotel.name || 'BestBill Hotel',
+        hotel_name: hotel.name || user?.hotel_name || '',
         hotel_phone: hotel.phone || '',
         hotel_location: hotel.location || ''
       };
@@ -705,7 +707,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if (path === '/menu/items' && methodUpper === 'GET') {
       const { page, limit = 10, search = '' } = queryParams;
-      const hotelId = user?.hotel_id || 1;
+      const hotelId = user.hotel_id;
       
       let itemsRes;
       if (search) {
@@ -713,7 +715,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
           `SELECT mi.*, c.name as category_name 
            FROM menu_items mi 
            LEFT JOIN categories c ON mi.category_id = c.id
-           WHERE (mi.hotel_id = $1 OR mi.hotel_id = 1) AND mi.is_deleted = 0 AND (mi.name LIKE $2 OR c.name LIKE $3)
+           WHERE mi.hotel_id = $1 AND mi.is_deleted = 0 AND (mi.name LIKE $2 OR c.name LIKE $3)
            ORDER BY c.name ASC, mi.name ASC`,
           [hotelId, `%${search}%`, `%${search}%`]
         );
@@ -722,19 +724,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
           `SELECT mi.*, c.name as category_name 
            FROM menu_items mi 
            LEFT JOIN categories c ON mi.category_id = c.id
-           WHERE (mi.hotel_id = $1 OR mi.hotel_id = 1) AND mi.is_deleted = 0
+           WHERE mi.hotel_id = $1 AND mi.is_deleted = 0
            ORDER BY c.name ASC, mi.name ASC`,
           [hotelId]
-        );
-      }
-
-      if (itemsRes.rows.length === 0) {
-        itemsRes = await db.query(
-          `SELECT mi.*, c.name as category_name 
-           FROM menu_items mi 
-           LEFT JOIN categories c ON mi.category_id = c.id
-           WHERE mi.is_deleted = 0
-           ORDER BY mi.name ASC`
         );
       }
 
@@ -889,8 +881,8 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       }
 
       const hotelRes = await db.query(
-        'SELECT name, phone, location, gst_percentage, upi_id, fssai_number, email FROM hotels WHERE id = $1 OR id = 1',
-        [user?.hotel_id || 1]
+        'SELECT name, phone, location, gst_percentage, upi_id, fssai_number, email FROM hotels WHERE id = $1 OR owner_id = $2',
+        [user?.hotel_id, user?.id]
       );
       const hotel = hotelRes.rows[0] || {};
 
@@ -916,7 +908,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
           payment_method: bill.payment_method,
           created_at: bill.created_at,
           table_number: tableNumber,
-          hotel_name: hotel.name || 'BESTBILL',
+          hotel_name: hotel.name || user?.hotel_name || '',
           hotel_phone: hotel.phone || '',
           hotel_location: hotel.location || '',
           gst_percentage: hotel.gst_percentage || 0,
@@ -937,7 +929,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       if (billRes.rows.length === 0) return { status: 404, data: { message: 'Bill not found' } };
       const bill = billRes.rows[0];
 
-      const hotelRes = await db.query('SELECT * FROM hotels WHERE id = $1 OR id = 1', [user?.hotel_id || bill.hotel_id || 1]);
+      const hotelRes = await db.query('SELECT * FROM hotels WHERE id = $1 OR owner_id = $2', [user?.hotel_id || bill.hotel_id, user?.id]);
       const hotel = hotelRes.rows[0] || {};
 
       let items = [];
@@ -976,7 +968,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         finalAmount: bill.final_amount,
         discountPercentage: bill.discount_percentage,
         items: items.map(i => ({ name: i.name, price: i.price, qty: i.quantity || i.qty || 1 })),
-        hotelName: hotel.name || user?.hotel_name || 'BESTBILL',
+        hotelName: hotel.name || user?.hotel_name || '',
         hotelPhone: hotel.phone || '',
         hotelLocation: hotel.location || '',
         upiId: showUPI ? (hotel.upi_id || '') : '',
@@ -1278,17 +1270,37 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     // HOTEL PROFILE & CONFIGURATION ROUTES
     // ----------------------------------------
     if (path === '/hotel' && methodUpper === 'GET') {
-      const hotel = await db.query('SELECT * FROM hotels WHERE id = $1', [user.hotel_id]);
-      return { status: 200, data: hotel.rows[0] || {} };
+      const hotel = await db.query('SELECT * FROM hotels WHERE id = $1 OR owner_id = $2', [user.hotel_id, user.id]);
+      const data = hotel.rows[0] || {};
+      if (user?.hotel_name && !data.name) {
+        data.name = user.hotel_name;
+        if (data.id) {
+          await db.query('UPDATE hotels SET name = $1 WHERE id = $2', [user.hotel_name, data.id]);
+        }
+      }
+      return { status: 200, data };
     }
 
     if (path === '/hotel' && methodUpper === 'PUT') {
       const { name, phone, location, address, upi_id, gst_percentage, fssai_number, email } = body;
       const loc = location || address || '';
-      await db.query(
-        'UPDATE hotels SET name = $1, phone = $2, location = $3, upi_id = $4, gst_percentage = $5, fssai_number = $6, email = $7 WHERE id = $8',
-        [name, phone, loc, upi_id, gst_percentage, fssai_number || null, email || null, user.hotel_id]
-      );
+      
+      const existing = await db.query('SELECT id FROM hotels WHERE id = $1 OR owner_id = $2', [user.hotel_id, user.id]);
+      if (existing.rows.length > 0) {
+        const hotelId = existing.rows[0].id;
+        await db.query(
+          'UPDATE hotels SET name = $1, phone = $2, location = $3, upi_id = $4, gst_percentage = $5, fssai_number = $6, email = $7 WHERE id = $8',
+          [name, phone, loc, upi_id, gst_percentage, fssai_number || null, email || null, hotelId]
+        );
+      } else {
+        const newH = await db.query(
+          'INSERT INTO hotels (owner_id, name, phone, location, upi_id, gst_percentage, fssai_number, email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+          [user.id, name, phone, loc, upi_id, gst_percentage, fssai_number || null, email || null]
+        );
+        if (newH.rows[0]?.id) {
+          await db.query('UPDATE users SET hotel_id = $1 WHERE id = $2', [newH.rows[0].id, user.id]);
+        }
+      }
       return { status: 200, data: { success: true, name, phone, location: loc, upi_id, gst_percentage, fssai_number, email } };
     }
 
@@ -1341,44 +1353,31 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/hotel/toggle-kot') {
-      const { enabled, passcode } = body;
-      if (passcode !== '556677' && passcode !== '981267') {
-        return { status: 400, data: { message: 'Incorrect activation passcode for KOT Module (Default: 556677)' } };
-      }
+      const { enabled } = body;
       localStorage.setItem('cfg_kot', enabled ? 'true' : 'false');
       return { status: 200, data: { success: true } };
     }
 
     if (path === '/hotel/toggle-simple-kot') {
-      const { enabled, passcode } = body;
-      if (passcode !== '778899' && passcode !== '981267') {
-        return { status: 400, data: { message: 'Incorrect activation passcode for Simple KOT (Default: 778899)' } };
-      }
+      const { enabled } = body;
       localStorage.setItem('cfg_simple_kot', enabled ? 'true' : 'false');
       return { status: 200, data: { success: true } };
     }
 
     if (path === '/hotel/toggle-whatsapp-billing') {
-      const { enabled, passcode } = body;
-      if (passcode !== '445566' && passcode !== '981267') {
-        return { status: 400, data: { message: 'Incorrect activation passcode for WhatsApp Billing (Default: 445566)' } };
-      }
+      const { enabled } = body;
       localStorage.setItem('cfg_whatsapp_billing', enabled ? 'true' : 'false');
       return { status: 200, data: { success: true } };
     }
+
     if (path === '/hotel/toggle-inventory') {
-      const { enabled, passcode } = body;
-      if (passcode !== '112233' && passcode !== '981267') {
-        return { status: 400, data: { message: 'Incorrect activation passcode for Inventory (Default: 112233)' } };
-      }
+      const { enabled } = body;
       localStorage.setItem('cfg_inventory', enabled ? 'true' : 'false');
       return { status: 200, data: { success: true } };
     }
+
     if (path === '/hotel/toggle-token-counter') {
-      const { enabled, passcode } = body;
-      if (passcode !== '332211' && passcode !== '981267') {
-        return { status: 400, data: { message: 'Incorrect activation passcode for Token Counter (Default: 332211)' } };
-      }
+      const { enabled } = body;
       localStorage.setItem('cfg_token_counter', enabled ? 'true' : 'false');
       return { status: 200, data: { success: true } };
     }

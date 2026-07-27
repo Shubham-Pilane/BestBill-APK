@@ -96,11 +96,14 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 Unauthorized errors
+// Handle 401 Unauthorized and 403 Plan Expired errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const msg = error.response?.data?.message;
+
+    if (status === 401 || (status === 403 && msg === 'PLAN_EXPIRED')) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       if (window.location.protocol === 'file:' || window.location.href.includes('#')) {

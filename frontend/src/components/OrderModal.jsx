@@ -441,7 +441,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   };
 
   const upiId = user?.upi_id || '';
-  const hname = user?.hotel_name || 'BestBill';
+  const hname = user?.hotel_name || '';
   const amountVal = billData?.final_amount || 0;
   const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(hname)}&am=${amountVal}&cu=INR`;
 
@@ -1106,7 +1106,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                       <Receipt size={14} color="#0ea5e9" />
                       <span>FINALIZED BILL</span>
                     </div>
-                    <h1 style={{ margin: 0, fontWeight: 950, fontSize: '24px', color: billData.is_paid ? '#ffffff' : 'var(--text-primary)', textAlign: 'center' }}>{(billData.hotel_name || user?.hotel_name || 'BESTBILL').toUpperCase()}</h1>
+                    <h1 style={{ margin: 0, fontWeight: 950, fontSize: '24px', color: billData.is_paid ? '#ffffff' : 'var(--text-primary)', textAlign: 'center' }}>{(billData.hotel_name || user?.hotel_name || '').toUpperCase()}</h1>
                     <div style={{ color: billData.is_paid ? 'rgba(255,255,255,0.7)' : 'var(--text-secondary)', fontWeight: 800, fontSize: '13px', textAlign: 'center' }}>{billData.hotel_location}</div>
                  </div>
                 

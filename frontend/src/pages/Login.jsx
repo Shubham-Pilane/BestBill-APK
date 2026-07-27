@@ -6,6 +6,8 @@ import { toast } from 'react-hot-toast';
 import { UtensilsCrossed, LogIn, Mail, Lock, UserPlus, Store, ChevronRight, AlertTriangle, Phone, AtSign, MapPin, Upload, Image as ImageIcon, Sun, Moon } from 'lucide-react';
 import api from '../services/api';
 
+import * as licenseService from '../services/localLicenseService';
+
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,18 +29,31 @@ const Login = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const checkRegisterStatus = async () => {
+    const checkLicenseAndStatus = async () => {
       try {
+        const details = await licenseService.getLicenseDetails();
+        if (!details.isValid) {
+          const errorReason = details.type === 'trial'
+            ? 'Your 30-day offline free trial has expired. Please contact Shubham Pilane to renew or activate your license. Mobile: 9822401802'
+            : `Your ${details.type} license key has expired. Please contact Shubham Pilane to renew your subscription. Mobile: 9822401802`;
+          setBlockedInfo({
+            type: 'PLAN_EXPIRED',
+            reason: errorReason,
+            phone: '9822401802',
+            email: 'bestbillsolutions@gmail.com'
+          });
+        }
+
         const res = await api.get('/auth/register-status');
         setIsRegistrationAllowed(res.data.isRegistrationAllowed);
         if (!res.data.isRegistered) {
           setIsRegister(true);
         }
       } catch (err) {
-        console.error('Failed to fetch registration status', err);
+        console.error('Failed to fetch status', err);
       }
     };
-    checkRegisterStatus();
+    checkLicenseAndStatus();
   }, []);
 
   const handleSubmit = async (e) => {
