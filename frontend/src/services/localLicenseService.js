@@ -1,5 +1,6 @@
 import { registerPlugin } from '@capacitor/core';
 import { Device } from '@capacitor/device';
+import { supabase } from './supabaseClient';
 
 const HardwareTrial = registerPlugin('HardwareTrial');
 
@@ -50,6 +51,107 @@ export async function recordHardwareTrial(timestamp) {
     localStorage.setItem('hw_first_reg_' + hwId, existing);
   }
   return { hardwareId: hwId, firstTrialStart: existing };
+}
+
+/**
+ * Pings Supabase to sync the license status. 
+ * Executed purely in the background by cron or network triggers.
+ */
+export async function syncLicenseWithSupabase() {
+  try {
+    const hwInfo = await getHardwareTrialInfo();
+    const targetHwId = hwInfo.hardwareId;
+    const nowIso = new Date().toISOString();
+
+    let { data, error } = await supabase
+      .from('mobile_licenses')
+      .select('is_active, plan, id')
+      .eq('device_uuid', targetHwId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('[SUPABASE SYNC] Remote check error:', error.message);
+      return { success: false };
+    }
+
+    let ownerName = 'Mobile Owner';
+    let userEmail = '';
+    let hotelName = 'Mobile Hotel';
+    let mobileNumber = '';
+    let address = '';
+
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const userObj = JSON.parse(userStr);
+        ownerName = userObj.name || 'Mobile Owner';
+        userEmail = userObj.email || '';
+        hotelName = userObj.hotel_name || 'Mobile Hotel';
+        mobileNumber = userObj.hotel_phone || userObj.phone || '';
+        address = userObj.hotel_location || userObj.hotel_address || '';
+      }
+    } catch (e) {}
+
+    if (ownerName === 'Mobile Owner') ownerName = localStorage.getItem('user_name') || 'Mobile Owner';
+    if (userEmail === '') userEmail = localStorage.getItem('user_email') || '';
+    if (hotelName === 'Mobile Hotel') hotelName = localStorage.getItem('hotel_name') || 'Mobile Hotel';
+    if (mobileNumber === '') mobileNumber = localStorage.getItem('user_phone') || '';
+    if (address === '') address = localStorage.getItem('hotel_address') || '';
+
+    if (!data) {
+      const { data: newReg, error: regErr } = await supabase
+        .from('mobile_licenses')
+        .insert({
+          device_uuid: targetHwId,
+          hotel_name: hotelName,
+          owner_name: ownerName,
+          email: userEmail,
+          mobile_number: mobileNumber,
+          address: address,
+          plan: 'trial',
+          is_active: true,
+          registration_date: nowIso,
+          last_ping_at: nowIso,
+          updated_at: nowIso
+        })
+        .select('is_active, plan, id')
+        .single();
+
+      if (!regErr && newReg) {
+        data = newReg;
+        console.log('[SUPABASE SYNC] Registered new mobile device hardware UUID in Supabase:', targetHwId);
+      }
+    } else {
+      const updateData = { last_ping_at: nowIso, updated_at: nowIso };
+      
+      if (ownerName !== 'Mobile Owner' && hotelName !== 'Mobile Hotel') {
+        updateData.hotel_name = hotelName;
+        updateData.owner_name = ownerName;
+        updateData.email = userEmail;
+        updateData.mobile_number = mobileNumber;
+        updateData.address = address;
+      }
+      
+      await supabase
+        .from('mobile_licenses')
+        .update(updateData)
+        .eq('id', data.id);
+    }
+
+    // Successfully contacted server, record the last internet verification date
+    localStorage.setItem('LAST_INTERNET_VERIFICATION_DATE', nowIso);
+
+    if (data && data.is_active === false) {
+      localStorage.setItem('IS_REVOKED', 'true');
+      return { success: true, is_active: false, reason: 'ACCESS TERMINATED: Your device access has been deactivated by Super Admin. Contact Support: 9822401802.' };
+    }
+
+    localStorage.removeItem('IS_REVOKED');
+    return { success: true, is_active: true };
+  } catch (err) {
+    console.warn('[SUPABASE SYNC] Check exception:', err.message);
+    return { success: false };
+  }
 }
 
 const MONTHLY_KEYS = {
@@ -133,8 +235,21 @@ export async function getLicenseDetails() {
     const type = localStorage.getItem('license_type') || 'trial';
     const signature = localStorage.getItem('license_signature') || '';
 
+    const hwInfo = await getHardwareTrialInfo();
+    
+    // Completely Synchronous Local Check - No UI Network Requests!
+    if (localStorage.getItem('IS_REVOKED') === 'true') {
+      return {
+        type: 'revoked',
+        key,
+        isValid: false,
+        daysRemaining: 0,
+        hardwareId: hwInfo.hardwareId,
+        reason: 'ACCESS TERMINATED: Your device access has been deactivated by Super Admin. Contact Support: 9822401802.'
+      };
+    }
+
     if (key === 'TRIAL_MODE' || type === 'trial') {
-      const hwInfo = await getHardwareTrialInfo();
       let firstStartStr = hwInfo.firstTrialStart;
       
       const localRegTime = localStorage.getItem('registration_date');
@@ -164,7 +279,9 @@ export async function getLicenseDetails() {
         expiresAt: expiresDate.toISOString(),
         daysRemaining,
         isValid,
-        hardwareId: hwInfo.hardwareId
+        hardwareId: hwInfo.hardwareId,
+        warning: false,
+        offlineDays: 0
       };
     }
 
@@ -186,13 +303,52 @@ export async function getLicenseDetails() {
     const daysRemaining = Math.max(0, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
     const isValid = now <= expiresDate;
 
+    let warning = false;
+    let offlineDays = 0;
+
+    const lastInternetDate = localStorage.getItem('LAST_INTERNET_VERIFICATION_DATE') || '';
+    let verificationAnchorDate = lastInternetDate || activatedAt;
+    if (!verificationAnchorDate && isValid && type !== 'invalid') {
+      verificationAnchorDate = now.toISOString();
+      localStorage.setItem('LAST_INTERNET_VERIFICATION_DATE', verificationAnchorDate);
+    }
+
+    if (verificationAnchorDate && isValid && type !== 'invalid') {
+      const lastPing = new Date(verificationAnchorDate);
+      if (!isNaN(lastPing.getTime())) {
+        const offlineDiff = now.getTime() - lastPing.getTime();
+        
+        const diffSec = Math.floor(offlineDiff / 1000);
+        offlineDays = Math.floor(diffSec / (60 * 60 * 24));
+        
+        if (offlineDays >= 30) {
+          return {
+            type: 'offline_blocked',
+            key,
+            activatedAt,
+            expiresAt,
+            daysRemaining: 0,
+            isValid: false,
+            reason: 'Your application has not been connected to the internet for the last 30 days. Please connect to the internet to verify your license.',
+            hardwareId: hwInfo.hardwareId,
+            offlineDays
+          };
+        } else if (offlineDays >= 25) {
+          warning = true;
+        }
+      }
+    }
+
     return {
       type,
       key,
       activatedAt,
       expiresAt,
       daysRemaining,
-      isValid
+      isValid,
+      hardwareId: hwInfo.hardwareId,
+      warning,
+      offlineDays
     };
   } catch (err) {
     console.error(`[LICENSE ERROR] Failed to get license details:`, err.message);

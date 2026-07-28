@@ -103,7 +103,7 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const msg = error.response?.data?.message;
 
-    if (status === 401 || (status === 403 && msg === 'PLAN_EXPIRED')) {
+    if (status === 401 || (status === 403 && (msg === 'PLAN_EXPIRED' || msg === 'OFFLINE_SUSPENDED' || msg === 'OFFLINE_LIMIT_REACHED' || msg === 'SERVICE_BLOCKED'))) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       if (window.location.protocol === 'file:' || window.location.href.includes('#')) {

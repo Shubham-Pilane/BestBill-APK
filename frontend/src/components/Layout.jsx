@@ -21,7 +21,8 @@ import {
   Headset,
   Phone,
   Mail,
-  Boxes
+  Boxes,
+  AlertTriangle
 } from 'lucide-react';
 
 const playInternalChime = () => {
@@ -236,6 +237,14 @@ const Layout = ({ children }) => {
 
       {/* Main Content Area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}>
+        {user?.licenseWarning && (
+          <div style={{ backgroundColor: '#fef2f2', borderBottom: '1px solid #fecaca', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', zIndex: 101 }}>
+            <AlertTriangle size={20} color="#ef4444" />
+            <div style={{ color: '#991b1b', fontSize: '13px', fontWeight: 600, lineHeight: '1.4' }}>
+              <span style={{ fontWeight: 800 }}>License Verification Required:</span> Your application has not been connected to the internet for the last {user.offlineDays || 25} days. Please connect to the internet for at least 2 minutes to verify your license. Otherwise, you will lose access in {30 - (user.offlineDays || 25)} days. For any queries, contact <strong>Shubham Pilane</strong> at <strong>9822401802</strong>.
+            </div>
+          </div>
+        )}
         <header className="responsive-header" style={{ height: '72px', backgroundColor: 'var(--bg-card)', padding: '0 24px', display: 'none', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--bg-border)', position: 'sticky', top: 0, zIndex: 100 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button onClick={() => setMobileMenuOpen(true)} style={{color: 'var(--text-primary)', background: 'var(--border-rgba-05)', border: '1px solid var(--border-rgba-1)', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

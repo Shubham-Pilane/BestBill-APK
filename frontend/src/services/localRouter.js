@@ -186,17 +186,25 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const hotelRes = await db.query('SELECT * FROM hotels WHERE id = $1', [dbUser.hotel_id]);
       const hotel = hotelRes.rows[0] || {};
 
-      // Validate license expiration
+      // Get completely synchronous local license details
       const details = await licenseService.getLicenseDetails();
       if (!details.isValid) {
-        const errorReason = details.type === 'trial'
-          ? 'Your 30-day offline free trial has expired. Please contact Shubham Pilane to renew or activate your license. Mobile: 9822401802'
-          : `Your ${details.type} license key has expired. Please contact Shubham Pilane to renew your subscription. Mobile: 9822401802`;
+        let errorReason = details.reason;
+        let msgType = 'PLAN_EXPIRED';
+        
+        if (details.type === 'suspended' || details.type === 'revoked') msgType = 'OFFLINE_SUSPENDED';
+        if (details.type === 'offline_blocked') msgType = 'OFFLINE_LIMIT_REACHED';
+        
+        if (!errorReason) {
+          errorReason = details.type === 'trial'
+            ? 'Your 30-day offline free trial has expired. Please contact Shubham Pilane to renew or activate your license. Mobile: 9822401802'
+            : `Your ${details.type} license key has expired. Please contact Shubham Pilane to renew your subscription. Mobile: 9822401802`;
+        }
         
         return {
           status: 403,
           data: {
-            message: 'PLAN_EXPIRED',
+            message: msgType,
             reason: errorReason,
             contact_phone: '9822401802',
             contact_email: 'bestbillsolutions@gmail.com'
@@ -268,14 +276,22 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     // Enforce License Expiration for all protected API requests
     const licenseDetails = await licenseService.getLicenseDetails();
     if (!licenseDetails.isValid) {
-      const errorReason = licenseDetails.type === 'trial'
-        ? 'Your 30-day offline free trial has expired. Please contact Shubham Pilane to renew or activate your license. Mobile: 9822401802'
-        : `Your ${licenseDetails.type} license key has expired. Please contact Shubham Pilane to renew your subscription. Mobile: 9822401802`;
+      let errorReason = licenseDetails.reason;
+      let msgType = 'PLAN_EXPIRED';
+      
+      if (licenseDetails.type === 'suspended' || licenseDetails.type === 'revoked') msgType = 'OFFLINE_SUSPENDED';
+      if (licenseDetails.type === 'offline_blocked') msgType = 'OFFLINE_LIMIT_REACHED';
+
+      if (!errorReason) {
+        errorReason = licenseDetails.type === 'trial'
+          ? 'Your 30-day offline free trial has expired. Please contact Shubham Pilane to renew or activate your license. Mobile: 9822401802'
+          : `Your ${licenseDetails.type} license key has expired. Please contact Shubham Pilane to renew your subscription. Mobile: 9822401802`;
+      }
 
       return {
         status: 403,
         data: {
-          message: 'PLAN_EXPIRED',
+          message: msgType,
           reason: errorReason,
           contact_phone: '9822401802',
           contact_email: 'bestbillsolutions@gmail.com'

@@ -33,11 +33,21 @@ const Login = () => {
       try {
         const details = await licenseService.getLicenseDetails();
         if (!details.isValid) {
-          const errorReason = details.type === 'trial'
-            ? 'Your 30-day offline free trial has expired. Please contact Shubham Pilane to renew or activate your license. Mobile: 9822401802'
-            : `Your ${details.type} license key has expired. Please contact Shubham Pilane to renew your subscription. Mobile: 9822401802`;
+          let errorReason = details.reason;
+          let msgType = 'PLAN_EXPIRED';
+          
+          if (details.type === 'suspended' || details.type === 'revoked') {
+            msgType = 'OFFLINE_SUSPENDED';
+          } else if (details.type === 'offline_blocked') {
+            msgType = 'OFFLINE_LIMIT_REACHED';
+          } else {
+            errorReason = details.type === 'trial'
+              ? 'Your 30-day offline free trial has expired. Please contact Shubham Pilane to renew or activate your license. Mobile: 9822401802'
+              : `Your ${details.type} license key has expired. Please contact Shubham Pilane to renew your subscription. Mobile: 9822401802`;
+          }
+
           setBlockedInfo({
-            type: 'PLAN_EXPIRED',
+            type: msgType,
             reason: errorReason,
             phone: '9822401802',
             email: 'bestbillsolutions@gmail.com',
@@ -92,7 +102,7 @@ const Login = () => {
       }
     } catch (err) {
       const data = err.response?.data;
-      if (err.response?.status === 403 && (data?.message === 'PLAN_EXPIRED' || data?.message === 'SERVICE_BLOCKED')) {
+      if (err.response?.status === 403 && (data?.message === 'PLAN_EXPIRED' || data?.message === 'SERVICE_BLOCKED' || data?.message === 'OFFLINE_SUSPENDED' || data?.message === 'OFFLINE_LIMIT_REACHED')) {
         toast.dismiss(loadingToast);
         setBlockedInfo({
           type: data.message,
@@ -216,7 +226,7 @@ const Login = () => {
             </p>
 
             <h1 style={{color: 'var(--text-primary)', fontSize: '26px', fontWeight: 900, margin: '0 0 8px 0' }}>
-              {blockedInfo.type === 'PLAN_EXPIRED' ? 'Plan Expired' : 'Service Suspended'}
+              {blockedInfo.type === 'PLAN_EXPIRED' ? 'Plan Expired' : blockedInfo.type === 'OFFLINE_LIMIT_REACHED' ? 'Offline Limit Reached' : blockedInfo.type === 'OFFLINE_SUSPENDED' ? 'Verification Required' : 'Service Suspended'}
             </h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600, lineHeight: '1.6', margin: '0 0 32px 0' }}>
               {blockedInfo.reason}
@@ -249,12 +259,7 @@ const Login = () => {
                 </div>
               </div>
 
-              {blockedInfo.hardwareId && (
-                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textAlign: 'center', paddingTop: '8px', borderTop: '1px solid var(--border-rgba-05)' }}>
-                  DEVICE HW ID: <code style={{ color: '#0ea5e9', fontWeight: 900, fontSize: '12px' }}>{blockedInfo.hardwareId}</code>
-                </div>
-              )}
-            </div>
+              </div>
 
             {blockedInfo.type === 'PLAN_EXPIRED' && (
               <div style={{
