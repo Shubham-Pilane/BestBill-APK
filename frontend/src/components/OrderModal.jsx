@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
-import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, Ticket } from 'lucide-react';
+import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, ChevronsDown, Ticket } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import SwapModal from './SwapModal';
@@ -1136,8 +1136,8 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 </div>
 
                  {!billData.is_paid && (
-                    <div style={{ position: 'sticky', bottom: 0, zIndex: 30, backgroundColor: 'rgba(16, 185, 129, 0.15)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', padding: '8px 0', borderRadius: '12px', marginTop: '16px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                      <ChevronDown size={22} style={{ animation: 'bounce 1.5s infinite' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', margin: '20px 0 10px 0' }}>
+                      <ChevronsDown size={28} style={{ animation: 'bounce 1.5s infinite', opacity: 0.8 }} />
                     </div>
                  )}
 

@@ -1033,14 +1033,56 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/credit/transactions' && methodUpper === 'GET') {
-      const credits = await db.query(
-        `SELECT c.*, b.created_at as bill_date, s.name as vendor_name, s.phone as vendor_phone
+      let queryStr = `SELECT c.*, b.created_at as bill_date, s.name as vendor_name, s.phone as vendor_phone
          FROM credits c
          LEFT JOIN bills b ON c.bill_id = b.id
          LEFT JOIN suppliers s ON c.vendor_id = s.id
-         WHERE c.hotel_id = $1 ORDER BY c.created_at DESC`,
-        [user.hotel_id]
-      );
+         WHERE c.hotel_id = $1`;
+      
+      const params = [user.hotel_id];
+      let paramIndex = 2;
+
+      const { party_type, status, date_filter, startDate, endDate, search } = queryParams;
+
+      if (party_type && party_type !== 'all') {
+        queryStr += ` AND c.party_type = $${paramIndex++}`;
+        params.push(party_type);
+      }
+
+      if (status && status !== 'all') {
+        queryStr += ` AND c.status = $${paramIndex++}`;
+        params.push(status);
+      }
+
+      if (date_filter) {
+        if (date_filter === 'today') {
+          queryStr += ` AND date(c.created_at) = date('now', 'localtime')`;
+        } else if (date_filter === 'week') {
+          queryStr += ` AND date(c.created_at) >= date('now', '-7 days', 'localtime')`;
+        } else if (date_filter === 'month') {
+          queryStr += ` AND date(c.created_at) >= date('now', 'start of month', 'localtime')`;
+        } else if (date_filter === 'custom' && startDate && endDate) {
+          queryStr += ` AND date(c.created_at) >= date($${paramIndex++}) AND date(c.created_at) <= date($${paramIndex++})`;
+          params.push(startDate, endDate);
+        }
+      }
+
+      if (search) {
+        const searchPattern = `%${search}%`;
+        queryStr += ` AND (
+          c.customer_name LIKE $${paramIndex} OR 
+          c.customer_phone LIKE $${paramIndex + 1} OR 
+          s.name LIKE $${paramIndex + 2} OR 
+          s.phone LIKE $${paramIndex + 3} OR 
+          CAST(c.bill_id AS TEXT) LIKE $${paramIndex + 4}
+        )`;
+        params.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+        paramIndex += 5;
+      }
+
+      queryStr += ` ORDER BY c.status ASC, c.created_at DESC`;
+
+      const credits = await db.query(queryStr, params);
       return { status: 200, data: credits.rows.map(c => ({ ...c, amount: Number(c.amount) })) };
     }
 

@@ -183,18 +183,18 @@ const YEARLY_KEYS = {
 };
 
 const PERMANENT_KEYS = {
-  0: 'X8M2K9P4Q7', // Jan
-  1: 'N4W7T3L8R5', // Feb
-  2: 'R9B2Y7Q5K3', // Mar
-  3: 'C3U7M1P8T6', // Apr
-  4: 'H8K5V2N9W4', // May
-  5: 'Z4R8F2W9M7', // Jun
-  6: 'T9P3L7C2Q8', // Jul
-  7: 'B5D8Q2M9X4', // Aug
-  8: 'G3X7R9V2P5', // Sep
-  9: 'Y8J4C2T9N5', // Oct
-  10: 'P2N8W5B9K4', // Nov
-  11: 'L9S4Z7Q2R5'  // Dec
+  0: 'G2bX8qN5w9', // Jan
+  1: 'T4vY1mM7p3', // Feb
+  2: 'D6kP9xL2j8', // Mar
+  3: 'Z5cH3tR9b1', // Apr
+  4: 'Q7mN2yK8v4', // May
+  5: 'W1pR6xJ4d9', // Jun
+  6: 'F9sV4bC7m2', // Jul
+  7: 'H3yL8qN1x5', // Aug
+  8: 'B5dK2wT9p4', // Sep
+  9: 'N7xM1rJ6c3', // Oct
+  10: 'L4vP9hB2z8', // Nov
+  11: 'Y2qC7mX5n1'  // Dec
 };
 
 /**

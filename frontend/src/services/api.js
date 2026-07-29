@@ -39,6 +39,13 @@ api.defaults.adapter = async function(config) {
       url = '/' + url;
     }
 
+    if (config.params) {
+      const searchParams = new URLSearchParams(config.params).toString();
+      if (searchParams) {
+        url += (url.includes('?') ? '&' : '?') + searchParams;
+      }
+    }
+
     let data = config.data;
     if (data instanceof FormData) {
       const plain = {};
