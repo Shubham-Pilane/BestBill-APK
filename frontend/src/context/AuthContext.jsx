@@ -1,6 +1,7 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import api from '../services/api';
 import { Network } from '@capacitor/network';
+import { App } from '@capacitor/app';
 
 const AuthContext = createContext();
 
@@ -33,15 +34,35 @@ export const AuthProvider = ({ children }) => {
       };
 
       // Perform a background network sync (NO UI IMPACT)
-      const performNetworkSync = () => {
+      // Strictly enforces MAX 1 Supabase request per calendar day
+      const performNetworkSync = (force = false) => {
+        const getTodayStr = () => {
+          const d = new Date();
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
+
+        const todayStr = getTodayStr();
+        const lastPingDate = localStorage.getItem('LAST_SUPABASE_PING_DATE');
+
+        if (!force && lastPingDate === todayStr) {
+          console.log(`[SUPABASE SYNC] Already pinged Supabase today (${todayStr}). Skipping request.`);
+          return;
+        }
+
         import('../services/localLicenseService').then(ls => {
           ls.syncLicenseWithSupabase().then(res => {
-            if (res.success && res.is_active === false) {
-              window.location.reload(); // Instantly lock out if revoked
-            } else if (res.success) {
-              checkLicenseLocally(); // Refresh UI warnings/offline days if successful
+            if (res.success) {
+              localStorage.setItem('LAST_SUPABASE_PING_DATE', todayStr);
+              if (res.is_active === false) {
+                window.location.reload(); // Instantly lock out if revoked
+              } else {
+                checkLicenseLocally(); // Refresh UI warnings/offline days if successful
+              }
             }
-          });
+          }).catch(() => {});
         }).catch(() => {});
       };
 
@@ -69,17 +90,29 @@ export const AuthProvider = ({ children }) => {
           networkListener = listener;
         });
       } else {
-        window.addEventListener('online', performNetworkSync);
+        window.addEventListener('online', () => performNetworkSync());
+      }
+
+      // Trigger 2: Listen for App Resume from Background (Capacitor App state)
+      let appStateListener = null;
+      if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform()) {
+        App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) {
+            console.log('[APP STATE] App resumed to foreground. Checking daily sync status.');
+            performNetworkSync();
+          }
+        }).then(listener => {
+          appStateListener = listener;
+        });
       }
       
-      // Trigger 2: Daily 11 PM Cron Job
+      // Trigger 3: Daily 11 PM Cron Job fallback
       const scheduleNext11PM = () => {
         const now = new Date();
         const target = new Date();
         target.setHours(23, 0, 0, 0); // 11:00:00 PM
         
         if (now.getTime() >= target.getTime()) {
-          // If it's already past 11 PM today, schedule for tomorrow
           target.setDate(target.getDate() + 1);
         }
         
@@ -90,7 +123,7 @@ export const AuthProvider = ({ children }) => {
         const runCron = () => {
           console.log('[CRON] 11 PM Trigger. Running background sync.');
           performNetworkSync();
-          timeoutId = scheduleNext11PM(); // Schedule next day
+          timeoutId = scheduleNext11PM();
         };
         
         timeoutId = setTimeout(runCron, msUntil11PM);
@@ -103,8 +136,9 @@ export const AuthProvider = ({ children }) => {
       
       return () => {
         if (networkListener) networkListener.remove();
+        if (appStateListener) appStateListener.remove();
         if (typeof window !== 'undefined' && (!window.Capacitor || !window.Capacitor.isNativePlatform())) {
-          window.removeEventListener('online', performNetworkSync);
+          window.removeEventListener('online', () => performNetworkSync());
         }
         clearTimeout(cronTimeout);
       };
