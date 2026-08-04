@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { playInternalChime } from '../components/Layout';
+import { onUpdate } from '../services/socketService';
 import { 
   ChefHat, 
   Clock, 
@@ -71,8 +72,14 @@ const KitchenKOT = () => {
 
     useEffect(() => {
         fetchKitchenOrders();
+        const unsubscribe = onUpdate(() => {
+            fetchKitchenOrders();
+        });
         const interval = setInterval(fetchKitchenOrders, 5000);
-        return () => clearInterval(interval);
+        return () => {
+            unsubscribe();
+            clearInterval(interval);
+        };
     }, []);
 
     const formatDateTime = (timestamp) => {

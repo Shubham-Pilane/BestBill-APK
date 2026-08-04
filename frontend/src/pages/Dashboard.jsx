@@ -8,6 +8,7 @@ import { PlusCircle, Table as TableIcon, LayoutGrid, Search, X, Hash, Trash2, Re
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import SwapModal from '../components/SwapModal';
+import { initSocket, onUpdate, isWaiterModuleEnabled } from '../services/socketService';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -115,19 +116,37 @@ const Dashboard = () => {
     fetchTables();
     fetchSubscriptionStatus();
 
-    const serverUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:8080';
-    const socket = io(serverUrl, { transports: ['websocket'] });
+    const isWaiterEnabled = isWaiterModuleEnabled() || user?.role === 'waiter' || user?.waiterModuleEnabled || localStorage.getItem('cfg_waiter_module') === 'true';
 
-    if (user?.hotel_id) {
-      socket.emit('register-hotel', { hotelId: user.hotel_id });
+    let unsubscribe = () => {};
+    let socket = null;
+
+    if (isWaiterEnabled) {
+      if (user?.hotel_id) {
+        initSocket(user.hotel_id);
+      } else {
+        initSocket();
+      }
+
+      unsubscribe = onUpdate((event) => {
+        fetchTables();
+      });
+
+      const serverUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:8080';
+      try {
+        socket = io(serverUrl, { transports: ['websocket'] });
+        if (user?.hotel_id) {
+          socket.emit('register-hotel', { hotelId: user.hotel_id });
+        }
+        socket.on('table-update', () => {
+          fetchTables();
+        });
+      } catch (e) {}
     }
 
-    socket.on('table-update', () => {
-      fetchTables();
-    });
-
     return () => {
-      socket.disconnect();
+      unsubscribe();
+      if (socket) socket.disconnect();
     };
   }, [user]);
 

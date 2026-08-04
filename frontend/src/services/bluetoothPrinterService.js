@@ -144,6 +144,10 @@ export function formatKOT(data, printerSize = '58mm') {
     .bold()
     .text(tStr);
 
+  if (data.waiter) {
+    builder.text(`WAITER: ${data.waiter}`);
+  }
+
   builder.bold(false)
     .text(`DATE: ${dateStr}`)
     .line('-', LINE_WIDTH)

@@ -24,13 +24,29 @@ const Login = () => {
   const [licenseKey, setLicenseKey] = useState('');
   const [isRegistrationAllowed, setIsRegistrationAllowed] = useState(true);
   
-  const { login } = useAuth();
+  const { user, login } = useAuth();
   const { theme, toggleTheme, setTheme, isLight } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+      if (window.location.hash !== '#/') {
+        window.location.hash = '#/';
+      }
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
     const checkLicenseAndStatus = async () => {
       try {
+        const isWebAccess = typeof window !== 'undefined' && (!window.Capacitor || !window.Capacitor.isNativePlatform() || window.location.port === '8080');
+        if (isWebAccess) {
+          setIsRegister(false);
+          setIsRegistrationAllowed(false);
+          return;
+        }
+
         const details = await licenseService.getLicenseDetails();
         if (!details.isValid) {
           let errorReason = details.reason;
@@ -59,6 +75,8 @@ const Login = () => {
         setIsRegistrationAllowed(res.data.isRegistrationAllowed);
         if (!res.data.isRegistered) {
           setIsRegister(true);
+        } else {
+          setIsRegister(false);
         }
       } catch (err) {
         console.error('Failed to fetch status', err);
@@ -98,7 +116,10 @@ const Login = () => {
       } else {
         await login(email, password);
         toast.success('Welcome back!', { id: loadingToast });
-        navigate('/');
+        navigate('/', { replace: true });
+        if (window.location.hash !== '#/') {
+          window.location.hash = '#/';
+        }
       }
     } catch (err) {
       const data = err.response?.data;

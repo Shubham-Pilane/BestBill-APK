@@ -11,9 +11,13 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      const parsed = JSON.parse(savedUser);
-      setUser(parsed);
+    if (savedUser && savedUser !== 'undefined' && savedUser !== 'null') {
+      try {
+        const parsed = JSON.parse(savedUser);
+        setUser(parsed);
+      } catch (e) {
+        localStorage.removeItem('user');
+      }
       
       const checkLicenseLocally = () => {
         import('../services/localLicenseService').then(ls => {

@@ -1,5 +1,8 @@
 import axios from 'axios';
+import { registerPlugin } from '@capacitor/core';
 import { handleRequest } from './localRouter';
+
+const LocalWebServer = registerPlugin('LocalWebServer');
 
 let apiBaseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -14,90 +17,123 @@ const api = axios.create({
   baseURL: apiBaseURL,
 });
 
-// Configure Axios Custom Adapter for standalone mobile offline usage
-api.defaults.adapter = async function(config) {
-  try {
-    let url = config.url || '';
-    
-    // Resolve relative URL
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      const match = url.match(/\/api(\/.*)$/);
-      if (match) {
-        url = match[1];
+if (typeof window !== 'undefined') {
+  window.executeApiBridge = async (reqId, method, path, bodyStr, authHeader) => {
+    try {
+      let data = bodyStr;
+      if (typeof bodyStr === 'string' && bodyStr.trim()) {
+        try { data = JSON.parse(bodyStr); } catch (e) {}
       }
-    } else {
-      if (url.startsWith('/api')) {
-        url = url.substring(4);
+      const headers = {};
+      if (authHeader && authHeader.trim()) {
+        headers['authorization'] = authHeader.trim();
+        headers['Authorization'] = authHeader.trim();
       }
-      if (config.baseURL && url.startsWith(config.baseURL)) {
-        url = url.substring(config.baseURL.length);
-      }
-    }
-    
-    // Strip trailing/leading slashes to match router
-    if (!url.startsWith('/')) {
-      url = '/' + url;
-    }
-
-    if (config.params) {
-      const searchParams = new URLSearchParams(config.params).toString();
-      if (searchParams) {
-        url += (url.includes('?') ? '&' : '?') + searchParams;
-      }
-    }
-
-    let data = config.data;
-    if (data instanceof FormData) {
-      const plain = {};
-      data.forEach((val, key) => {
-        plain[key] = val;
+      const res = await handleRequest(method, path, data, headers);
+      const resDataStr = typeof res.data === 'object' ? JSON.stringify(res.data) : String(res.data || '');
+      await LocalWebServer.setApiResponse({
+        reqId,
+        status: res.status || 200,
+        data: resDataStr
       });
-      data = plain;
-    } else if (data && typeof data === 'string') {
-      try {
-        data = JSON.parse(data);
-      } catch (e) {}
-    }
-
-    const response = await handleRequest(config.method || 'get', url, data, config.headers);
-
-    // Resolve successfully if status code is in 2xx range
-    if (response.status >= 200 && response.status < 300) {
-      return {
-        data: response.data,
-        status: response.status,
-        statusText: 'OK',
-        headers: {},
-        config
-      };
-    } else {
-      const err = new Error(response.data?.message || 'API Error');
-      err.response = {
-        status: response.status,
-        data: response.data,
-        headers: {},
-        config
-      };
-      throw err;
-    }
-  } catch (err) {
-    if (err.response) {
-      return Promise.reject(err);
-    }
-    return Promise.reject({
-      response: {
+    } catch (err) {
+      await LocalWebServer.setApiResponse({
+        reqId,
         status: 500,
-        data: { message: 'Local router crash', error: err.message },
-        config
+        data: JSON.stringify({ message: err.message || 'Bridge Error' })
+      });
+    }
+  };
+}
+
+const isNativeApp = typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform();
+
+if (isNativeApp) {
+  // Configure Axios Custom Adapter for standalone mobile offline usage
+  api.defaults.adapter = async function(config) {
+    try {
+      let url = config.url || '';
+      
+      // Resolve relative URL
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const match = url.match(/\/api(\/.*)$/);
+        if (match) {
+          url = match[1];
+        }
+      } else {
+        if (url.startsWith('/api')) {
+          url = url.substring(4);
+        }
+        if (config.baseURL && url.startsWith(config.baseURL)) {
+          url = url.substring(config.baseURL.length);
+        }
       }
-    });
-  }
-};
+      
+      // Strip trailing/leading slashes to match router
+      if (!url.startsWith('/')) {
+        url = '/' + url;
+      }
+
+      if (config.params) {
+        const searchParams = new URLSearchParams(config.params).toString();
+        if (searchParams) {
+          url += (url.includes('?') ? '&' : '?') + searchParams;
+        }
+      }
+
+      let data = config.data;
+      if (data instanceof FormData) {
+        const plain = {};
+        data.forEach((val, key) => {
+          plain[key] = val;
+        });
+        data = plain;
+      } else if (data && typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch (e) {}
+      }
+
+      const response = await handleRequest(config.method || 'get', url, data, config.headers);
+
+      // Resolve successfully if status code is in 2xx range
+      if (response.status >= 200 && response.status < 300) {
+        return {
+          data: response.data,
+          status: response.status,
+          statusText: 'OK',
+          headers: {},
+          config
+        };
+      } else {
+        const err = new Error(response.data?.message || 'API Error');
+        err.response = {
+          status: response.status,
+          data: response.data,
+          headers: {},
+          config
+        };
+        throw err;
+      }
+    } catch (err) {
+      if (err.response) {
+        return Promise.reject(err);
+      }
+      return Promise.reject({
+        response: {
+          status: 500,
+          data: { message: 'Local router crash', error: err.message },
+          config
+        }
+      });
+    }
+  };
+}
 
 // Add token to each request if it exists
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
+  if (token && token !== 'undefined' && token !== 'null') {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;

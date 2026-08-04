@@ -6,6 +6,7 @@ import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, 
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import SwapModal from './SwapModal';
+import { onUpdate } from '../services/socketService';
 
 const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) => {
   if (!table) return null;
@@ -40,7 +41,8 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const isTokenCounter = String(table?.table_number || table?.id || '').toLowerCase().includes('token');
   const isParcelCounter = table?.table_number === 'Parcel Counter';
-  const showKotButton = (user?.simpleKotEnabled || user?.kotEnabled) && !isTokenCounter;
+  const isWaiterAccessEnabled = user?.role === 'waiter' || user?.waiterModuleEnabled || localStorage.getItem('cfg_waiter_module') === 'true';
+  const showKotButton = (user?.simpleKotEnabled || user?.kotEnabled || isWaiterAccessEnabled) && !isTokenCounter;
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -101,6 +103,17 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     };
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [table?.id]);
+
+  useEffect(() => {
+    if (!table?.id) return;
+    const unsubscribe = onUpdate(async () => {
+      try {
+        const orderRes = await api.get(`/tables/${table.id}/order`);
+        setOrderItems(orderRes.data?.items || []);
+      } catch (err) {}
+    });
+    return () => unsubscribe();
   }, [table?.id]);
 
   useEffect(() => {
@@ -898,15 +911,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     <span style={{ color: '#10b981', fontSize: '18px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
                   </div>
 
-                  {user?.role === 'waiter' ? (
-                    <button 
-                      disabled={orderItems.length === 0} 
-                      onClick={sendToKitchen} 
-                      style={{ width: '100%', padding: '11px', borderRadius: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '13px', cursor: 'pointer' }}
-                    >
-                      PRINT KOT
-                    </button>
-                  ) : showKotButton ? (
+                  {showKotButton ? (
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button disabled={orderItems.length === 0} onClick={sendToKitchen} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>PRINT KOT</button>
                       <button disabled={orderItems.length === 0} onClick={generateBill} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>SETTLE BILL</button>

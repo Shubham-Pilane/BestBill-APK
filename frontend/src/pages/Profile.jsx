@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
-import { User, Mail, Lock, ShieldCheck, Save, Eye, EyeOff, LayoutPanelLeft, UserCircle, Wallet, Users, Trash2, UserPlus, Fingerprint, MapPin, Percent, Upload, Image as ImageIcon, Printer, ChevronDown, Globe, Download, QrCode, Key } from 'lucide-react';
+import { User, Mail, Lock, ShieldCheck, Save, Eye, EyeOff, LayoutPanelLeft, UserCircle, Wallet, Users, Trash2, UserPlus, Fingerprint, MapPin, Percent, Upload, Image as ImageIcon, Printer, ChevronDown, Globe, Download, QrCode, Key, RotateCw } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { BluetoothPrinterService, formatBill } from '../services/bluetoothPrinterService';
 import * as licenseService from '../services/localLicenseService';
+import { getLocalIpAddress } from '../services/socketService';
 
 const Profile = () => {
     const { user, updateUser } = useAuth();
@@ -13,6 +14,8 @@ const Profile = () => {
     const isOwner = user?.role === 'owner';
     const themeColor = isAdmin ? '#10b981' : '#0ea5e9';
     const serverUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'https://bestbill-backend-174132084209.us-central1.run.app';
+
+    const [localServerIp, setLocalServerIp] = useState('127.0.0.1');
 
     const [formData, setFormData] = useState({
         name: user?.name || '',
@@ -96,8 +99,12 @@ const Profile = () => {
     const [showSecurityCore, setShowSecurityCore] = useState(false);
     const [showHotelProfile, setShowHotelProfile] = useState(false);
 
+    // Waiter Mobile Access State
+    const [waiterModuleEnabled, setWaiterModuleEnabled] = useState(false);
+
     useEffect(() => {
         fetchLicenseDetails();
+        getLocalIpAddress().then(ip => setLocalServerIp(ip)).catch(() => {});
         if (isOwner) {
             fetchStaff();
             fetchHotelDetails();
@@ -109,8 +116,39 @@ const Profile = () => {
             fetchInventoryStatus();
             fetchTokenCounterStatus();
             fetchSimpleKotStatus();
+            fetchWaiterModuleStatus();
         }
     }, [isOwner]);
+
+    const fetchWaiterModuleStatus = async () => {
+        try {
+            const res = await api.get('/hotel/waiter-module-status');
+            const isEnabled = !!res.data.waiterModuleEnabled || !!res.data.enabled;
+            setWaiterModuleEnabled(isEnabled);
+            updateUser({ waiterModuleEnabled: isEnabled });
+        } catch (err) {
+            console.error('Failed to fetch waiter module status', err);
+        }
+    };
+
+    const handleToggleWaiterModule = async (shouldEnable) => {
+        try {
+            const res = await api.post('/hotel/toggle-waiter-module', { enabled: shouldEnable });
+            if (res.data.success) {
+                setWaiterModuleEnabled(shouldEnable);
+                updateUser({ waiterModuleEnabled: shouldEnable });
+                if (shouldEnable) {
+                    import('../services/socketService').then(ss => ss.initSocket(user?.hotel_id));
+                    toast.success('Waiter Mobile Access Module Activated!');
+                } else {
+                    import('../services/socketService').then(ss => ss.stopSocket());
+                    toast.success('Waiter Mobile Access Module Deactivated.');
+                }
+            }
+        } catch (err) {
+            toast.error('Failed to toggle Waiter Mobile Access Module');
+        }
+    };
 
     const fetchLicenseDetails = async () => {
         try {
@@ -665,6 +703,152 @@ const Profile = () => {
                 </div>
             )}
 
+            {/* Waiter Mobile Web Access & Staff Management */}
+            {isOwner && waiterModuleEnabled && (
+                <div style={{ width: '100%' }}>
+                    <div 
+                        onClick={() => setShowStaffSection(!showStaffSection)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showStaffSection ? '12px' : '0', cursor: 'pointer', backgroundColor: 'var(--bg-card)', padding: '14px 20px', borderRadius: '12px', border: '1px solid var(--border-rgba-05)', transition: 'all 0.2s' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <Users size={22} style={{ color: '#38bdf8' }} />
+                            <h2 style={{fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Waiter Web Access & Staff Accounts</h2>
+                        </div>
+                        <ChevronDown 
+                            size={20} 
+                            style={{ 
+                                color: 'var(--text-muted)', 
+                                transform: showStaffSection ? 'rotate(180deg)' : 'rotate(0deg)',
+                                transition: 'transform 0.3s ease'
+                            }} 
+                        />
+                    </div>
+                    {showStaffSection && (
+                        <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-rgba-05)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                            
+                            {/* QR Code Card */}
+                            <div style={{ backgroundColor: 'var(--bg-base)', borderRadius: '16px', padding: '20px', border: '1px solid rgba(56, 189, 248, 0.3)', display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ backgroundColor: '#ffffff', padding: '12px', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                                    <QRCodeCanvas id="waiter-access-qr-canvas" value={`http://${localServerIp}:8080`} size={160} />
+                                </div>
+                                <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <QrCode size={20} style={{ color: '#38bdf8' }} />
+                                        <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Waiter Access QR Code</h3>
+                                    </div>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: 1.5 }}>
+                                        Waiters do <strong>not</strong> need to install any APK on their mobile phones. Print and stick this QR code on the wall so waiters can scan it every day to log in.
+                                    </p>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                        <div style={{ backgroundColor: 'var(--bg-card)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--bg-border)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: 800, color: '#38bdf8', fontFamily: 'monospace' }}>http://{localServerIp}:8080</span>
+                                        </div>
+                                         <button
+                                            type="button"
+                                            onClick={() => {
+                                                const canvas = document.getElementById('waiter-access-qr-canvas');
+                                                if (canvas) {
+                                                    const url = canvas.toDataURL('image/png');
+                                                    const a = document.createElement('a');
+                                                    a.href = url;
+                                                    a.download = `BestBill_Waiter_Access_QR.png`;
+                                                    a.click();
+                                                    toast.success('Waiter Access QR downloaded successfully!');
+                                                }
+                                            }}
+                                            style={{ backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', padding: '10px 16px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                        >
+                                            <Download size={16} /> Download QR Image
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                try {
+                                                    const ip = await getLocalIpAddress();
+                                                    setLocalServerIp(ip);
+                                                    toast.success(`Server IP Refreshed: ${ip}`);
+                                                } catch (e) {
+                                                    toast.error('Failed to refresh IP address');
+                                                }
+                                            }}
+                                            style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', padding: '10px 16px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                        >
+                                            <RotateCw size={16} style={{ color: '#38bdf8' }} /> Refresh IP & QR
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Add Waiter Form */}
+                            <form onSubmit={handleHiring} style={{ display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: 'var(--bg-base)', padding: '20px', borderRadius: '16px', border: '1px solid var(--bg-border)' }}>
+                                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <UserPlus size={18} style={{ color: '#10b981' }} />
+                                    Add New Waiter Account
+                                </h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Waiter Name"
+                                        value={staffForm.name}
+                                        onChange={e => setStaffForm({ ...staffForm, name: e.target.value })}
+                                        required
+                                        style={{ padding: '12px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500, outline: 'none' }}
+                                    />
+                                    <input
+                                        type="email"
+                                        placeholder="Waiter Username / Email"
+                                        value={staffForm.email}
+                                        onChange={e => setStaffForm({ ...staffForm, email: e.target.value })}
+                                        required
+                                        style={{ padding: '12px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500, outline: 'none' }}
+                                    />
+                                    <input
+                                        type="password"
+                                        placeholder="Password"
+                                        value={staffForm.password}
+                                        onChange={e => setStaffForm({ ...staffForm, password: e.target.value })}
+                                        required
+                                        style={{ padding: '12px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500, outline: 'none' }}
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={hiring}
+                                    style={{ backgroundColor: '#10b981', color: '#ffffff', padding: '10px 20px', borderRadius: '10px', border: 'none', fontWeight: 700, cursor: 'pointer', width: 'fit-content' }}
+                                >
+                                    {hiring ? 'Adding Waiter...' : 'Create Waiter Account'}
+                                </button>
+                            </form>
+
+                            {/* Staff List */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Active Waitstaff List</h3>
+                                {staff.length === 0 ? (
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0 }}>No waiter accounts created yet.</p>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {staff.map(member => (
+                                            <div key={member.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'var(--bg-base)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--bg-border)' }}>
+                                                <div>
+                                                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>{member.name}</h4>
+                                                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>{member.email}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => removeStaff(member.id)}
+                                                    style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                >
+                                                    <Trash2 size={14} /> Remove Access
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Physical Offline Printers Management */}
             {isOwner && (
                 <div style={{ width: '100%' }}>
@@ -873,6 +1057,43 @@ const Profile = () => {
                                 </div>
                             </div>
                             <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
+                            
+                            {/* Waiter Mobile Web Access Module Toggle */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
+                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Users size={18} style={{ color: '#38bdf8' }} />
+                                        Waiter Mobile Web Access Module
+                                    </h3>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
+                                        Enable browser QR access for waiters and live real-time multi-device synchronization.
+                                        When disabled, no background HTTP server or WebSocket sockets run.
+                                    </p>
+                                </div>
+                                
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)' }}>
+                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="waiterModuleToggle"
+                                            checked={!waiterModuleEnabled} 
+                                            onChange={() => handleToggleWaiterModule(false)}
+                                            style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        Disabled
+                                    </label>
+                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="waiterModuleToggle"
+                                            checked={waiterModuleEnabled} 
+                                            onChange={() => handleToggleWaiterModule(true)}
+                                            style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        Enabled
+                                    </label>
+                                </div>
+                            </div>
                             {/* Simple KOT Module */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>

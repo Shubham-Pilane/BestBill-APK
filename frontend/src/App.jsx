@@ -1,3 +1,4 @@
+import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -12,6 +13,31 @@ import CreditManagement from './pages/CreditManagement';
 import InventoryManagement from './pages/InventoryManagement';
 import Layout from './components/Layout';
 import './index.css';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("React Error Boundary Caught:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', color: '#fff', backgroundColor: '#020617', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 800 }}>BestBill Application</h2>
+          <p style={{ color: '#94a3b8', margin: '10px 0 20px 0', fontSize: '14px' }}>{this.state.error?.toString() || 'Something went wrong.'}</p>
+          <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ padding: '10px 20px', backgroundColor: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>Reload Page</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -38,102 +64,104 @@ const InventoryRoute = ({ children }) => {
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Home />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/menu" element={
-              <ProtectedRoute>
-                <OwnerRoute>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={
+                <ProtectedRoute>
                   <Layout>
-                    <MenuManagement />
+                    <Home />
                   </Layout>
-                </OwnerRoute>
-              </ProtectedRoute>
-            } />
-            <Route path="/kitchen-kot" element={
-              <ProtectedRoute>
-                <OwnerRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/menu" element={
+                <ProtectedRoute>
+                  <OwnerRoute>
+                    <Layout>
+                      <MenuManagement />
+                    </Layout>
+                  </OwnerRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/kitchen-kot" element={
+                <ProtectedRoute>
+                  <OwnerRoute>
+                    <Layout>
+                      <KitchenKOT />
+                    </Layout>
+                  </OwnerRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/history" element={
+                <ProtectedRoute>
+                  <OwnerRoute>
+                    <Layout>
+                      <BillingHistory />
+                    </Layout>
+                  </OwnerRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/credit" element={
+                <ProtectedRoute>
+                  <OwnerRoute>
+                    <Layout>
+                      <CreditManagement />
+                    </Layout>
+                  </OwnerRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/inventory" element={
+                <ProtectedRoute>
+                  <InventoryRoute>
+                    <Layout>
+                      <InventoryManagement />
+                    </Layout>
+                  </InventoryRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
                   <Layout>
-                    <KitchenKOT />
+                    <Profile />
                   </Layout>
-                </OwnerRoute>
-              </ProtectedRoute>
-            } />
-            <Route path="/history" element={
-              <ProtectedRoute>
-                <OwnerRoute>
-                  <Layout>
-                    <BillingHistory />
-                  </Layout>
-                </OwnerRoute>
-              </ProtectedRoute>
-            } />
-            <Route path="/credit" element={
-              <ProtectedRoute>
-                <OwnerRoute>
-                  <Layout>
-                    <CreditManagement />
-                  </Layout>
-                </OwnerRoute>
-              </ProtectedRoute>
-            } />
-            <Route path="/inventory" element={
-              <ProtectedRoute>
-                <InventoryRoute>
-                  <Layout>
-                    <InventoryManagement />
-                  </Layout>
-                </InventoryRoute>
-              </ProtectedRoute>
-            } />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Profile />
-                </Layout>
-              </ProtectedRoute>
-            } />
-
-          </Routes>
-          <Toaster 
-            position="top-right" 
-            toastOptions={{
-              style: {
-                background: 'var(--bg-card)',
-                color: 'var(--text-primary)',
-                borderRadius: '12px',
-                border: '1px solid var(--border-rgba-05)',
-                fontWeight: 600,
-                fontSize: '14px',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
-                backdropFilter: 'blur(8px)',
-              },
-              success: {
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#ffffff',
+                </ProtectedRoute>
+              } />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <Toaster 
+              position="top-right" 
+              toastOptions={{
+                style: {
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-primary)',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border-rgba-05)',
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+                  backdropFilter: 'blur(8px)',
                 },
-              },
-              error: {
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#ffffff',
+                success: {
+                  iconTheme: {
+                    primary: '#10b981',
+                    secondary: '#ffffff',
+                  },
                 },
-              }
-            }}
-          />
-        </Router>
-      </AuthProvider>
-    </ThemeProvider>
+                error: {
+                  iconTheme: {
+                    primary: '#ef4444',
+                    secondary: '#ffffff',
+                  },
+                }
+              }}
+            />
+          </Router>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

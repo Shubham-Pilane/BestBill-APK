@@ -1,6 +1,7 @@
 import * as db from '../db/localDb';
 import * as licenseService from './localLicenseService';
 import bcrypt from 'bcryptjs';
+import { notifyUpdate } from './socketService';
 
 // Parse query params from URL
 const parseQueryParams = (url) => {
@@ -416,6 +417,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         [orderId]
       );
 
+      notifyUpdate('table-update');
       return { status: 200, data: { items: updatedItems.rows } };
     }
 
@@ -431,6 +433,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
            OR (order_id IN (SELECT id FROM orders WHERE table_id = $3 AND status = 'active') AND menu_item_id = $2)
       `, [quantity, orderItemId, tableId]);
 
+      notifyUpdate('table-update');
       return { status: 200, data: { message: 'Quantity updated' } };
     }
 
@@ -457,6 +460,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
       if (!hasRemaining) {
         await db.query('DELETE FROM orders WHERE id = $1', [orderId]);
+        notifyUpdate('table-update');
         return { status: 200, data: { items: [], order_deleted: true } };
       }
 
@@ -467,6 +471,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         [orderId]
       );
 
+      notifyUpdate('table-update');
       return { status: 200, data: { items: updatedItems.rows, order_deleted: false } };
     }
 
@@ -527,6 +532,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       // Store in window for UI to pick up and print
       window.dispatchEvent(new CustomEvent('print-job-triggered', { detail: printPayload }));
 
+      notifyUpdate('table-update');
       return { status: 200, data: { success: true, message: 'KOT printed successfully' } };
     }
 
@@ -536,7 +542,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
                t.table_number, t.floor as table_floor
         FROM orders o
         JOIN tables t ON o.table_id = t.id
-        WHERE t.hotel_id = $1 AND (o.kot_sent_at IS NOT NULL OR o.status = 'active')
+        WHERE t.hotel_id = $1 AND o.kot_sent_at IS NOT NULL AND o.status = 'active'
         ORDER BY COALESCE(o.kot_sent_at, o.created_at) DESC
         LIMIT 50
       `, [user.hotel_id]);
@@ -580,6 +586,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       if (targetOrder.rows.length > 0) return { status: 400, data: { message: 'Target table is busy' } };
 
       await db.query('UPDATE orders SET table_id = $1 WHERE id = $2', [targetTableId, sourceOrder.rows[0].id]);
+      notifyUpdate('table-update');
       return { status: 200, data: { message: 'Table successfully swapped' } };
     }
 
@@ -641,6 +648,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         hotel_location: hotel.location || ''
       };
 
+      notifyUpdate('table-update');
       return { status: 200, data: responsePayload };
     }
 
@@ -1406,6 +1414,16 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if (path === '/hotel/token-counter-status') {
       const isEnabled = localStorage.getItem('cfg_token_counter') === 'true';
       return { status: 200, data: { enabled: isEnabled, tokenCounterEnabled: isEnabled } };
+    }
+    if (path === '/hotel/waiter-module-status') {
+      const isEnabled = localStorage.getItem('cfg_waiter_module') === 'true';
+      return { status: 200, data: { enabled: isEnabled, waiterModuleEnabled: isEnabled } };
+    }
+
+    if (path === '/hotel/toggle-waiter-module') {
+      const { enabled } = body;
+      localStorage.setItem('cfg_waiter_module', enabled ? 'true' : 'false');
+      return { status: 200, data: { success: true, enabled: !!enabled } };
     }
 
     if (path === '/hotel/toggle-lodging') {
