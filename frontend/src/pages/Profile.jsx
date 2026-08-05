@@ -30,11 +30,58 @@ const Profile = () => {
         upi_id: user?.upi_id || '',
         gst_percentage: user?.gst_percentage || 0,
         billing_method: user?.billing_method || 'qz',
-        logo_url: '',
+        logo_url: user?.logo_url || localStorage.getItem('cfg_hotel_logo_url') || '',
         fssai_number: '',
         email: '',
         phone: ''
     });
+
+    const [logoPrintingEnabled, setLogoPrintingEnabled] = useState(
+        localStorage.getItem('cfg_logo_printing_enabled') === 'true'
+    );
+    const [logoUrl, setLogoUrl] = useState(
+        user?.logo_url || localStorage.getItem('cfg_hotel_logo_url') || ''
+    );
+
+    const handleToggleLogoPrinting = (enabled) => {
+        setLogoPrintingEnabled(enabled);
+        localStorage.setItem('cfg_logo_printing_enabled', String(enabled));
+        toast.success(enabled ? 'Logo Printing Enabled on Bill' : 'Logo Printing Disabled');
+    };
+
+    const handleLogoFileUpload = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (file.size > 3 * 1024 * 1024) {
+            return toast.error('File size must be under 3MB');
+        }
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const maxWidth = 200;
+                const aspect = img.height / img.width;
+                const width = Math.min(maxWidth, img.width);
+                const height = Math.round(width * aspect);
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+
+                const compressedDataUrl = canvas.toDataURL('image/png');
+                setLogoUrl(compressedDataUrl);
+                localStorage.setItem('cfg_hotel_logo_url', compressedDataUrl);
+                setHotelData(prev => ({ ...prev, logo_url: compressedDataUrl }));
+                toast.success('Hotel Logo Uploaded & Saved!');
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
 
     const [staff, setStaff] = useState([]);
     const [staffForm, setStaffForm] = useState({ name: '', email: '', password: '' });
@@ -689,7 +736,70 @@ const Profile = () => {
                                                 onChange={e => setHotelData({ ...hotelData, fssai_number: e.target.value })} 
                                                 style={{width: '100%', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500, outline: 'none' }} 
                                             />
+                                         </div>
+                                     </div>
+
+                                    {/* Enable Logo Printing on Bill Card */}
+                                    <div style={{ backgroundColor: 'var(--bg-card)', padding: '16px', borderRadius: '12px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '6px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <ImageIcon size={18} style={{ color: '#10b981' }} />
+                                                    Enable Hotel Logo Printing on Bill
+                                                </h4>
+                                                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
+                                                    Print your restaurant logo centered at the top of thermal printed bills.
+                                                </p>
+                                            </div>
+                                            
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 600, fontSize: '13px' }}>
+                                                    <input 
+                                                        type="radio" 
+                                                        name="logoPrintingToggle"
+                                                        checked={!logoPrintingEnabled} 
+                                                        onChange={() => handleToggleLogoPrinting(false)}
+                                                        style={{ accentColor: '#f43f5e', width: '16px', height: '16px', cursor: 'pointer' }}
+                                                    />
+                                                    Disabled
+                                                </label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 600, fontSize: '13px' }}>
+                                                    <input 
+                                                        type="radio" 
+                                                        name="logoPrintingToggle"
+                                                        checked={logoPrintingEnabled} 
+                                                        onChange={() => handleToggleLogoPrinting(true)}
+                                                        style={{ accentColor: '#10b981', width: '16px', height: '16px', cursor: 'pointer' }}
+                                                    />
+                                                    Enabled
+                                                </label>
+                                            </div>
                                         </div>
+
+                                        {logoPrintingEnabled && (
+                                            <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap', paddingTop: '10px', borderTop: '1px solid var(--bg-border)' }}>
+                                                {logoUrl ? (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', backgroundColor: '#ffffff', padding: '10px', borderRadius: '12px', border: '1px solid var(--bg-border)' }}>
+                                                        <img src={logoUrl} alt="Hotel Logo" style={{ maxHeight: '60px', maxWidth: '120px', objectFit: 'contain' }} />
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => { setLogoUrl(''); localStorage.removeItem('cfg_hotel_logo_url'); toast.success('Logo removed'); }}
+                                                            style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                                                        >
+                                                            Remove Logo
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>No logo uploaded yet.</div>
+                                                )}
+
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.3)', padding: '10px 18px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}>
+                                                    <Upload size={16} />
+                                                    {logoUrl ? 'Change Logo Image' : 'Upload Hotel Logo'}
+                                                    <input type="file" accept="image/*" onChange={handleLogoFileUpload} style={{ display: 'none' }} />
+                                                </label>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -734,10 +844,10 @@ const Profile = () => {
                                 <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <QrCode size={20} style={{ color: '#38bdf8' }} />
-                                        <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Waiter Access QR Code</h3>
+                                        <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Waiter Web Access QR Code</h3>
                                     </div>
                                     <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: 1.5 }}>
-                                        Waiters do <strong>not</strong> need to install any APK on their mobile phones. Print and stick this QR code on the wall so waiters can scan it every day to log in.
+                                        Scan this QR code with any mobile phone to open the login page in browser and access the Waiter Dashboard.
                                     </p>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginTop: '4px' }}>
                                         <div style={{ backgroundColor: 'var(--bg-card)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--bg-border)', display: 'flex', alignItems: 'center', gap: '10px' }}>

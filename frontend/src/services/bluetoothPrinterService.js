@@ -191,15 +191,97 @@ export function formatKOT(data, printerSize = '58mm') {
   return builder.build();
 }
 
+// Convert logo image to ESC/POS monochrome bitmap
+export async function convertImageToEscpos(url, maxWidth = 180) {
+  return new Promise((resolve) => {
+    if (!url) { resolve([]); return; }
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      try {
+        const targetWidth = Math.min(maxWidth, img.width || 180);
+        const aspect = img.height / img.width;
+        const width = Math.round(targetWidth);
+        const height = Math.round(width * aspect);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const pixels = imgData.data;
+
+        const bytesPerLine = Math.ceil(width / 8);
+        const bytes = [];
+        const xL = bytesPerLine % 256;
+        const xH = Math.floor(bytesPerLine / 256);
+        const yL = height % 256;
+        const yH = Math.floor(height / 256);
+
+        bytes.push(0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH);
+
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < bytesPerLine; x++) {
+            let byte = 0;
+            for (let b = 0; b < 8; b++) {
+              const px = x * 8 + b;
+              if (px < width) {
+                const idx = (y * width + px) * 4;
+                const r = pixels[idx];
+                const g = pixels[idx + 1];
+                const bVal = pixels[idx + 2];
+                const a = pixels[idx + 3];
+                const luminance = (r * 0.299 + g * 0.587 + bVal * 0.114);
+                if (luminance >= 85) {
+                  byte |= (1 << (7 - b));
+                }
+              }
+            }
+            bytes.push(byte);
+          }
+        }
+        resolve(bytes);
+      } catch (e) {
+        resolve([]);
+      }
+    };
+    img.onerror = () => resolve([]);
+    img.src = url;
+  });
+}
+
 // Format Bill
-export function formatBill(data, printerSize = '58mm') {
+export async function formatBill(data, printerSize = '58mm') {
   const is58mm = printerSize === '58mm';
   const LINE_WIDTH = is58mm ? 31 : 42;
   const builder = new EscposBuilder(is58mm);
   const dateStr = new Date().toLocaleString();
 
-  builder.alignCenter()
-    .setFontDouble()
+  builder.alignCenter();
+
+  // Print Logo Image at center if enabled
+  const logoPrintingEnabled = typeof window !== 'undefined' && localStorage.getItem('cfg_logo_printing_enabled') === 'true';
+  const logoUrl = data.logo_url || (typeof window !== 'undefined' ? localStorage.getItem('cfg_hotel_logo_url') : '');
+
+  if (logoPrintingEnabled && logoUrl) {
+    try {
+      const logoBytes = await convertImageToEscpos(logoUrl, 180);
+      if (logoBytes && logoBytes.length > 0) {
+        for (let i = 0; i < logoBytes.length; i++) {
+          builder.bytes.push(logoBytes[i]);
+        }
+        builder.text('');
+      }
+    } catch (e) {
+      console.warn('[LOGO PRINT ERR]', e);
+    }
+  }
+
+  builder.setFontDouble()
     .bold()
     .text(data.hotelName)
     .setFontNormal()
@@ -576,7 +658,7 @@ export class BluetoothPrinterService {
         if (job.type === 'KOT') {
           printBytes = formatKOT(job, size);
         } else if (job.type === 'FINAL_BILL') {
-          printBytes = formatBill(job, size);
+          printBytes = await formatBill(job, size);
         }
 
         if (printBytes) {
