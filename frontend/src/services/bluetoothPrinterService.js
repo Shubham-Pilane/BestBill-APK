@@ -191,23 +191,30 @@ export function formatKOT(data, printerSize = '58mm') {
   return builder.build();
 }
 
-// Convert logo image to ESC/POS monochrome bitmap
-export async function convertImageToEscpos(url, maxWidth = 180) {
+// Convert logo image to ESC/POS monochrome bitmap (Dynamic for any logo)
+export async function convertImageToEscpos(url, maxWidth = 300) {
   return new Promise((resolve) => {
     if (!url) { resolve([]); return; }
     const img = new Image();
     img.crossOrigin = 'Anonymous';
     img.onload = () => {
       try {
-        const targetWidth = Math.min(maxWidth, img.width || 180);
+        // Calculate scaled dimensions keeping original aspect ratio
+        let targetWidth = Math.min(img.width || maxWidth, maxWidth);
+        // Ensure width is a multiple of 8 for clean ESC/POS line alignment
+        targetWidth = Math.floor(targetWidth / 8) * 8;
+        if (targetWidth < 8) targetWidth = 8;
+
         const aspect = img.height / img.width;
-        const width = Math.round(targetWidth);
+        const width = targetWidth;
         const height = Math.round(width * aspect);
 
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
+
+        // Fill background with white so transparent PNG logos print cleanly
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
@@ -215,41 +222,70 @@ export async function convertImageToEscpos(url, maxWidth = 180) {
         const imgData = ctx.getImageData(0, 0, width, height);
         const pixels = imgData.data;
 
-        const bytesPerLine = Math.ceil(width / 8);
-        const bytes = [];
+        // Convert RGBA to grayscale matrix
+        const gray = new Float32Array(width * height);
+        for (let i = 0; i < width * height; i++) {
+          const r = pixels[i * 4];
+          const g = pixels[i * 4 + 1];
+          const b = pixels[i * 4 + 2];
+          const a = pixels[i * 4 + 3] / 255;
+          const blendedR = r * a + 255 * (1 - a);
+          const blendedG = g * a + 255 * (1 - a);
+          const blendedB = b * a + 255 * (1 - a);
+          gray[i] = blendedR * 0.299 + blendedG * 0.587 + blendedB * 0.114;
+        }
+
+        // Floyd-Steinberg Dithering for crisp monochrome rendering of any logo
+        const bw = new Uint8Array(width * height); // 1 = Black dot, 0 = White space
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            const oldPixel = gray[idx];
+            const newPixel = oldPixel < 128 ? 0 : 255;
+            bw[idx] = newPixel === 0 ? 1 : 0;
+            const error = oldPixel - newPixel;
+
+            if (x + 1 < width) gray[idx + 1] += error * (7 / 16);
+            if (y + 1 < height) {
+              if (x > 0) gray[idx + width - 1] += error * (3 / 16);
+              gray[idx + width] += error * (5 / 16);
+              if (x + 1 < width) gray[idx + width + 1] += error * (1 / 16);
+            }
+          }
+        }
+
+        // Build ESC/POS GS v 0 raster command
+        const bytesPerLine = width / 8;
         const xL = bytesPerLine % 256;
         const xH = Math.floor(bytesPerLine / 256);
         const yL = height % 256;
         const yH = Math.floor(height / 256);
 
-        bytes.push(0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH);
+        const bytes = [0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH];
 
         for (let y = 0; y < height; y++) {
           for (let x = 0; x < bytesPerLine; x++) {
             let byte = 0;
             for (let b = 0; b < 8; b++) {
               const px = x * 8 + b;
-              if (px < width) {
-                const idx = (y * width + px) * 4;
-                const r = pixels[idx];
-                const g = pixels[idx + 1];
-                const bVal = pixels[idx + 2];
-                const a = pixels[idx + 3];
-                const luminance = (r * 0.299 + g * 0.587 + bVal * 0.114);
-                if (luminance >= 85) {
-                  byte |= (1 << (7 - b));
-                }
+              if (bw[y * width + px] === 1) {
+                byte |= (1 << (7 - b));
               }
             }
             bytes.push(byte);
           }
         }
+
         resolve(bytes);
       } catch (e) {
+        console.error('[ESC/POS LOGO CONVERSION ERROR]', e);
         resolve([]);
       }
     };
-    img.onerror = () => resolve([]);
+    img.onerror = (err) => {
+      console.error('[ESC/POS LOGO LOAD ERROR]', err);
+      resolve([]);
+    };
     img.src = url;
   });
 }
@@ -269,7 +305,7 @@ export async function formatBill(data, printerSize = '58mm') {
 
   if (logoPrintingEnabled && logoUrl) {
     try {
-      const logoBytes = await convertImageToEscpos(logoUrl, 180);
+      const logoBytes = await convertImageToEscpos(logoUrl, 300);
       if (logoBytes && logoBytes.length > 0) {
         for (let i = 0; i < logoBytes.length; i++) {
           builder.bytes.push(logoBytes[i]);
@@ -387,7 +423,7 @@ export async function formatBill(data, printerSize = '58mm') {
 
   // Totals
   const labelLen = LINE_WIDTH - amtLen - 1;
-  builder.text(padText('Subtotal:', labelLen) + ' ' + padText(formatAmount(data.subtotal), amtLen, 'right'));
+  // Subtotal removed as per request
   
   const gstPct = Number(data.gst_percentage) || 0;
   const gstAmt = Number(data.gst) || 0;
