@@ -679,9 +679,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                           {item.category_name || 'Item'}
                         </span>
                       </div>
-                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontWeight: 500 }}>
-                        {item.description || 'Standard culinary selection'}
-                      </p>
+                      {item.description && (
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontWeight: 500 }}>
+                          {item.description}
+                        </p>
+                      )}
                     </div>
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>

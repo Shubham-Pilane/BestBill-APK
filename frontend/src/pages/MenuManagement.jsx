@@ -449,9 +449,30 @@ const MenuManagement = () => {
                       )}
                    </div>
                    
-                   <div style={{ flex: 1, padding: '0 24px' }}>
+                   <div style={{ flex: 1, padding: '0 16px', minWidth: '220px' }}>
                       {editingItemId === item.id ? (
-                        <textarea value={editItemData.description} onChange={(e) => setEditItemData({...editItemData, description: e.target.value})} style={{ width: '100%', background: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', padding: '4px 8px', borderRadius: '8px', fontSize: '12px', minHeight: '40px' }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '10px', fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item Description / Details</label>
+                          <textarea 
+                            value={editItemData.description} 
+                            onChange={(e) => setEditItemData({...editItemData, description: e.target.value})} 
+                            placeholder="Enter dish description, ingredients, or notes..."
+                            style={{ 
+                              width: '100%', 
+                              background: 'var(--bg-base)', 
+                              border: '1.5px solid #38bdf8', 
+                              color: 'var(--text-primary)', 
+                              padding: '10px 12px', 
+                              borderRadius: '10px', 
+                              fontSize: '13px', 
+                              fontWeight: 500, 
+                              minHeight: '65px',
+                              resize: 'vertical',
+                              outline: 'none',
+                              boxSizing: 'border-box'
+                            }} 
+                          />
+                        </div>
                       ) : (
                         <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.4' }}>{item.description || 'No description provided'}</p>
                       )}

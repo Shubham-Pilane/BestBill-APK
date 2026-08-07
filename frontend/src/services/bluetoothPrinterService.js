@@ -41,7 +41,6 @@ export function wordWrap(text, maxCharsPerLine = 32) {
       currentLine += (currentLine ? ' ' : '') + word;
     } else {
       if (currentLine) lines.push(currentLine);
-      // If a single word is longer than maxCharsPerLine, break it, otherwise place word on next line
       if (word.length > maxCharsPerLine) {
         for (let i = 0; i < word.length; i += maxCharsPerLine) {
           lines.push(word.substring(i, i + maxCharsPerLine));
@@ -54,6 +53,103 @@ export function wordWrap(text, maxCharsPerLine = 32) {
   });
   if (currentLine) lines.push(currentLine);
   return lines;
+}
+
+/**
+ * Draws a sharp vector lightning bolt icon directly onto 2D canvas context.
+ * Guarantees icon is ALWAYS rendered as crisp black pixels on all Android WebViews.
+ */
+function drawVectorLightningBolt(ctx, cx, cy, size = 22) {
+  ctx.save();
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  ctx.moveTo(cx + size * 0.15, cy - size * 0.5);
+  ctx.lineTo(cx - size * 0.35, cy + size * 0.05);
+  ctx.lineTo(cx - size * 0.02, cy + size * 0.05);
+  ctx.lineTo(cx - size * 0.25, cy + size * 0.5);
+  ctx.lineTo(cx + size * 0.35, cy - size * 0.05);
+  ctx.lineTo(cx + size * 0.02, cy - size * 0.05);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * Generates high-resolution monochrome ESC/POS raster graphic bytes for "⚡ Powered by BestBill™"
+ * Draws vector lightning icon + large bold text at full printer head resolution (384px for 58mm).
+ */
+export async function generateBrandingEscpos(is58mm = true) {
+  return new Promise((resolve) => {
+    if (typeof document === 'undefined') { resolve([]); return; }
+    try {
+      const width = is58mm ? 384 : 576; // Full thermal printhead width (384 dots for 58mm, 576 for 80mm)
+      const height = 56; // Taller height for a large, prominent branding line
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      // Fill clean white background
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, width, height);
+
+      // Setup large bold font
+      const fontSize = is58mm ? 22 : 28;
+      ctx.font = `900 ${fontSize}px "Segoe UI", Roboto, Arial, sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+
+      const textStr = 'Powered by BestBill™';
+      const textMetrics = ctx.measureText(textStr);
+      const boltSize = is58mm ? 22 : 28;
+      const gap = 10;
+      const totalWidth = boltSize + gap + textMetrics.width;
+
+      const startX = (width - totalWidth) / 2;
+      const cy = height / 2;
+
+      // 1. Draw crisp vector lightning bolt icon
+      drawVectorLightningBolt(ctx, startX + boltSize / 2, cy, boltSize);
+
+      // 2. Draw prominent bold text
+      ctx.fillStyle = '#000000';
+      ctx.fillText(textStr, startX + boltSize + gap, cy);
+
+      const imgData = ctx.getImageData(0, 0, width, height);
+      const pixels = imgData.data;
+
+      const bytesPerLine = width / 8;
+      const xL = bytesPerLine % 256;
+      const xH = Math.floor(bytesPerLine / 256);
+      const yL = height % 256;
+      const yH = Math.floor(height / 256);
+
+      const bytes = [0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH];
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < bytesPerLine; x++) {
+          let byte = 0;
+          for (let b = 0; b < 8; b++) {
+            const px = x * 8 + b;
+            const idx = (y * width + px) * 4;
+            const r = pixels[idx];
+            const g = pixels[idx + 1];
+            const bPixel = pixels[idx + 2];
+            const avg = (r + g + bPixel) / 3;
+            if (avg < 200) { // High contrast threshold for extra thick black printing
+              byte |= (1 << (7 - b));
+            }
+          }
+          bytes.push(byte);
+        }
+      }
+
+      resolve(bytes);
+    } catch (err) {
+      console.error('[BRANDING BITMAP ERR]', err);
+      resolve([]);
+    }
+  });
 }
 
 class EscposBuilder {
@@ -152,8 +248,8 @@ class EscposBuilder {
   }
 }
 
-// Format KOT with Smart Word Wrapping
-export function formatKOT(data, printerSize = '58mm') {
+// Format KOT with Smart Word Wrapping & Bitmap Emoji Branding
+export async function formatKOT(data, printerSize = '58mm') {
   const is58mm = printerSize === '58mm';
   const LINE_WIDTH = is58mm ? 32 : 48;
   const builder = new EscposBuilder(is58mm);
@@ -219,12 +315,22 @@ export function formatKOT(data, printerSize = '58mm') {
     builder.bold(false).line('-', LINE_WIDTH);
   }
 
-  builder.alignCenter()
-    .bold(true)
-    .text('⚡ Powered by BestBill™')
-    .bold(false)
-    .feed(3)
-    .cut();
+  builder.alignCenter();
+  try {
+    const brandBytes = await generateBrandingEscpos(is58mm);
+    if (brandBytes && brandBytes.length > 0) {
+      for (let i = 0; i < brandBytes.length; i++) {
+        builder.bytes.push(brandBytes[i]);
+      }
+      builder.text('');
+    } else {
+      builder.bold(true).text('Powered by BestBill POS').bold(false);
+    }
+  } catch (e) {
+    builder.bold(true).text('Powered by BestBill POS').bold(false);
+  }
+
+  builder.feed(3).cut();
   return builder.build();
 }
 
@@ -321,7 +427,7 @@ export async function convertImageToEscpos(url, maxWidth = 300) {
   });
 }
 
-// Format Bill with Smart Word Wrapping
+// Format Bill with Smart Word Wrapping & Pixel-Perfect Bitmap Emoji Branding
 export async function formatBill(data, printerSize = '58mm') {
   const is58mm = printerSize === '58mm';
   const LINE_WIDTH = is58mm ? 32 : 48;
@@ -401,11 +507,23 @@ export async function formatBill(data, printerSize = '58mm') {
       .alignCenter()
       .bold(true)
       .text('PLEASE WAIT FOR YOUR NUMBER')
-      .text('⚡ Powered by BestBill™')
-      .bold(false)
-      .feed(3)
-      .cut();
+      .bold(false);
 
+    try {
+      const brandBytes = await generateBrandingEscpos(is58mm);
+      if (brandBytes && brandBytes.length > 0) {
+        for (let i = 0; i < brandBytes.length; i++) {
+          builder.bytes.push(brandBytes[i]);
+        }
+        builder.text('');
+      } else {
+        builder.bold(true).text('Powered by BestBill POS').bold(false);
+      }
+    } catch (e) {
+      builder.bold(true).text('Powered by BestBill POS').bold(false);
+    }
+
+    builder.feed(3).cut();
     return builder.build();
   }
 
@@ -520,11 +638,23 @@ export async function formatBill(data, printerSize = '58mm') {
   builder.alignCenter()
     .bold(true)
     .text('THANK YOU! VISIT AGAIN')
-    .text('⚡ Powered by BestBill™')
-    .bold(false)
-    .feed(3)
-    .cut();
+    .bold(false);
 
+  try {
+    const brandBytes = await generateBrandingEscpos(is58mm);
+    if (brandBytes && brandBytes.length > 0) {
+      for (let i = 0; i < brandBytes.length; i++) {
+        builder.bytes.push(brandBytes[i]);
+      }
+      builder.text('');
+    } else {
+      builder.bold(true).text('Powered by BestBill POS').bold(false);
+    }
+  } catch (e) {
+    builder.bold(true).text('Powered by BestBill POS').bold(false);
+  }
+
+  builder.feed(3).cut();
   return builder.build();
 }
 
@@ -744,7 +874,7 @@ export class BluetoothPrinterService {
         let printBytes;
 
         if (job.type === 'KOT') {
-          printBytes = formatKOT(job, size);
+          printBytes = await formatKOT(job, size);
         } else if (job.type === 'FINAL_BILL') {
           printBytes = await formatBill(job, size);
         }
