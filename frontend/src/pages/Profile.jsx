@@ -495,7 +495,7 @@ const Profile = () => {
             };
 
             const size = printerConfig.billing.paperSize || '58mm';
-            const bytes = formatBill(testPayload, size);
+            const bytes = await formatBill(testPayload, size);
             
             const tId = toast.loading('Sending test print to Bluetooth printer...');
             const success = await BluetoothPrinterService.printData(bytes);
