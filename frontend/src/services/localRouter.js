@@ -590,6 +590,18 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 200, data: { message: 'Table successfully swapped' } };
     }
 
+    if (path.startsWith('/tables/') && path.endsWith('/order') && methodUpper === 'DELETE') {
+      const tableId = parseInt(path.split('/')[2]);
+      const activeOrder = await db.query('SELECT id FROM orders WHERE table_id = $1 AND status = $2', [tableId, 'active']);
+      if (activeOrder.rows.length > 0) {
+        const orderId = activeOrder.rows[0].id;
+        await db.query('DELETE FROM order_items WHERE order_id = $1', [orderId]);
+        await db.query("UPDATE orders SET status = 'cancelled' WHERE id = $1", [orderId]);
+        notifyUpdate('table-update');
+      }
+      return { status: 200, data: { message: 'Table cleared' } };
+    }
+
     if (path.startsWith('/tables/') && path.endsWith('/bill') && methodUpper === 'POST') {
       const tableId = parseInt(path.split('/')[2]);
       const { discount_percentage } = body;
@@ -799,30 +811,37 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if (path.startsWith('/menu/items/') && methodUpper === 'DELETE') {
       const id = parseInt(path.split('/')[3]);
-      await db.query('UPDATE menu_items SET is_deleted = 1 WHERE id = $2 AND hotel_id = $3', [id, user.hotel_id]);
+      await db.query('UPDATE menu_items SET is_deleted = 1 WHERE id = $1 AND hotel_id = $2', [id, user.hotel_id]);
       return { status: 200, data: { message: 'Item deleted' } };
     }
 
     if (path === '/menu/items/bulk' && methodUpper === 'POST') {
       const { items } = body;
+      if (!Array.isArray(items) || items.length === 0) {
+        return { status: 400, data: { message: 'No items provided' } };
+      }
+      let importedCount = 0;
       for (const item of items) {
+        if (!item.name || isNaN(parseFloat(item.price))) continue;
+        const catName = (item.category || 'General').trim();
         // Find or create category
         let catId;
-        const catRes = await db.query('SELECT id FROM categories WHERE name = $1 AND hotel_id = $2 AND is_deleted = 0', [item.category, user.hotel_id]);
+        const catRes = await db.query('SELECT id FROM categories WHERE LOWER(name) = LOWER($1) AND hotel_id = $2 AND is_deleted = 0', [catName, user.hotel_id]);
         if (catRes.rows.length > 0) {
           catId = catRes.rows[0].id;
         } else {
-          const insertCat = await db.query('INSERT INTO categories (hotel_id, name) VALUES ($1, $2) RETURNING id', [user.hotel_id, item.category]);
-          catId = insertCat.rows[0].id;
+          const insertCat = await db.query('INSERT INTO categories (hotel_id, name) VALUES ($1, $2) RETURNING id', [user.hotel_id, catName]);
+          catId = insertCat.rows[0]?.id || 1;
         }
 
         // Insert item
         await db.query(
           'INSERT INTO menu_items (hotel_id, category_id, name, price, description) VALUES ($1, $2, $3, $4, $5)',
-          [user.hotel_id, catId, item.name, item.price, item.description || '']
+          [user.hotel_id, catId, String(item.name).trim(), parseFloat(item.price), item.description || '']
         );
+        importedCount++;
       }
-      return { status: 200, data: { message: 'Items bulk imported' } };
+      return { status: 200, data: { success: true, message: `Successfully imported ${importedCount} items` } };
     }
 
     if (path === '/menu/purge-all' && methodUpper === 'DELETE') {

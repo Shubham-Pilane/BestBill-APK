@@ -13,17 +13,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends BridgeActivity {
-    private static final int BT_PERMISSION_REQUEST_CODE = 101;
+    private static final int PERMISSION_REQUEST_CODE = 101;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(HardwareTrialPlugin.class);
         registerPlugin(LocalWebServerPlugin.class);
         super.onCreate(savedInstanceState);
-        checkAndRequestBluetoothPermissions();
+        checkAndRequestPermissions();
     }
 
-    private void checkAndRequestBluetoothPermissions() {
+    private void checkAndRequestPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             List<String> permissionsNeeded = new ArrayList<>();
 
@@ -36,6 +36,14 @@ public class MainActivity extends BridgeActivity {
                 }
             }
 
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.RECORD_AUDIO);
+            }
+
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED && Build.VERSION.SDK_INT <= 32) {
+                permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+            }
+
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
             }
@@ -44,7 +52,7 @@ public class MainActivity extends BridgeActivity {
             }
 
             if (!permissionsNeeded.isEmpty()) {
-                ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), BT_PERMISSION_REQUEST_CODE);
+                ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), PERMISSION_REQUEST_CODE);
             }
         }
     }

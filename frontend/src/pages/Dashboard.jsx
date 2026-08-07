@@ -4,10 +4,11 @@ import api from '../services/api';
 import OrderModal from '../components/OrderModal';
 import ConfirmModal from '../components/ConfirmModal';
 import { toast } from 'react-hot-toast';
-import { PlusCircle, Table as TableIcon, LayoutGrid, Search, X, Hash, Trash2, RefreshCcw, Hotel, Fingerprint, Sun, Moon, ChevronDown } from 'lucide-react';
+import { PlusCircle, Table as TableIcon, LayoutGrid, Search, X, Hash, Trash2, RefreshCcw, Hotel, Fingerprint, Sun, Moon, ChevronDown, Mic, MicOff, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import SwapModal from '../components/SwapModal';
+import { processVoiceCommand, speakText } from '../services/voiceParser';
 import { initSocket, onUpdate, isWaiterModuleEnabled } from '../services/socketService';
 
 const Dashboard = () => {
@@ -17,6 +18,18 @@ const Dashboard = () => {
   const [tables, setTables] = useState([]);
   const [selectedTable, setSelectedTable] = useState(null);
   const [isOrderModalOpen, setOrderModalOpen] = useState(false);
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const [aiAssistantEnabled, setAiAssistantEnabled] = useState(
+    localStorage.getItem('cfg_ai_assistant_enabled') === 'true'
+  );
+
+  useEffect(() => {
+    const updateAiState = () => {
+      setAiAssistantEnabled(localStorage.getItem('cfg_ai_assistant_enabled') === 'true');
+    };
+    window.addEventListener('storage', updateAiState);
+    return () => window.removeEventListener('storage', updateAiState);
+  }, []);
   const [isAddTableOpen, setAddTableOpen] = useState(false);
   const [tableCount, setTableCount] = useState('5');
   const [loading, setLoading] = useState(true);
@@ -262,6 +275,218 @@ const Dashboard = () => {
     }
   };
 
+  // Direct voice listener handler (Zero modal popup)
+  const toggleVoiceListening = async () => {
+    const SpeechRecognition = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SpeechRecognition) {
+      return toast.error('Voice recognition is not supported in this browser/device');
+    }
+
+    if (isVoiceListening) {
+      setIsVoiceListening(false);
+      return;
+    }
+
+    // Request microphone permission natively if available
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+      } catch (err) {
+        console.warn('[MIC PERMISSION REJECTED]', err);
+        return toast.error('Microphone permission denied. Please allow audio access in Android settings.');
+      }
+    }
+
+    try {
+      const rec = new SpeechRecognition();
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.lang = 'hi-IN';
+
+      rec.onstart = () => {
+        setIsVoiceListening(true);
+        toast('Listening... Speak command now', { icon: '🎙️', duration: 4000 });
+      };
+
+      rec.onresult = async (event) => {
+        setIsVoiceListening(false);
+        try { rec.stop(); } catch (e) {}
+        const transcript = event.results[0][0].transcript;
+        if (!transcript || !transcript.trim()) return;
+
+        const loadingToast = toast.loading(`Processing: "${transcript}"...`);
+        try {
+          const result = await processVoiceCommand(transcript, menuData.items || [], tables || []);
+          toast.dismiss(loadingToast);
+          await handleVoiceAction(result, transcript);
+        } catch (err) {
+          toast.dismiss(loadingToast);
+          toast.error('Voice processing failed');
+        }
+      };
+
+      rec.onerror = (e) => {
+        setIsVoiceListening(false);
+        if (e.error === 'not-allowed') {
+          toast.error('Microphone permission denied. Please enable mic in Android App Info.');
+        } else {
+          toast.error(`Voice error: ${e.error || 'Could not recognize speech'}`);
+        }
+      };
+
+      rec.onend = () => {
+        setIsVoiceListening(false);
+      };
+
+      rec.start();
+    } catch (err) {
+      setIsVoiceListening(false);
+      toast.error('Could not start voice recognition');
+    }
+  };
+
+  // Execute parsed voice command (Greeting, Add items, print bill, print KOT, clear table, swap table) with Audio TTS feedback
+  const handleVoiceAction = async (parsedResult, rawTranscript = '') => {
+    if (!parsedResult || parsedResult.action === 'UNKNOWN') {
+      toast.error(rawTranscript ? `Could not match command: "${rawTranscript}"` : 'Voice action unrecognized');
+      speakText('Sorry, I could not understand that command.');
+      return;
+    }
+
+    const { action, tableNumber, items, sourceTableNumber, targetTableNumber, reply, lang } = parsedResult;
+
+    if (action === 'GREETING') {
+      toast.success(reply || 'Hello! How can I help you?');
+      speakText(reply || 'Hello! How can I help you?', lang || 'hi-IN');
+      return;
+    }
+
+    // Locate target table
+    let targetTable = (tables || []).find(t => String(t.table_number).trim() === String(tableNumber).trim());
+
+    if (!targetTable && tableNumber) {
+      try {
+        await api.post('/tables/batch', { tableNumbers: [String(tableNumber)], floor: 'Floor 1' });
+        const updatedTablesRes = await api.get('/tables');
+        const updatedList = Array.isArray(updatedTablesRes.data) ? updatedTablesRes.data : [];
+        targetTable = updatedList.find(t => String(t.table_number).trim() === String(tableNumber).trim());
+      } catch (err) {
+        console.warn('Auto-create table warning:', err);
+      }
+    }
+
+    if (!targetTable) targetTable = tables[0];
+
+    if (action === 'CLEAR_TABLE') {
+      if (!targetTable) return toast.error('Table not found');
+      try {
+        await api.delete(`/tables/${targetTable.id}/order`);
+        toast.success(`Table ${targetTable.table_number} cleared!`);
+        speakText(`Table ${targetTable.table_number} cleared.`);
+        await fetchTables();
+      } catch (err) {
+        toast.error(`Failed to clear Table ${targetTable.table_number}`);
+        speakText(`Failed to clear Table ${targetTable.table_number}.`);
+      }
+      return;
+    }
+
+    if (action === 'SWAP_TABLE') {
+      const srcTbl = (tables || []).find(t => String(t.table_number).trim() === String(sourceTableNumber).trim()) || targetTable;
+      const tgtTbl = (tables || []).find(t => String(t.table_number).trim() === String(targetTableNumber).trim());
+      if (!srcTbl || !tgtTbl) {
+        toast.error('Source or target table not found for swap');
+        speakText('Source or target table not found for swap.');
+        return;
+      }
+      try {
+        await api.post(`/tables/${srcTbl.id}/swap`, { targetTableId: tgtTbl.id });
+        toast.success(`Swapped Table ${srcTbl.table_number} to Table ${tgtTbl.table_number}!`);
+        speakText(`Table ${srcTbl.table_number} swapped to Table ${tgtTbl.table_number}.`);
+        await fetchTables();
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to swap tables');
+        speakText('Failed to swap tables.');
+      }
+      return;
+    }
+
+    if (action === 'PRINT_KOT') {
+      if (!targetTable) return toast.error('Table not found');
+      try {
+        await api.post(`/tables/${targetTable.id}/order/kot`, {
+          waiter: user?.name || 'Waiter',
+          notes: 'Voice Order'
+        });
+        toast.success(`KOT printed & sent for Table ${targetTable.table_number}!`);
+        speakText(`KOT printed for Table ${targetTable.table_number}.`);
+        await fetchTables();
+      } catch (err) {
+        toast.error(err.response?.data?.message || `Failed to print KOT for Table ${targetTable.table_number}`);
+        speakText(`Failed to print KOT for Table ${targetTable.table_number}.`);
+      }
+      return;
+    }
+
+    if (action === 'PRINT_BILL') {
+      if (!targetTable) return toast.error('Table not found');
+      try {
+        const billRes = await api.post(`/tables/${targetTable.id}/bill`, { discount_percentage: 0 });
+        const billId = billRes.data?.id;
+        if (billId) {
+          await api.post(`/bills/${billId}/print`, { paymentMethod: 'cash' });
+          toast.success(`Printed bill for Table ${targetTable.table_number}!`);
+          speakText(`Final bill printed for Table ${targetTable.table_number}.`);
+        } else {
+          toast.error(`Could not generate bill for Table ${targetTable.table_number}`);
+          speakText(`Could not generate bill for Table ${targetTable.table_number}.`);
+        }
+        await fetchTables();
+      } catch (err) {
+        toast.error(err.response?.data?.message || `Failed to print bill for Table ${targetTable.table_number}`);
+        speakText(`Failed to print bill for Table ${targetTable.table_number}.`);
+      }
+      return;
+    }
+
+    if (action === 'ADD_ITEMS' && items && items.length > 0) {
+      if (!targetTable) return toast.error('Table not found');
+      try {
+        let addedCount = 0;
+        for (const item of items) {
+          const matchedItem = (menuData.items || []).find(m => 
+            m.id === item.id || 
+            m.name.toLowerCase() === item.name.toLowerCase() ||
+            m.name.toLowerCase().includes(item.name.toLowerCase()) ||
+            item.name.toLowerCase().includes(m.name.toLowerCase())
+          );
+
+          if (matchedItem) {
+            await api.post(`/tables/${targetTable.id}/order`, {
+              menuItemId: matchedItem.id,
+              quantity: item.quantity || 1
+            });
+            addedCount++;
+          }
+        }
+
+        if (addedCount > 0) {
+          toast.success(`Added ${addedCount} item(s) to Table ${targetTable.table_number}!`);
+          speakText(`Added ${addedCount} items to Table ${targetTable.table_number}.`);
+          await fetchTables();
+        } else {
+          toast.error(`No matching menu items found for: "${rawTranscript}"`);
+          speakText('No matching menu items found.');
+        }
+      } catch (err) {
+        console.error('[VOICE ADD ITEM ERR]', err);
+        toast.error(err.response?.data?.message || 'Failed to add items to table');
+        speakText('Failed to add items to table.');
+      }
+    }
+  };
+
   // Extract Parcel Counter tables (any table with "parcel" in its name)
   const parcelTables = useMemo(() => {
     return (tables || []).filter(t => String(t.table_number || '').toLowerCase().includes('parcel'));
@@ -385,6 +610,31 @@ const Dashboard = () => {
                 </>
               )}
             </div>
+          )}
+
+          {/* Direct Tap AI Voice Mic Button (Renders only if enabled in Profile settings with password 892165) */}
+          {aiAssistantEnabled && (
+            <button
+              type="button"
+              onClick={toggleVoiceListening}
+              title={isVoiceListening ? "Listening... Speak command" : "Tap Mic for AI Voice Command"}
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                backgroundColor: isVoiceListening ? '#ef4444' : 'rgba(99, 102, 241, 0.15)',
+                color: isVoiceListening ? '#ffffff' : '#818cf8',
+                border: `1px solid ${isVoiceListening ? '#f87171' : 'rgba(99, 102, 241, 0.3)'}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: isVoiceListening ? '0 0 0 4px rgba(239, 68, 68, 0.3)' : '0 2px 8px rgba(99, 102, 241, 0.15)',
+                transition: 'all 0.2s'
+              }}
+            >
+              {isVoiceListening ? <MicOff size={18} /> : <Mic size={18} color={isVoiceListening ? '#ffffff' : '#818cf8'} />}
+            </button>
           )}
 
           {/* Light / Dark Mode Toggle */}
