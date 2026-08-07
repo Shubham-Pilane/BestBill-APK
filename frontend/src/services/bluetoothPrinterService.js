@@ -19,8 +19,42 @@ const padText = (text, length, align = 'left') => {
 };
 
 const toTitleCase = (str) => {
-  return str.split(' ').map(word => word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : '').join(' ');
+  return String(str || '').split(' ').map(word => word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : '').join(' ');
 };
+
+/**
+ * Smart Word Wrap (word-level line wrapping) helper for thermal receipt printing.
+ * Wraps long text cleanly at word boundaries (spaces) without splitting words in the middle.
+ * 
+ * @param {string} text - The input text to wrap
+ * @param {number} maxCharsPerLine - Max columns per line (32 for 58mm/2-inch, 48 for 80mm/3-inch)
+ * @returns {Array<string>} Array of wrapped lines
+ */
+export function wordWrap(text, maxCharsPerLine = 32) {
+  if (!text) return [];
+  const words = String(text).trim().split(/\s+/);
+  const lines = [];
+  let currentLine = '';
+
+  words.forEach(word => {
+    if ((currentLine + (currentLine ? ' ' : '') + word).length <= maxCharsPerLine) {
+      currentLine += (currentLine ? ' ' : '') + word;
+    } else {
+      if (currentLine) lines.push(currentLine);
+      // If a single word is longer than maxCharsPerLine, break it, otherwise place word on next line
+      if (word.length > maxCharsPerLine) {
+        for (let i = 0; i < word.length; i += maxCharsPerLine) {
+          lines.push(word.substring(i, i + maxCharsPerLine));
+        }
+        currentLine = '';
+      } else {
+        currentLine = word;
+      }
+    }
+  });
+  if (currentLine) lines.push(currentLine);
+  return lines;
+}
 
 class EscposBuilder {
   constructor(is58mm = true) {
@@ -118,14 +152,14 @@ class EscposBuilder {
   }
 }
 
-// Format KOT
+// Format KOT with Smart Word Wrapping
 export function formatKOT(data, printerSize = '58mm') {
   const is58mm = printerSize === '58mm';
-  const LINE_WIDTH = is58mm ? 31 : 42;
+  const LINE_WIDTH = is58mm ? 32 : 48;
   const builder = new EscposBuilder(is58mm);
   const dateStr = new Date().toLocaleString();
 
-  let tStr = String(data.table);
+  let tStr = String(data.table || '');
   if (!tStr.toLowerCase().includes('room') && !tStr.toLowerCase().includes('parcel')) {
     tStr = `Table ${tStr}`;
   }
@@ -141,11 +175,12 @@ export function formatKOT(data, printerSize = '58mm') {
     .bold(false)
     .line('=', LINE_WIDTH)
     .alignLeft()
-    .bold()
-    .text(tStr);
+    .bold();
+
+  wordWrap(tStr, LINE_WIDTH).forEach(l => builder.text(l));
 
   if (data.waiter) {
-    builder.text(`WAITER: ${data.waiter}`);
+    wordWrap(`WAITER: ${data.waiter}`, LINE_WIDTH).forEach(l => builder.text(l));
   }
 
   builder.bold(false)
@@ -155,23 +190,22 @@ export function formatKOT(data, printerSize = '58mm') {
 
   const qtyLen = is58mm ? 4 : 6;
   const itemLen = LINE_WIDTH - qtyLen - 1;
-  
+
   builder.bold(true).text(padText('ITEM', itemLen) + ' ' + padText('QTY', qtyLen, 'right')).bold(false);
   builder.line('-', LINE_WIDTH);
 
   data.items.forEach(item => {
     const qty = item.quantity || item.qty || 1;
-    const nameStr = toTitleCase(String(item.name));
-    const firstChunk = nameStr.substring(0, itemLen);
-    let remainingStr = nameStr.substring(itemLen);
-    
-    builder.text(padText(firstChunk, itemLen) + ' ' + padText(qty, qtyLen, 'right'));
-    
-    const SUB_CHUNK_LEN = itemLen - 2;
-    while (remainingStr.length > 0) {
-      const subChunk = remainingStr.substring(0, SUB_CHUNK_LEN);
-      builder.text("  " + padText(subChunk, LINE_WIDTH - 2));
-      remainingStr = remainingStr.substring(SUB_CHUNK_LEN);
+    const nameStr = toTitleCase(String(item.name || ''));
+    const wrappedName = wordWrap(nameStr, itemLen);
+
+    if (wrappedName.length === 0) {
+      builder.text(padText('', itemLen) + ' ' + padText(qty, qtyLen, 'right'));
+    } else {
+      builder.text(padText(wrappedName[0], itemLen) + ' ' + padText(qty, qtyLen, 'right'));
+      for (let i = 1; i < wrappedName.length; i++) {
+        builder.text(padText(wrappedName[i], itemLen) + ' ' + ' '.repeat(qtyLen));
+      }
     }
   });
 
@@ -180,14 +214,17 @@ export function formatKOT(data, printerSize = '58mm') {
     .line('-', LINE_WIDTH);
 
   if (data.notes) {
-    builder.bold()
-      .text('NOTES:')
-      .text(data.notes)
-      .bold(false)
-      .line('-', LINE_WIDTH);
+    builder.bold().text('NOTES:');
+    wordWrap(String(data.notes), LINE_WIDTH).forEach(l => builder.text(l));
+    builder.bold(false).line('-', LINE_WIDTH);
   }
 
-  builder.feed(3).cut();
+  builder.alignCenter()
+    .bold(true)
+    .text('⚡ Powered by BestBill™')
+    .bold(false)
+    .feed(3)
+    .cut();
   return builder.build();
 }
 
@@ -199,9 +236,7 @@ export async function convertImageToEscpos(url, maxWidth = 300) {
     img.crossOrigin = 'Anonymous';
     img.onload = () => {
       try {
-        // Calculate scaled dimensions keeping original aspect ratio
         let targetWidth = Math.min(img.width || maxWidth, maxWidth);
-        // Ensure width is a multiple of 8 for clean ESC/POS line alignment
         targetWidth = Math.floor(targetWidth / 8) * 8;
         if (targetWidth < 8) targetWidth = 8;
 
@@ -214,7 +249,6 @@ export async function convertImageToEscpos(url, maxWidth = 300) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
 
-        // Fill background with white so transparent PNG logos print cleanly
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
@@ -222,7 +256,6 @@ export async function convertImageToEscpos(url, maxWidth = 300) {
         const imgData = ctx.getImageData(0, 0, width, height);
         const pixels = imgData.data;
 
-        // Convert RGBA to grayscale matrix
         const gray = new Float32Array(width * height);
         for (let i = 0; i < width * height; i++) {
           const r = pixels[i * 4];
@@ -235,8 +268,7 @@ export async function convertImageToEscpos(url, maxWidth = 300) {
           gray[i] = blendedR * 0.299 + blendedG * 0.587 + blendedB * 0.114;
         }
 
-        // Floyd-Steinberg Dithering for crisp monochrome rendering of any logo
-        const bw = new Uint8Array(width * height); // 1 = Black dot, 0 = White space
+        const bw = new Uint8Array(width * height);
         for (let y = 0; y < height; y++) {
           for (let x = 0; x < width; x++) {
             const idx = y * width + x;
@@ -254,7 +286,6 @@ export async function convertImageToEscpos(url, maxWidth = 300) {
           }
         }
 
-        // Build ESC/POS GS v 0 raster command
         const bytesPerLine = width / 8;
         const xL = bytesPerLine % 256;
         const xH = Math.floor(bytesPerLine / 256);
@@ -290,10 +321,10 @@ export async function convertImageToEscpos(url, maxWidth = 300) {
   });
 }
 
-// Format Bill
+// Format Bill with Smart Word Wrapping
 export async function formatBill(data, printerSize = '58mm') {
   const is58mm = printerSize === '58mm';
-  const LINE_WIDTH = is58mm ? 31 : 42;
+  const LINE_WIDTH = is58mm ? 32 : 48;
   const builder = new EscposBuilder(is58mm);
   const dateStr = new Date().toLocaleString();
 
@@ -317,13 +348,15 @@ export async function formatBill(data, printerSize = '58mm') {
     }
   }
 
-  builder.setFontDouble()
-    .bold()
-    .text(data.hotelName)
-    .setFontNormal()
-    .bold(false);
+  // Smart Word Wrap Hotel Name
+  builder.setFontDouble().bold();
+  const hotelNameLines = wordWrap(data.hotelName || 'BestBill POS', Math.floor(LINE_WIDTH / 2));
+  hotelNameLines.forEach(l => builder.text(l));
+  builder.setFontNormal().bold(false);
 
-  if (data.hotelLocation) builder.text(data.hotelLocation);
+  if (data.hotelLocation) {
+    wordWrap(data.hotelLocation, LINE_WIDTH).forEach(l => builder.text(l));
+  }
   if (data.hotelPhone) builder.text(`Phone: ${data.hotelPhone}`);
   if (data.hotelFssai) builder.text(`FSSAI: ${data.hotelFssai}`);
 
@@ -335,9 +368,11 @@ export async function formatBill(data, printerSize = '58mm') {
       .line('=', LINE_WIDTH)
       .alignLeft()
       .bold()
-      .text(`TOKEN NO: #${data.billId}`)
-      .text(`${data.table}`)
-      .bold(false)
+      .text(`TOKEN NO: #${data.billId}`);
+
+    wordWrap(data.table || '', LINE_WIDTH).forEach(l => builder.text(l));
+
+    builder.bold(false)
       .text(`Date: ${dateStr}`)
       .line('-', LINE_WIDTH);
 
@@ -349,14 +384,24 @@ export async function formatBill(data, printerSize = '58mm') {
 
     data.items.forEach(item => {
       const qty = item.quantity || item.qty || 1;
-      const nameStr = toTitleCase(String(item.name));
-      builder.text(padText(nameStr.substring(0, itemLen), itemLen) + ' ' + padText(`x${qty}`, qtyLen, 'right'));
+      const nameStr = toTitleCase(String(item.name || ''));
+      const wrappedName = wordWrap(nameStr, itemLen);
+
+      if (wrappedName.length === 0) {
+        builder.text(padText('', itemLen) + ' ' + padText(`x${qty}`, qtyLen, 'right'));
+      } else {
+        builder.text(padText(wrappedName[0], itemLen) + ' ' + padText(`x${qty}`, qtyLen, 'right'));
+        for (let i = 1; i < wrappedName.length; i++) {
+          builder.text(padText(wrappedName[i], itemLen) + ' ' + ' '.repeat(qtyLen));
+        }
+      }
     });
 
     builder.line('=', LINE_WIDTH)
       .alignCenter()
       .bold(true)
       .text('PLEASE WAIT FOR YOUR NUMBER')
+      .text('⚡ Powered by BestBill™')
       .bold(false)
       .feed(3)
       .cut();
@@ -374,9 +419,11 @@ export async function formatBill(data, printerSize = '58mm') {
   builder.line('=', LINE_WIDTH)
     .alignLeft()
     .bold()
-    .text(`BILL NO: ${data.billId}`)
-    .text(`${data.table}`)
-    .bold(false)
+    .text(`BILL NO: ${data.billId}`);
+
+  wordWrap(data.table || '', LINE_WIDTH).forEach(l => builder.text(l));
+
+  builder.bold(false)
     .text(`Date: ${dateStr}`)
     .line('-', LINE_WIDTH);
 
@@ -399,23 +446,31 @@ export async function formatBill(data, printerSize = '58mm') {
     const qty = item.quantity || item.qty || 1;
     const rate = formatAmount(item.price);
     const amt = formatAmount(item.price * qty);
-    const nameStr = toTitleCase(String(item.name));
-    
-    const firstChunk = nameStr.substring(0, itemLen);
-    let remainingStr = nameStr.substring(itemLen);
+    const nameStr = toTitleCase(String(item.name || ''));
+    const wrappedName = wordWrap(nameStr, itemLen);
 
-    builder.text(
-      padText(firstChunk, itemLen) + ' ' +
-      padText(qty, qtyLen, 'right') + ' ' +
-      padText(rate, rateLen, 'right') + ' ' +
-      padText(amt, amtLen, 'right')
-    );
-
-    const SUB_CHUNK_LEN = itemLen - 2;
-    while (remainingStr.length > 0) {
-      const subChunk = remainingStr.substring(0, SUB_CHUNK_LEN);
-      builder.text("  " + padText(subChunk, LINE_WIDTH - 2));
-      remainingStr = remainingStr.substring(SUB_CHUNK_LEN);
+    if (wrappedName.length === 0) {
+      builder.text(
+        padText('', itemLen) + ' ' +
+        padText(qty, qtyLen, 'right') + ' ' +
+        padText(rate, rateLen, 'right') + ' ' +
+        padText(amt, amtLen, 'right')
+      );
+    } else {
+      builder.text(
+        padText(wrappedName[0], itemLen) + ' ' +
+        padText(qty, qtyLen, 'right') + ' ' +
+        padText(rate, rateLen, 'right') + ' ' +
+        padText(amt, amtLen, 'right')
+      );
+      for (let i = 1; i < wrappedName.length; i++) {
+        builder.text(
+          padText(wrappedName[i], itemLen) + ' ' +
+          ' '.repeat(qtyLen) + ' ' +
+          ' '.repeat(rateLen) + ' ' +
+          ' '.repeat(amtLen)
+        );
+      }
     }
   });
 
@@ -423,14 +478,13 @@ export async function formatBill(data, printerSize = '58mm') {
 
   // Totals
   const labelLen = LINE_WIDTH - amtLen - 1;
-  // Subtotal removed as per request
   
   const gstPct = Number(data.gst_percentage) || 0;
   const gstAmt = Number(data.gst) || 0;
   if (gstPct > 0 || gstAmt > 0) {
     builder.text(padText(`GST (${gstPct}%):`, labelLen) + ' ' + padText(formatAmount(gstAmt), amtLen, 'right'));
   }
-  
+
   if (data.discountPercentage > 0) {
     const preVal = Number(data.subtotal) + Number(data.gst);
     const discAmt = preVal * (data.discountPercentage / 100);
@@ -453,7 +507,7 @@ export async function formatBill(data, printerSize = '58mm') {
 
   // UPI QR Code
   if (data.upiId) {
-    const upiLink = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.hotelName)}&am=${data.finalAmount}&cu=INR`;
+    const upiLink = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.hotelName || '')}&am=${data.finalAmount}&cu=INR`;
     builder.alignCenter()
       .bold(true)
       .text('SCAN TO PAY WITH ANY UPI APP')
@@ -466,6 +520,7 @@ export async function formatBill(data, printerSize = '58mm') {
   builder.alignCenter()
     .bold(true)
     .text('THANK YOU! VISIT AGAIN')
+    .text('⚡ Powered by BestBill™')
     .bold(false)
     .feed(3)
     .cut();
@@ -559,13 +614,11 @@ export class BluetoothPrinterService {
         return true;
       }
 
-      // Guard: Check if mobile Bluetooth radio is turned ON
       const btEnabled = await this.isBluetoothEnabled();
       if (!btEnabled) {
         console.warn('[BT PRINTER] Mobile Bluetooth is turned OFF');
         toast.error('Please turn ON Bluetooth on your phone!', { duration: 4000 });
         
-        // Trigger native Android Bluetooth enable prompt if available
         if (window.bluetoothSerial && typeof window.bluetoothSerial.enable === 'function') {
           try {
             window.bluetoothSerial.enable(
@@ -680,7 +733,6 @@ export class BluetoothPrinterService {
     }
   }
 
-  // Core listener bootstrap
   static bootstrap() {
     console.log('[BT PRINTER] Bootstrapping listeners...');
     window.addEventListener('print-job-triggered', async (e) => {
@@ -711,4 +763,3 @@ export class BluetoothPrinterService {
     });
   }
 }
-

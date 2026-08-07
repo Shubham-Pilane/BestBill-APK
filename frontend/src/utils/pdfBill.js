@@ -195,7 +195,7 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
 
       // Footer Message
       { text: 'Thank you for your visit!', alignment: 'center', bold: true, fontSize: 12, color: '#0f172a', margin: [0, 10, 0, 2] },
-      { text: 'Generated via BestBill Software', alignment: 'center', fontSize: 9, color: '#94a3b8' }
+      { text: '⚡ Powered by BestBill™', alignment: 'center', bold: true, fontSize: 10, color: '#475569', margin: [0, 4, 0, 0] }
     ],
     styles: {
       tableHeader: {
