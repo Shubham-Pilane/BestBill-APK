@@ -451,6 +451,68 @@ html, body {
   gap: 24px;
 }
 
+/* --- Tablet Landscape View (min-width 769px and orientation landscape): 3 Tables per row --- */
+@media (min-width: 769px) and (orientation: landscape) and (max-width: 1280px) {
+  .tables-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 16px !important;
+  }
+
+  .mobile-table-card {
+    padding: 20px 16px !important;
+    border-radius: 24px !important;
+    gap: 10px !important;
+  }
+
+  .mobile-table-card .card-header-label {
+    font-size: 9px !important;
+  }
+
+  .mobile-table-card h3 {
+    font-size: 32px !important;
+  }
+
+  .mobile-table-card .card-status-label {
+    font-size: 10px !important;
+  }
+
+  .mobile-table-card .card-footer {
+    margin-top: 6px !important;
+    gap: 6px !important;
+  }
+}
+
+/* --- Tablet Portrait / Vertical View (min-width 641px and orientation portrait): 3 Tables per row with full width --- */
+@media (min-width: 641px) and (orientation: portrait) and (max-width: 1024px) {
+  .tables-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 14px !important;
+  }
+
+  .mobile-table-card {
+    padding: 18px 14px !important;
+    border-radius: 22px !important;
+    gap: 8px !important;
+  }
+
+  .mobile-table-card .card-header-label {
+    font-size: 9px !important;
+  }
+
+  .mobile-table-card h3 {
+    font-size: 28px !important;
+  }
+
+  .mobile-table-card .card-status-label {
+    font-size: 10px !important;
+  }
+
+  .mobile-table-card .card-footer {
+    margin-top: 4px !important;
+  }
+}
+
+/* --- Mobile Phone View (max-width 768px): 2 Tables per row --- */
 @media (max-width: 768px) {
   .tables-grid {
     grid-template-columns: repeat(2, 1fr) !important;

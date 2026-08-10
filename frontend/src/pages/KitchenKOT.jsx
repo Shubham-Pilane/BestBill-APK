@@ -217,15 +217,7 @@ const KitchenKOT = () => {
 
                                         {/* Order Metadata */}
                                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                            {order.status !== 'active' && (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '11px', fontWeight: 600, backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                                                    <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cleared</span>
-                                                </div>
-                                            )}
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500, backgroundColor: 'rgba(255,255,255,0.03)', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--border-rgba-05)' }}>
-                                                <User size={12} color="#0ea5e9" style={{ flexShrink: 0 }} />
-                                                <span>Waiter: <span style={{color: 'var(--text-primary)' }}>{order.waiter_name || 'Waiter'}</span></span>
-                                            </div>
+
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500, backgroundColor: 'rgba(255,255,255,0.03)', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--border-rgba-05)' }}>
                                                 <Calendar size={12} style={{ flexShrink: 0 }} />
                                                 <span>Sent: <span style={{color: 'var(--text-primary)' }}>{formatDateTime(order.kot_sent_at)}</span></span>

@@ -77,6 +77,42 @@ const BillingHistory = () => {
         fetchHistory();
     }, []);
 
+    const [totalExpenses, setTotalExpenses] = useState(0);
+
+    const fetchExpensesForAnalytics = async () => {
+        try {
+            let expFilter = analyticsFilter;
+            let sDate = startDate;
+            let eDate = endDate;
+            if (analyticsFilter === 'Month') {
+                const y = parseInt(selectedYear);
+                const m = parseInt(selectedMonth);
+                const firstDay = new Date(y, m, 1);
+                const lastDay = new Date(y, m + 1, 0);
+                sDate = firstDay.toISOString().split('T')[0];
+                eDate = lastDay.toISOString().split('T')[0];
+                expFilter = 'Custom';
+            } else if (analyticsFilter === 'Year') {
+                expFilter = 'Year';
+            }
+
+            const res = await api.get('/expenses/summary', {
+                params: {
+                    filter: expFilter,
+                    startDate: sDate,
+                    endDate: eDate
+                }
+            });
+            setTotalExpenses(parseFloat(res.data.total_expenses || 0));
+        } catch (err) {
+            console.error('Failed to fetch expenses for analytics', err);
+        }
+    };
+
+    useEffect(() => {
+        fetchExpensesForAnalytics();
+    }, [analyticsFilter, selectedMonth, selectedYear, startDate, endDate]);
+
     // --- Helper for detecting Parcel ---
     const isParcel = (tableNo) => {
         return tableNo && tableNo.toLowerCase().includes('parcel');
@@ -552,6 +588,28 @@ const BillingHistory = () => {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, color: '#0ea5e9', fontSize: '18px', paddingTop: '12px', borderTop: '1px dashed var(--bg-border)' }}>
                                     <span>Total Orders Served</span>
                                     <span>{analyticsBills.length}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Expense & Net Profit Summary */}
+                        <div style={{ backgroundColor: 'var(--bg-base)', padding: '24px', borderRadius: '12px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                            <div>
+                                <h4 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expense & Net Profit</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                        <span>Gross Collection</span>
+                                        <span>₹{grandTotalRevenue.toFixed(2)}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: '#f43f5e' }}>
+                                        <span>Total Expenses</span>
+                                        <span>− ₹{totalExpenses.toFixed(2)}</span>
+                                    </div>
+                                    <div style={{ height: '1px', borderTop: '1px dashed var(--bg-border)', margin: '4px 0' }} />
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, color: (grandTotalRevenue - totalExpenses) >= 0 ? '#10b981' : '#f43f5e', fontSize: '18px', paddingTop: '8px' }}>
+                                        <span>Net Revenue (Profit)</span>
+                                        <span>₹{(grandTotalRevenue - totalExpenses).toFixed(2)}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

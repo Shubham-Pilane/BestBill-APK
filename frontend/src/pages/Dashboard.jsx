@@ -306,7 +306,7 @@ const Dashboard = () => {
     return 200;
   };
 
-  const floors = useMemo(() => Object.keys(groupedTables).sort((a, b) => floorOrder(a) - floorOrder(b)), [groupedTables]);
+  const floors = useMemo(() => Object.keys(groupedTables), [groupedTables]);
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
@@ -335,7 +335,7 @@ const Dashboard = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <h1 style={{ fontSize: '24px', fontWeight: 950, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>{user?.hotel_name || 'My Hotel'}</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>
-              <span>Proprietor: {user?.name || 'A'}</span>
+              <span>Owner: {user?.name || 'A'}</span>
               <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'var(--bg-border)' }}></div>
               <span style={{ color: '#10b981' }}>Active Session</span>
             </div>
@@ -901,14 +901,6 @@ const TableCard = React.memo(({ table, isOwner, onOpen, onEdit, onDelete, onSwap
         display: 'flex',
         flexDirection: 'column',
         gap: '16px'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-8px)';
-        e.currentTarget.style.backgroundColor = 'var(--bg-border)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.backgroundColor = 'var(--bg-card)';
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

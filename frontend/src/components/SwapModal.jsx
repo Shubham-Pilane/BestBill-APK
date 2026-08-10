@@ -7,12 +7,22 @@ const SwapModal = ({ isOpen, onClose, tables, onSwap, currentTable }) => {
       const name = String(t.table_number || '').toLowerCase();
       return !t.active_order_id && t.id !== currentTable?.id && !name.includes('parcel') && !name.includes('token');
    });
-   const grouped = availableTables.reduce((acc, t) => {
+   // Group available destination tables by floor while keeping exact Dashboard sequence
+   const grouped = (availableTables || []).reduce((acc, t) => {
       const f = t.floor || 'Floor 1';
       if (!acc[f]) acc[f] = [];
       acc[f].push(t);
       return acc;
    }, {});
+
+   // Preserve exact sequence of floors as they appear on Table Dashboard
+   const orderedFloors = [];
+   (tables || []).forEach(t => {
+      const f = t.floor || 'Floor 1';
+      if (grouped[f] && !orderedFloors.includes(f)) {
+         orderedFloors.push(f);
+      }
+   });
 
    return (
       <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.9)', backdropFilter: 'blur(16px)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
@@ -23,7 +33,7 @@ const SwapModal = ({ isOpen, onClose, tables, onSwap, currentTable }) => {
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-               {Object.keys(grouped).sort().map(floor => (
+               {orderedFloors.map(floor => (
                   <div key={floor}>
                      <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.1em', marginBottom: '16px', textTransform: 'uppercase' }}>{floor}</div>
                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '12px' }}>

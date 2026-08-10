@@ -275,9 +275,7 @@ export async function formatKOT(data, printerSize = '58mm') {
 
   wordWrap(tStr, LINE_WIDTH).forEach(l => builder.text(l));
 
-  if (data.waiter) {
-    wordWrap(`WAITER: ${data.waiter}`, LINE_WIDTH).forEach(l => builder.text(l));
-  }
+
 
   builder.bold(false)
     .text(`DATE: ${dateStr}`)
@@ -442,7 +440,8 @@ export async function formatBill(data, printerSize = '58mm') {
 
   if (logoPrintingEnabled && logoUrl) {
     try {
-      const logoBytes = await convertImageToEscpos(logoUrl, 300);
+      const logoSize = typeof window !== 'undefined' ? Number(localStorage.getItem('cfg_logo_size') || 300) : 300;
+      const logoBytes = await convertImageToEscpos(logoUrl, logoSize);
       if (logoBytes && logoBytes.length > 0) {
         for (let i = 0; i < logoBytes.length; i++) {
           builder.bytes.push(logoBytes[i]);
@@ -670,11 +669,17 @@ function uint8ToBase64(bytes) {
 
 // Bluetooth printing lifecycle manager
 export class BluetoothPrinterService {
-  static getSelectedPrinter() {
+  static getSelectedPrinter(type = 'billing') {
+    if (type === 'kot') {
+      return localStorage.getItem('cfg_bluetooth_mac_kot') || localStorage.getItem('cfg_bluetooth_mac') || '';
+    }
     return localStorage.getItem('cfg_bluetooth_mac') || '';
   }
 
-  static getPrinterSize() {
+  static getPrinterSize(type = 'billing') {
+    if (type === 'kot') {
+      return localStorage.getItem('cfg_printer_size_kot') || localStorage.getItem('cfg_printer_size') || '58mm';
+    }
     return localStorage.getItem('cfg_printer_size') || '58mm';
   }
 
@@ -730,9 +735,38 @@ export class BluetoothPrinterService {
     });
   }
 
-  static async printData(uint8Array) {
+  static async checkPrinterConnection(macAddress) {
+    if (!macAddress) return false;
+    if (typeof window === 'undefined' || !window.bluetoothSerial) {
+      return true;
+    }
+    return new Promise((resolve) => {
+      try {
+        window.bluetoothSerial.isConnected(
+          () => resolve(true),
+          () => {
+            if (typeof window.bluetoothSerial.list === 'function') {
+              window.bluetoothSerial.list(
+                (devices) => {
+                  const isPaired = Array.isArray(devices) && devices.some(d => d.address === macAddress || d.id === macAddress || d.name === macAddress);
+                  resolve(isPaired);
+                },
+                () => resolve(true)
+              );
+            } else {
+              resolve(true);
+            }
+          }
+        );
+      } catch (e) {
+        resolve(true);
+      }
+    });
+  }
+
+  static async printData(uint8Array, targetMacAddress = null) {
     try {
-      const macAddress = this.getSelectedPrinter();
+      const macAddress = targetMacAddress || this.getSelectedPrinter('billing');
       if (!macAddress) {
         console.warn('[BT PRINTER] No Bluetooth printer configured in Settings');
         toast.error('No Bluetooth printer configured in Printer Settings');
@@ -870,17 +904,21 @@ export class BluetoothPrinterService {
         const job = e.detail;
         console.log('[BT PRINTER] Received local print job:', job);
         
-        const size = this.getPrinterSize();
         let printBytes;
+        let targetMac;
 
         if (job.type === 'KOT') {
+          const size = this.getPrinterSize('kot');
+          targetMac = this.getSelectedPrinter('kot');
           printBytes = await formatKOT(job, size);
-        } else if (job.type === 'FINAL_BILL') {
+        } else if (job.type === 'FINAL_BILL' || job.type === 'CANCEL_ORDER') {
+          const size = this.getPrinterSize('billing');
+          targetMac = this.getSelectedPrinter('billing');
           printBytes = await formatBill(job, size);
         }
 
         if (printBytes) {
-          const success = await this.printData(printBytes);
+          const success = await this.printData(printBytes, targetMac);
           if (success) {
             console.log('[BT PRINTER] Receipt printed successfully.');
           } else {

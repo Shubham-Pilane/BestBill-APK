@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import ConfirmModal from '../components/ConfirmModal';
 import { toast } from 'react-hot-toast';
-import { Plus, Utensils, Tag, IndianRupee, Layers, ListChecks, Trash2, Edit2, X, Check, Save, Search, UploadCloud } from 'lucide-react';
+import { Plus, Utensils, Tag, IndianRupee, Layers, ListChecks, Trash2, Edit2, X, Check, Save, Search, UploadCloud, ChevronDown, ChevronUp } from 'lucide-react';
 
 const MenuManagement = () => {
   const [categories, setCategories] = useState([]);
@@ -18,6 +18,14 @@ const MenuManagement = () => {
 
   const [editingItemId, setEditingItemId] = useState(null);
   const [editItemData, setEditItemData] = useState({});
+  const [isGroupsCardExpanded, setIsGroupsCardExpanded] = useState(false);
+  const [expandedGroupIds, setExpandedGroupIds] = useState([]);
+
+  const toggleGroupExpand = (catId) => {
+    setExpandedGroupIds(prev => 
+      prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
+    );
+  };
 
   const [newItem, setNewItem] = useState({
     name: '',
@@ -128,16 +136,16 @@ const MenuManagement = () => {
   const deleteCategory = (id) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Purge Group?',
-      message: 'This will permanently delete this group and all its menu items. This action cannot be undone.',
+      title: 'Delete Category?',
+      message: 'This will permanently delete this category and all its menu items. This action cannot be undone.',
       onConfirm: async () => {
         try {
           const res = await api.delete(`/menu/categories/${id}`);
           fetchData(currentPage, searchTerm);
-          toast.success(res.data?.message || 'Group purged');
+          toast.success(res.data?.message || 'Category deleted');
           setConfirmModal({ ...confirmModal, isOpen: false });
         } catch (err) {
-          toast.error(err.response?.data?.message || 'Purge failed');
+          toast.error(err.response?.data?.message || 'Delete failed');
         }
       }
     });
@@ -172,16 +180,16 @@ const MenuManagement = () => {
   const deleteItem = (id) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Discard Dish?',
-      message: 'Are you sure you want to remove this dish from your active menu?',
+      title: 'Delete Item?',
+      message: 'Are you sure you want to remove this item from your active menu?',
       onConfirm: async () => {
         try {
           const res = await api.delete(`/menu/items/${id}`);
           fetchData(currentPage, searchTerm);
-          toast.success(res.data?.message || 'Dish removed');
+          toast.success(res.data?.message || 'Item deleted');
           setConfirmModal({ ...confirmModal, isOpen: false });
         } catch (err) {
-          toast.error(err.response?.data?.message || 'Removal failed');
+          toast.error(err.response?.data?.message || 'Delete failed');
         }
       }
     });
@@ -206,10 +214,10 @@ const MenuManagement = () => {
   const deleteAllMenu = () => {
     setConfirmModal({
       isOpen: true,
-      title: 'Purge Entire Menu?',
-      message: 'This will permanently delete ALL categories/groups and ALL menu items. Active tables will lose item references. This action is irreversible!',
+      title: 'Delete Entire Menu?',
+      message: 'This will permanently delete ALL categories and ALL menu items. Active tables will lose item references. This action is irreversible!',
       onConfirm: async () => {
-        const loadingToast = toast.loading('Purging all menu categories and items...');
+        const loadingToast = toast.loading('Deleting all menu categories and items...');
         try {
           await api.delete('/menu/purge-all');
           fetchData(1, '');
@@ -218,7 +226,7 @@ const MenuManagement = () => {
           toast.success('All menu items and categories successfully deleted', { id: loadingToast });
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
         } catch (err) {
-          toast.error(err.response?.data?.message || 'Purge failed', { id: loadingToast });
+          toast.error(err.response?.data?.message || 'Delete failed', { id: loadingToast });
         }
       }
     });
@@ -275,60 +283,88 @@ const MenuManagement = () => {
       
       {/* Category Management Column */}
       <div style={{ gridColumn: 'span 4', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-        <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '32px', padding: '32px', border: '1px solid var(--border-rgba-05)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-            <div style={{ width: '44px', height: '44px', backgroundColor: 'rgba(99, 102, 241, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-               <Layers size={22} style={{ color: '#818cf8', margin: 'auto' }} />
-            </div>
-            <h2 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Groups</h2>
-          </div>
-
-          <form onSubmit={addCategory} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>New Category Title</label>
-              <div style={{ position: 'relative' }}>
-                <Tag style={{ position: 'absolute', top: '14px', left: '16px', color: 'var(--text-muted)' }} size={16} />
-                <input
-                  type="text"
-                  style={{width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: 'var(--text-primary)', padding: '12px 16px 12px 40px', borderRadius: '14px', outline: 'none', fontSize: '14px', fontWeight: 600 }}
-                  value={newCatName}
-                  onChange={(e) => setNewCatName(e.target.value)}
-                  required
-                />
+        <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '32px', padding: '24px 32px', border: '1px solid var(--border-rgba-05)' }}>
+          {/* Collapsible Header */}
+          <div 
+            onClick={() => setIsGroupsCardExpanded(!isGroupsCardExpanded)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ width: '44px', height: '44px', backgroundColor: 'rgba(99, 102, 241, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                 <Layers size={22} style={{ color: '#818cf8', margin: 'auto' }} />
+              </div>
+              <div>
+                <h2 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Groups</h2>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700 }}>
+                  {categories.length} {categories.length === 1 ? 'Category' : 'Categories'} Configured
+                </span>
               </div>
             </div>
-            <button type="submit" style={{width: '100%', backgroundColor: '#6366f1', color: 'var(--text-primary)', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '14px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-              <Plus size={18} strokeWidth={3} /> Add
-            </button>
-          </form>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: '#818cf8', fontWeight: 800, fontSize: '13px' }}>
+              {isGroupsCardExpanded ? 'Collapse' : 'Expand & Manage'}
+              {isGroupsCardExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </div>
+          </div>
 
-          <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <h3 style={{ fontSize: '10px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.2em', borderBottom: '1px solid var(--bg-border)', paddingBottom: '8px' }}>Active Groups</h3>
-            {(categories || []).map(cat => (
-              <div key={cat.id} style={{padding: '14px 16px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', borderRadius: '14px', color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                {editingCatId === cat.id ? (
-                  <input
-                    autoFocus
-                    value={editCatName}
-                    onChange={(e) => setEditCatName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && saveCategoryUpdate(cat.id)}
-                    style={{ background: 'none', border: 'none', outline: 'none', color: '#38bdf8', fontWeight: 900, textTransform: 'uppercase', width: '100%' }}
-                  />
-                ) : (
-                  <span style={{ textTransform: 'uppercase' }}>{cat.name}</span>
-                )}
-                
-                <div style={{ display: 'flex', gap: '8px' }}>
-                   {editingCatId === cat.id ? (
-                      <button onClick={() => saveCategoryUpdate(cat.id)} style={{ color: '#10b981', background: 'none', border: 'none', cursor: 'pointer' }}><Check size={16} strokeWidth={3} /></button>
-                   ) : (
-                      <button onClick={() => { setEditingCatId(cat.id); setEditCatName(cat.name); }} style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}><Edit2 size={16} /></button>
-                   )}
-                   <button onClick={() => deleteCategory(cat.id)} style={{ color: '#f43f5e', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={16} /></button>
+          {/* Expanded Content */}
+          {isGroupsCardExpanded && (
+            <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <form onSubmit={addCategory} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>New Category Title</label>
+                  <div style={{ position: 'relative' }}>
+                    <Tag style={{ position: 'absolute', top: '14px', left: '16px', color: 'var(--text-muted)' }} size={16} />
+                    <input
+                      type="text"
+                      placeholder="Category Title..."
+                      style={{width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: 'var(--text-primary)', padding: '12px 16px 12px 40px', borderRadius: '14px', outline: 'none', fontSize: '14px', fontWeight: 600 }}
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
+                <button type="submit" style={{width: '100%', backgroundColor: '#6366f1', color: '#ffffff', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '14px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                  <Plus size={18} strokeWidth={3} /> Add Category
+                </button>
+              </form>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <h3 style={{ fontSize: '10px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.2em', borderBottom: '1px solid var(--bg-border)', paddingBottom: '8px', margin: 0 }}>Category Groups</h3>
+                {(categories || []).map(cat => {
+                  const categoryItems = (items || []).filter(i => String(i.category_id) === String(cat.id) || i.category_name?.toLowerCase() === cat.name?.toLowerCase());
+
+                  return (
+                    <div key={cat.id} style={{ backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Tag size={16} style={{ color: '#818cf8' }} />
+                        {editingCatId === cat.id ? (
+                          <input
+                            autoFocus
+                            value={editCatName}
+                            onChange={(e) => setEditCatName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && saveCategoryUpdate(cat.id)}
+                            style={{ background: 'var(--bg-card)', border: '1px solid #38bdf8', outline: 'none', color: '#38bdf8', fontWeight: 900, textTransform: 'uppercase', padding: '4px 8px', borderRadius: '6px', fontSize: '13px' }}
+                          />
+                        ) : (
+                          <span style={{ textTransform: 'uppercase', fontWeight: 800, fontSize: '14px', color: 'var(--text-primary)' }}>{cat.name}</span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {editingCatId === cat.id ? (
+                          <button onClick={() => saveCategoryUpdate(cat.id)} style={{ color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', cursor: 'pointer', padding: '10px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Check size={18} strokeWidth={3} /></button>
+                        ) : (
+                          <button onClick={() => { setEditingCatId(cat.id); setEditCatName(cat.name); }} style={{ color: 'var(--text-primary)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', cursor: 'pointer', padding: '10px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Edit2 size={18} /></button>
+                        )}
+                        <button onClick={() => deleteCategory(cat.id)} style={{ color: '#f43f5e', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.2)', cursor: 'pointer', padding: '10px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Trash2 size={18} /></button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 

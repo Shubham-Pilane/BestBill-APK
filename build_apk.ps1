@@ -46,7 +46,7 @@ Set-Content -Path "d:\BestBill-apk\frontend\android\local.properties" -Value "sd
 # Run Android build
 Write-Host "Building APK..."
 cd d:\BestBill-apk\frontend\android
-.\gradlew.bat assembleDebug
+.\gradlew.bat clean assembleDebug
 
 # Copy compiled APK to root of BestBill-apk
 $outputApk = "d:\BestBill-apk\frontend\android\app\build\outputs\apk\debug\app-debug.apk"

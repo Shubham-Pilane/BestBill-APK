@@ -1,6 +1,6 @@
 import { X, AlertTriangle } from 'lucide-react';
 
-const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText = 'Delete Permanently', type = 'danger' }) => {
+const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText = 'Delete Permanently', type = 'danger', children }) => {
   if (!isOpen) return null;
 
   return (
@@ -20,10 +20,11 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText
         maxWidth: '440px',
         backgroundColor: 'var(--bg-card)',
         borderRadius: '32px',
-        border: '1px solid var(--border-rgba-05)',
-        padding: '40px',
-        boxShadow: '0 50px 100px -20px rgba(0, 0, 0, 0.7)',
-        textAlign: 'center'
+        border: '1px solid var(--bg-border)',
+        padding: '40px 32px',
+        textAlign: 'center',
+        position: 'relative',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
       }}>
         <div style={{
           width: '64px',
@@ -41,6 +42,8 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText
 
         <h3 style={{fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 12px 0', letterSpacing: '-0.02em' }}>{title}</h3>
         <p style={{ fontSize: '15px', color: 'var(--text-muted)', fontWeight: 600, margin: '0 0 32px 0', lineHeight: '1.6' }}>{message}</p>
+
+        {children}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
            <button

@@ -11,8 +11,15 @@ import Profile from './pages/Profile';
 import KitchenKOT from './pages/KitchenKOT';
 import CreditManagement from './pages/CreditManagement';
 import InventoryManagement from './pages/InventoryManagement';
+import CancelOrders from './pages/CancelOrders';
+import ExpenseManagement from './pages/ExpenseManagement';
+import { startCloudSyncScheduler } from './services/cloudSyncService';
 import Layout from './components/Layout';
 import './index.css';
+
+if (typeof window !== 'undefined') {
+  startCloudSyncScheduler();
+}
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -104,6 +111,24 @@ function App() {
                   </OwnerRoute>
                 </ProtectedRoute>
               } />
+              <Route path="/cancel-orders" element={
+                <ProtectedRoute>
+                  <OwnerRoute>
+                    <Layout>
+                      <CancelOrders />
+                    </Layout>
+                  </OwnerRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/expenses" element={
+                <ProtectedRoute>
+                  <OwnerRoute>
+                    <Layout>
+                      <ExpenseManagement />
+                    </Layout>
+                  </OwnerRoute>
+                </ProtectedRoute>
+              } />
               <Route path="/credit" element={
                 <ProtectedRoute>
                   <OwnerRoute>
@@ -133,7 +158,9 @@ function App() {
             </Routes>
             <Toaster 
               position="top-right" 
+              containerStyle={{ pointerEvents: 'none' }}
               toastOptions={{
+                duration: 1500,
                 style: {
                   background: 'var(--bg-card)',
                   color: 'var(--text-primary)',
@@ -143,14 +170,17 @@ function App() {
                   fontSize: '14px',
                   boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
                   backdropFilter: 'blur(8px)',
+                  pointerEvents: 'none'
                 },
                 success: {
+                  duration: 1500,
                   iconTheme: {
                     primary: '#10b981',
                     secondary: '#ffffff',
                   },
                 },
                 error: {
+                  duration: 2000,
                   iconTheme: {
                     primary: '#ef4444',
                     secondary: '#ffffff',

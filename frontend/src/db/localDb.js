@@ -305,6 +305,37 @@ CREATE TABLE IF NOT EXISTS credits (
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
     updated_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
 );
+
+CREATE TABLE IF NOT EXISTS cancelled_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
+    order_number TEXT NOT NULL,
+    table_id INTEGER,
+    table_number TEXT NOT NULL,
+    floor TEXT,
+    cancel_date TIMESTAMP DEFAULT (datetime('now', 'localtime')),
+    total_quantity INTEGER DEFAULT 0,
+    total_amount REAL DEFAULT 0,
+    kot_status TEXT DEFAULT 'Not Printed',
+    billing_status TEXT DEFAULT 'Not Settled',
+    items_json TEXT,
+    cancelled_by TEXT DEFAULT 'Staff',
+    cancellation_reason TEXT,
+    created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS expenses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    category TEXT,
+    amount REAL NOT NULL,
+    expense_date DATE DEFAULT (date('now', 'localtime')),
+    payment_method TEXT DEFAULT 'Cash',
+    description TEXT,
+    created_by TEXT DEFAULT 'Owner',
+    created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
+);
 `;
 
 // Helper: convert PG parameterized query placeholders ($1, $2, etc) to (?)
@@ -397,13 +428,15 @@ export const initDb = async () => {
     const fileBuffer = await loadDbFile();
     if (fileBuffer) {
       db = new SQL.Database(fileBuffer);
-      console.log('[LOCAL DB] Existing database initialized');
+      console.log('[LOCAL DB] Existing database initialized. Running DDL schema check...');
     } else {
       db = new SQL.Database();
-      console.log('[LOCAL DB] Fresh database initialized. Running DDL...');
-      db.run(DDL_SCHEMA);
-      saveDbFileNow();
+      console.log('[LOCAL DB] Fresh database initialized. Running DDL schema...');
     }
+    
+    // Always execute DDL schema check to auto-create missing tables (cancel_orders, expenses, etc.)
+    db.run(DDL_SCHEMA);
+    saveDbFileNow();
     
     // Enable Foreign Keys & Seed Defaults
     db.run('PRAGMA foreign_keys = ON;');

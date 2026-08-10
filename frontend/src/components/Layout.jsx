@@ -22,7 +22,9 @@ import {
   Phone,
   Mail,
   Boxes,
-  AlertTriangle
+  AlertTriangle,
+  Ban,
+  Receipt
 } from 'lucide-react';
 
 const playInternalChime = () => {
@@ -101,15 +103,19 @@ const Layout = ({ children }) => {
           { name: 'Manage Menu', path: '/menu', icon: <UtensilsCrossed size={20} /> },
           { name: 'Kitchen KOT', path: '/kitchen-kot', icon: <ChefHat size={20} /> },
           { name: 'Billing History', path: '/history', icon: <History size={20} /> },
+          { name: 'Cancel Orders', path: '/cancel-orders', icon: <Ban size={20} /> },
+          { name: 'Expense Management', path: '/expenses', icon: <Receipt size={20} /> },
           { name: 'Credit Management', path: '/credit', icon: <Wallet size={20} /> },
           { name: 'Inventory Management', path: '/inventory', icon: <Boxes size={20} /> },
           { name: 'Profile Settings', path: '/profile', icon: <UserCircle size={20} /> },
         ];
 
   const simpleKotEnabled = user?.simpleKotEnabled || user?.kotEnabled || false;
+  const cancelOrdersEnabled = user?.cancelOrdersEnabled === true;
 
   const navItems = baseNavItems.filter(item => {
     if (item.path === '/kitchen-kot' && !simpleKotEnabled) return false;
+    if (item.path === '/cancel-orders' && !cancelOrdersEnabled) return false;
     if (item.path === '/inventory' && !inventoryEnabled) return false;
     return true;
   });
@@ -236,7 +242,7 @@ const Layout = ({ children }) => {
       </aside>
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}>
+      <div className="main-content-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}>
         {user?.licenseWarning && (
           <div style={{ backgroundColor: '#fef2f2', borderBottom: '1px solid #fecaca', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', zIndex: 101 }}>
             <AlertTriangle size={20} color="#ef4444" />
@@ -245,7 +251,7 @@ const Layout = ({ children }) => {
             </div>
           </div>
         )}
-        <header className="responsive-header" style={{ height: '72px', backgroundColor: 'var(--bg-card)', padding: '0 24px', display: 'none', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--bg-border)', position: 'sticky', top: 0, zIndex: 100 }}>
+        <header className="responsive-header" style={{ minHeight: '84px', height: 'auto', backgroundColor: 'var(--bg-card)', paddingTop: 'max(40px, env(safe-area-inset-top, 40px))', paddingBottom: '14px', paddingLeft: '20px', paddingRight: '20px', display: 'none', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--bg-border)', position: 'sticky', top: 0, zIndex: 100 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button onClick={() => setMobileMenuOpen(true)} style={{color: 'var(--text-primary)', background: 'var(--border-rgba-05)', border: '1px solid var(--border-rgba-1)', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Menu size={24} />
@@ -267,10 +273,19 @@ const Layout = ({ children }) => {
       </div>
 
       <style>{`
-        @media (min-width: 1025px) {
+        @media (min-width: 1025px), (min-width: 769px) and (orientation: landscape) {
           .sidebar-responsive {
-            transform: none !important;
-            position: sticky !important;
+            transform: translateX(0) !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            height: 100vh !important;
+            z-index: 200 !important;
+          }
+          .main-content-wrapper {
+            margin-left: 280px !important;
+            width: calc(100% - 280px) !important;
           }
           .responsive-header {
             display: none !important;
@@ -279,21 +294,36 @@ const Layout = ({ children }) => {
             display: none !important;
           }
         }
-        @media (max-width: 1024px) {
+        @media (max-width: 768px), (max-width: 1024px) and (orientation: portrait) {
           .responsive-header {
             display: flex !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            z-index: 999 !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
           }
           .main-responsive {
-            padding: 24px !important;
+            padding-top: calc(max(40px, env(safe-area-inset-top, 40px)) + 68px) !important;
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+            padding-bottom: 24px !important;
           }
           .sidebar-responsive {
-             width: 300px !important;
+            width: 280px !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            height: 100vh !important;
+            z-index: 2000 !important;
           }
-        }
-        @media (max-width: 640px) {
-           .main-responsive {
-             padding: 20px 16px !important;
-           }
+          .main-content-wrapper {
+            margin-left: 0 !important;
+            width: 100% !important;
+          }
         }
       `}</style>
       <ExitConfirmModal 

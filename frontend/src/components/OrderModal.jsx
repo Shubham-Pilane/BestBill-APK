@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
-import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, ChevronsDown, Ticket } from 'lucide-react';
+import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, ChevronsDown, Ticket, Ban } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import SwapModal from './SwapModal';
@@ -18,6 +18,34 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [kitchenNotes, setKitchenNotes] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+
+  const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState('');
+
+  const handleConfirmCancelOrder = async () => {
+    try {
+      if (table?.active_order_id) {
+        await api.post(`/tables/${table.id}/clear-order`, { reason: cancellationReason || 'Order Cancelled', items: orderItems });
+      } else {
+        const cancelPayloadItems = orderItems.length > 0 ? orderItems : [{ name: 'Cleared Table', price: 0, quantity: 1 }];
+        await api.post('/cancel-orders', {
+          table_id: table.id,
+          table_number: table.table_number,
+          floor: table.floor,
+          items: cancelPayloadItems,
+          cancellation_reason: cancellationReason || 'Order Cancelled',
+          kot_status: 'Not Printed',
+          billing_status: 'Not Settled'
+        });
+      }
+      setOrderItems([]);
+      toast.success('Order cancelled and table cleared!');
+      setShowCancelConfirmModal(false);
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to cancel order');
+    }
+  };
   const [totalPages, setTotalPages] = useState(1);
   const [orderItems, setOrderItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +53,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [billData, setBillData] = useState(null);
   const [customerPhone, setCustomerPhone] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cash');
-  const [discount, setDiscount] = useState(0);
+  const [discount, setDiscount] = useState('');
   const [isSwapModalOpen, setSwapModalOpen] = useState(false);
   const [allTables, setAllTables] = useState(passedTables || []);
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,6 +69,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const isTokenCounter = String(table?.table_number || table?.id || '').toLowerCase().includes('token');
   const isParcelCounter = table?.table_number === 'Parcel Counter';
+  const cancelOrdersEnabled = user?.cancelOrdersEnabled === true;
   const isWaiterAccessEnabled = user?.role === 'waiter' || user?.waiterModuleEnabled || localStorage.getItem('cfg_waiter_module') === 'true';
   const showKotButton = (user?.simpleKotEnabled || user?.kotEnabled || isWaiterAccessEnabled) && !isTokenCounter;
 
@@ -143,6 +172,15 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
         return false;
       });
     }
+
+    filtered.sort((a, b) => {
+      const aInOrder = orderItems.some(i => i.menu_item_id === a.id);
+      const bInOrder = orderItems.some(i => i.menu_item_id === b.id);
+      if (aInOrder && !bInOrder) return -1;
+      if (!aInOrder && bInOrder) return 1;
+      return 0;
+    });
+
     setTotalPages(Math.ceil(filtered.length / 10) || 1);
     const startIndex = (currentPage - 1) * 10;
     setItems(filtered.slice(startIndex, startIndex + 10));
@@ -278,7 +316,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     const t = toast.loading('Sending KOT to kitchen...');
     try {
       const res = await api.post(`/tables/${table.id}/order/kot`, {
-        waiter: user?.name || 'Waiter',
+        waiter: user?.role === 'waiter' ? user.name : null,
         notes: kitchenNotes
       });
       
@@ -869,8 +907,8 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {orderItems.map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'rgba(15, 23, 42, 0.9)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                      <div>
-                        <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px' }}>{item.name}</div>
+                      <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
+                        <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', wordBreak: 'break-word' }}>{item.name}</div>
                         <div style={{ color: '#10b981', fontSize: '11px', fontWeight: 800, marginTop: '1px' }}>
                            ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '9px' }}>(₹{Math.round(item.price)} each)</span>}
                         </div>
@@ -906,9 +944,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                        style={{ width: '40px', background: 'none', border: 'none', borderBottom: '2px solid #0ea5e9', color: '#ffffff', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '12px' }} 
                     />
                   </div>
-
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>Final Due</span>
                     <span style={{ color: '#10b981', fontSize: '18px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
                   </div>
@@ -920,6 +956,16 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     </div>
                   ) : (
                     <button disabled={orderItems.length === 0} onClick={generateBill} style={{ width: '100%', padding: '11px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '13px', cursor: 'pointer' }}>SETTLE TRANSACTION</button>
+                  )}
+
+                  {(cancelOrdersEnabled && (table.active_order_id || orderItems.length > 0)) && (
+                    <button 
+                      type="button" 
+                      onClick={() => setShowCancelConfirmModal(true)} 
+                      style={{ width: '100%', padding: '11px', borderRadius: '12px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 900, fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '6px' }}
+                    >
+                      <Ban size={14} /> CANCEL ORDER / CLEAR TABLE
+                    </button>
                   )}
                 </div>
               </div>
@@ -947,73 +993,53 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 ) : (
                   orderItems.map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
-                      <div>
-                        <div style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px' }}>{item.name}</div>
-                        {editingPriceId === item.id ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                             <span style={{ color: '#10b981', fontSize: '12px' }}>₹</span>
-                             <input 
-                               type="number" 
-                               autoFocus
-                               value={editPriceValue} 
-                               onChange={e => setEditPriceValue(e.target.value)}
-                               onBlur={() => savePriceChange(item.id, item.menu_item_id)}
-                               onKeyDown={e => e.key === 'Enter' && savePriceChange(item.id, item.menu_item_id)}
-                               style={{ width: '75px', backgroundColor: '#0f172a', border: '1px solid #10b981', color: '#10b981', borderRadius: '6px', padding: '3px 6px', fontSize: '12px', outline: 'none', fontWeight: 800 }}
-                             />
-                             <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>/ unit</span>
-                          </div>
-                        ) : (
-                          <div 
-                            onClick={() => { setEditingPriceId(item.id); setEditPriceValue(Math.round(item.price)); }}
-                            style={{ color: '#10b981', fontSize: '12px', fontWeight: 900, cursor: 'pointer', display: 'inline-block', borderBottom: '1px dashed rgba(16,185,129,0.4)', marginTop: '2px' }}
-                            title="Tap to Edit Unit Price"
-                          >
-                             ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'var(--text-secondary)', fontSize: '10px', marginLeft: '4px' }}>(₹{Math.round(item.price)} each)</span>}
-                          </div>
-                        )}
+                      <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
+                        <div style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px', wordBreak: 'break-word' }}>{item.name}</div>
+                        <div style={{ color: '#10b981', fontSize: '12px', fontWeight: 900, marginTop: '2px' }}>
+                          ₹{item.price}
+                        </div>
                       </div>
 
-                      {/* Quantity Selector */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <button 
-                          onClick={() => updateQuantity(item.id, -1)} 
-                          disabled={!item.id}
-                          style={{ cursor: !item.id ? 'not-allowed' : 'pointer', opacity: !item.id ? 0.3 : 1, border: 'none', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        >
-                          <Minus size={13} />
-                        </button>
-                        <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px', minWidth: '16px', textAlign: 'center' }}>{item.quantity}</span>
-                        <button 
-                          onClick={() => updateQuantity(item.id, 1)} 
-                          disabled={!item.id}
-                          style={{ cursor: !item.id ? 'not-allowed' : 'pointer', opacity: !item.id ? 0.3 : 1, border: 'none', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        >
-                          <Plus size={13} />
-                        </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-base)', borderRadius: '12px', padding: '4px', border: '1px solid var(--border-color)' }}>
+                          <button onClick={() => updateQuantity(item.id, -1, item.menu_item_id)} style={{ width: '28px', height: '28px', border: 'none', backgroundColor: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={14} /></button>
+                          <span style={{ width: '28px', textAlign: 'center', fontWeight: 900, color: 'var(--text-primary)', fontSize: '14px' }}>{item.quantity}</span>
+                          <button onClick={() => updateQuantity(item.id, 1, item.menu_item_id)} style={{ width: '28px', height: '28px', border: 'none', backgroundColor: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={14} /></button>
+                        </div>
                       </div>
                     </div>
                   ))
                 )}
               </div>
 
-              {/* Desktop Cart Footer */}
-              <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card)', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Desktop Active Selection Actions Footer */}
+              <div style={{ padding: '20px', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>LOYALTY DISCOUNT (%)</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700 }}>Subtotal</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '15px' }}>₹{orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</span>
+                </div>
+                
+                {Boolean(user?.gst_percentage) && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700 }}>GST ({user.gst_percentage}%)</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '15px' }}>₹{(orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (user.gst_percentage / 100)).toFixed(2)}</span>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 800 }}>DISCOUNT (%)</span>
                   <input 
-                     type="number" 
-                     value={discount} 
-                     onChange={e => setDiscount(Math.max(0, Math.min(100, e.target.value)))} 
-                     style={{ width: '45px', background: 'none', border: 'none', borderBottom: '2px solid #0ea5e9', color: 'var(--text-primary)', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '13px' }} 
+                    type="number" 
+                    value={discount} 
+                    onChange={e => setDiscount(e.target.value === '' ? '' : Math.max(0, Math.min(100, e.target.value)))} 
+                    style={{ width: '50px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '13px', borderRadius: '6px', padding: '2px 4px' }} 
                   />
                 </div>
 
-                <div>
-                </div>
+                <div style={{ height: '1px', backgroundColor: 'var(--border-color)' }}></div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
-                  <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>Final Due</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-primary)' }}>Grand Total</span>
                   <span style={{ color: '#10b981', fontSize: '22px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
                 </div>
 
@@ -1078,6 +1104,31 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     }}
                   >
                     {table.table_number === 'Parcel Counter' ? 'SETTLE BILL' : 'SETTLE TRANSACTION'}
+                  </button>
+                )}
+
+                {(cancelOrdersEnabled && (table.active_order_id || orderItems.length > 0)) && (
+                  <button 
+                    type="button" 
+                    onClick={() => setShowCancelConfirmModal(true)} 
+                    style={{ 
+                      width: '100%', 
+                      padding: '12px', 
+                      borderRadius: '14px', 
+                      backgroundColor: 'rgba(239, 68, 68, 0.12)', 
+                      color: '#f43f5e', 
+                      border: '1px solid rgba(239, 68, 68, 0.3)', 
+                      fontWeight: 900, 
+                      fontSize: '13px', 
+                      cursor: 'pointer', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      gap: '6px', 
+                      marginTop: '4px' 
+                    }}
+                  >
+                    <Ban size={15} /> CANCEL ORDER / CLEAR TABLE
                   </button>
                 )}
               </div>
@@ -1400,6 +1451,54 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                      </div>
                   )}
               </div>
+          </div>
+        </div>
+      )}
+      {/* Cancel Order Confirmation Modal */}
+      {showCancelConfirmModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 4000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(8px)' }}>
+          <div style={{ width: '100%', maxWidth: '440px', backgroundColor: 'var(--bg-card)', borderRadius: '24px', padding: '28px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f43f5e', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                <Ban size={24} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Cancel Order & Clear Table</h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0', fontWeight: 600 }}>Table: {table.table_numberByFloor || table.table_number}</p>
+              </div>
+            </div>
+
+            <p style={{ color: 'var(--text-primary)', fontSize: '13px', lineHeight: 1.5, margin: 0, fontWeight: 600 }}>
+              Are you sure you want to cancel this order and clear the table? A record will be logged in <b>Cancel Orders</b> audit history.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Cancellation Reason (Optional)</label>
+              <input 
+                type="text" 
+                placeholder="e.g. Customer left / Wrong order" 
+                value={cancellationReason}
+                onChange={e => setCancellationReason(e.target.value)}
+                style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 600, fontSize: '13px', outline: 'none' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                type="button" 
+                onClick={() => setShowCancelConfirmModal(false)}
+                style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 800, cursor: 'pointer', fontSize: '13px' }}
+              >
+                Keep Order
+              </button>
+              <button 
+                type="button" 
+                onClick={handleConfirmCancelOrder}
+                style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: '#f43f5e', border: 'none', color: '#ffffff', fontWeight: 900, cursor: 'pointer', fontSize: '13px', boxShadow: '0 4px 12px rgba(244, 63, 94, 0.3)' }}
+              >
+                Yes, Cancel Order
+              </button>
+            </div>
           </div>
         </div>
       )}

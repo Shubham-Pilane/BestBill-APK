@@ -453,15 +453,56 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const actualItemId = itemQuery.rows[0].id;
       const orderId = itemQuery.rows[0].order_id;
 
+      const beforeItemsRes = await db.query(`
+        SELECT oi.*, mi.name, mi.price 
+        FROM order_items oi 
+        JOIN menu_items mi ON oi.menu_item_id = mi.id 
+        WHERE oi.order_id = $1
+      `, [orderId]);
+      
+      const beforeItems = beforeItemsRes.rows.map(i => ({
+         name: i.name,
+         price: Number(i.price || 0),
+         quantity: Number(i.quantity || 1)
+      }));
+
       await db.query('DELETE FROM order_items WHERE id = $1', [actualItemId]);
 
-      const remainingQuery = await db.query('SELECT count(*) as count FROM order_items WHERE order_id = $1', [orderId]);
+      const remainingQuery = await db.query('SELECT count(*) as count FROM order_items WHERE order_id = $1 AND quantity > 0', [orderId]);
       const hasRemaining = remainingQuery.rows[0].count > 0;
 
       if (!hasRemaining) {
-        await db.query('DELETE FROM orders WHERE id = $1', [orderId]);
+        const tableRes = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [tableId]);
+        const tableNumber = tableRes.rows[0]?.table_number || `Table ${tableId}`;
+        const floor = tableRes.rows[0]?.floor || 'Floor 1';
+        const cancelledBy = user?.name || (user?.role === 'owner' ? 'Owner' : 'Staff');
+
+        const totalQty = beforeItems.reduce((sum, i) => sum + i.quantity, 0);
+        const totalAmount = beforeItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+
+        await db.query(
+          `INSERT INTO cancelled_orders 
+           (hotel_id, order_number, table_id, table_number, floor, cancelled_by, items_json, total_quantity, total_amount, cancellation_reason, kot_status, billing_status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          [
+            user.hotel_id,
+            `ORD-${orderId}`,
+            tableId,
+            tableNumber,
+            floor,
+            cancelledBy,
+            JSON.stringify(beforeItems),
+            totalQty,
+            totalAmount,
+            'All items manually removed',
+            'Not Printed',
+            'Not Settled'
+          ]
+        );
+
+        await db.query("UPDATE orders SET status = 'cancelled' WHERE id = $1", [orderId]);
         notifyUpdate('table-update');
-        return { status: 200, data: { items: [], order_deleted: true } };
+        return { status: 200, data: { items: [], order_deleted: true, message: 'All items removed, order cancelled' } };
       }
 
       const updatedItems = await db.query(
@@ -474,6 +515,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       notifyUpdate('table-update');
       return { status: 200, data: { items: updatedItems.rows, order_deleted: false } };
     }
+
 
     if (path.startsWith('/tables/') && path.endsWith('/order/kot') && methodUpper === 'POST') {
       const tableId = parseInt(path.split('/')[2]);
@@ -1485,6 +1527,383 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         localStorage.setItem('cfg_bluetooth_mac', printers.billing.deviceName || '');
         localStorage.setItem('cfg_printer_size', printers.billing.paperSize || '58mm');
       }
+      return { status: 200, data: { success: true } };
+    }
+
+
+    if (path === '/hotel/cancel-orders-status' && methodUpper === 'GET') {
+      const res = await db.query('SELECT cancel_orders_enabled FROM hotels WHERE id = $1', [user.hotel_id]);
+      const enabled = res.rows[0]?.cancel_orders_enabled !== undefined && res.rows[0]?.cancel_orders_enabled !== null ? Boolean(res.rows[0]?.cancel_orders_enabled) : true;
+      return { status: 200, data: { cancelOrdersEnabled: enabled } };
+    }
+
+    if (path === '/hotel/toggle-cancel-orders' && methodUpper === 'POST') {
+      const { enabled } = body;
+      const val = enabled ? 1 : 0;
+      try {
+        await db.query('ALTER TABLE hotels ADD COLUMN cancel_orders_enabled INTEGER DEFAULT 1');
+      } catch (e) {}
+      await db.query('UPDATE hotels SET cancel_orders_enabled = $1 WHERE id = $2', [val, user.hotel_id]);
+      return { status: 200, data: { success: true, enabled: Boolean(enabled) } };
+    }
+
+    // ----------------------------------------
+    // CANCEL ORDERS ROUTES
+    // ----------------------------------------
+    if (path === '/cancel-orders' && methodUpper === 'GET') {
+      const { page = 1, limit = 10 } = queryParams;
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 10;
+      const offset = (pageNum - 1) * limitNum;
+
+      const countRes = await db.query('SELECT count(*) as count FROM cancelled_orders');
+      const totalCount = Number(countRes.rows[0]?.count || 0);
+      const totalPages = Math.ceil(totalCount / limitNum) || 1;
+
+      const dataRes = await db.query(
+        'SELECT * FROM cancelled_orders ORDER BY id DESC LIMIT $1 OFFSET $2',
+        [limitNum, offset]
+      );
+
+      return {
+        status: 200,
+        data: {
+          cancelledOrders: dataRes.rows,
+          totalCount,
+          totalPages,
+          currentPage: pageNum
+        }
+      };
+    }
+
+    if (path === '/cancel-orders' && methodUpper === 'POST') {
+      const { table_id, table_number, floor, items, cancellation_reason, kot_status, billing_status } = body;
+      
+      const totalQty = items?.reduce((sum, i) => sum + Number(i.quantity || 1), 0) || 0;
+      const totalAmount = items?.reduce((sum, i) => sum + (Number(i.price || 0) * Number(i.quantity || 1)), 0) || 0;
+      const cancelledBy = user?.name || (user?.role === 'owner' ? 'Owner' : 'Staff');
+      const orderNumber = `ORD-M-${Date.now()}`;
+
+      await db.query(
+        `INSERT INTO cancelled_orders 
+         (hotel_id, order_number, table_id, table_number, floor, cancelled_by, items_json, total_quantity, total_amount, cancellation_reason, kot_status, billing_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [
+          user?.hotel_id || 1,
+          orderNumber,
+          table_id,
+          table_number,
+          floor,
+          cancelledBy,
+          JSON.stringify(items || []),
+          totalQty,
+          totalAmount,
+          cancellation_reason || 'Order Cancelled',
+          kot_status || 'Not Printed',
+          billing_status || 'Not Settled'
+        ]
+      );
+
+      return { status: 200, data: { success: true, message: 'Cancelled order recorded successfully' } };
+    }
+
+    if (path.startsWith('/cancel-orders/') && path.endsWith('/print') && methodUpper === 'POST') {
+      const parts = path.split('/');
+      const id = parseInt(parts[2]);
+      const dataRes = await db.query('SELECT * FROM cancelled_orders WHERE id = $1', [id]);
+      if (dataRes.rows.length === 0) return { status: 404, data: { message: 'Cancelled order not found' } };
+      
+      const cancelledOrder = dataRes.rows[0];
+      let items = [];
+      try { items = JSON.parse(cancelledOrder.items_json); } catch (e) {}
+
+      const hotelRes = await db.query('SELECT name, phone, location FROM hotels LIMIT 1');
+      const hotel = hotelRes.rows[0] || {};
+
+      const printPayload = {
+        type: 'CANCEL_ORDER',
+        orderNumber: cancelledOrder.order_number,
+        table: cancelledOrder.table_number,
+        floor: cancelledOrder.floor,
+        cancelledBy: cancelledOrder.cancelled_by,
+        items,
+        totalAmount: cancelledOrder.total_amount,
+        kotStatus: cancelledOrder.kot_status,
+        billingStatus: cancelledOrder.billing_status,
+        cancellationReason: cancelledOrder.cancellation_reason,
+        cancelDate: cancelledOrder.cancel_date,
+        hotelName: hotel.name || 'BestBill POS',
+        hotelPhone: hotel.phone || '',
+        hotelLocation: hotel.location || ''
+      };
+
+      window.dispatchEvent(new CustomEvent('print-job-triggered', { detail: printPayload }));
+      return { status: 200, data: { success: true, message: 'Cancel order slip queued for printing' } };
+    }
+
+    if (path.startsWith('/cancel-orders/') && methodUpper === 'GET') {
+      const parts = path.split('/');
+      const id = parseInt(parts[2]);
+      if (!isNaN(id)) {
+        const dataRes = await db.query('SELECT * FROM cancelled_orders WHERE id = $1', [id]);
+        if (dataRes.rows.length === 0) return { status: 404, data: { message: 'Cancelled order not found' } };
+        const order = dataRes.rows[0];
+        let items = [];
+        try { items = JSON.parse(order.items_json); } catch (e) {}
+        return { status: 200, data: { ...order, items } };
+      }
+    }
+
+    if (path === '/cancel-orders' && methodUpper === 'POST') {
+      const { order_number, table_id, table_number, floor, items, cancellation_reason, kot_status, billing_status } = body;
+      const cancelledBy = user?.name || (user?.role === 'owner' ? 'Owner' : 'Staff');
+      const totalQuantity = (items || []).reduce((sum, i) => sum + (parseInt(i.quantity || i.qty || 1)), 0);
+      const totalAmount = (items || []).reduce((sum, i) => sum + (parseFloat(i.price || 0) * parseInt(i.quantity || i.qty || 1)), 0);
+      const orderNum = order_number || `ORD-${Date.now().toString().slice(-6)}`;
+
+      const insertRes = await db.query(
+        `INSERT INTO cancelled_orders 
+         (hotel_id, order_number, table_id, table_number, floor, cancelled_by, items_json, total_quantity, total_amount, cancellation_reason, kot_status, billing_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+        [
+          user?.hotel_id || 1,
+          orderNum,
+          table_id || null,
+          table_number || 'Table',
+          floor || 'Floor 1',
+          cancelledBy,
+          JSON.stringify(items || []),
+          totalQuantity,
+          totalAmount,
+          cancellation_reason || 'Order Cancelled',
+          kot_status || 'Not Printed',
+          billing_status || 'Not Settled'
+        ]
+      );
+      return { status: 201, data: { message: 'Cancelled order recorded successfully', cancelledOrder: insertRes.rows[0] } };
+    }
+
+    if (path.includes('/order/items') && path.startsWith('/tables/') && (methodUpper === 'DELETE' || methodUpper === 'PUT')) {
+      const parts = path.split('/');
+      const tableId = parseInt(parts[2]);
+      const itemId = parseInt(parts[5]);
+
+      const orderRes = await db.query("SELECT id FROM orders WHERE table_id = $1 AND status = 'active'", [tableId]);
+      if (orderRes.rows.length > 0) {
+        const orderId = orderRes.rows[0].id;
+
+        // Fetch items before we possibly delete the last one
+        const beforeItemsRes = await db.query(`
+          SELECT oi.*, mi.name, mi.price 
+          FROM order_items oi 
+          JOIN menu_items mi ON oi.menu_item_id = mi.id 
+          WHERE oi.order_id = $1
+        `, [orderId]);
+        const beforeItems = beforeItemsRes.rows.map(i => ({
+           name: i.name,
+           price: Number(i.price || 0),
+           quantity: Number(i.quantity || 1)
+        }));
+
+        if (methodUpper === 'DELETE') {
+          await db.query('DELETE FROM order_items WHERE id = $1 AND order_id = $2', [itemId, orderId]);
+        } else if (methodUpper === 'PUT') {
+          const { quantity } = body;
+          if (quantity <= 0) {
+            await db.query('DELETE FROM order_items WHERE id = $1 AND order_id = $2', [itemId, orderId]);
+          } else {
+            await db.query('UPDATE order_items SET quantity = $1 WHERE id = $2 AND order_id = $3', [quantity, itemId, orderId]);
+          }
+        }
+
+        // Check remaining active items
+        const remainingRes = await db.query(`
+          SELECT oi.*, mi.name, mi.price 
+          FROM order_items oi 
+          JOIN menu_items mi ON oi.menu_item_id = mi.id 
+          WHERE oi.order_id = $1 AND oi.quantity > 0
+        `, [orderId]);
+
+        if (remainingRes.rows.length === 0) {
+          // All items removed! Record in cancelled_orders using the state of items right before this action
+          const tableRes = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [tableId]);
+          const tableNumber = tableRes.rows[0]?.table_number || `Table ${tableId}`;
+          const floor = tableRes.rows[0]?.floor || 'Floor 1';
+          const cancelledBy = user.name || (user.role === 'owner' ? 'Owner' : 'Staff');
+
+          const totalQty = beforeItems.reduce((sum, i) => sum + i.quantity, 0);
+          const totalAmount = beforeItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+
+          await db.query(
+            `INSERT INTO cancelled_orders 
+             (hotel_id, order_number, table_id, table_number, floor, cancelled_by, items_json, total_quantity, total_amount, cancellation_reason, kot_status, billing_status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            [
+              user.hotel_id,
+              `ORD-${orderId}`,
+              tableId,
+              tableNumber,
+              floor,
+              cancelledBy,
+              JSON.stringify(beforeItems),
+              totalQty,
+              totalAmount,
+              'All items manually removed',
+              'Not Printed',
+              'Not Settled'
+            ]
+          );
+
+          await db.query("UPDATE orders SET status = 'cancelled' WHERE id = $1", [orderId]);
+          notifyUpdate(user.hotel_id, 'table-update');
+          return { status: 200, data: { items: [], order_deleted: true, message: 'All items removed, order cancelled' } };
+        }
+
+        notifyUpdate(user.hotel_id, 'table-update');
+        return { status: 200, data: { items: remainingRes.rows, order_deleted: false } };
+      }
+    }
+
+    if ((path.includes('/clear-order') || path.includes('/cancel')) && path.startsWith('/tables/') && methodUpper === 'POST') {
+      const parts = path.split('/');
+      const tableId = parseInt(parts[2]);
+      const { reason } = body;
+
+      const orderRes = await db.query("SELECT id FROM orders WHERE table_id = $1 AND status = 'active'", [tableId]);
+      if (orderRes.rows.length > 0) {
+        const orderId = orderRes.rows[0].id;
+
+        const tableRes = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [tableId]);
+        const itemsRes = await db.query(`
+          SELECT oi.quantity, oi.printed_quantity, mi.name, mi.price
+          FROM order_items oi
+          JOIN menu_items mi ON oi.menu_item_id = mi.id
+          WHERE oi.order_id = $1
+        `, [orderId]);
+
+        let items = itemsRes.rows.map(i => ({
+          name: i.name,
+          price: Number(i.price || 0),
+          quantity: Number(i.quantity || 1)
+        }));
+
+        if (items.length === 0 && Array.isArray(body?.items) && body.items.length > 0) {
+          items = body.items.map(i => ({
+            name: i.name || 'Item',
+            price: Number(i.price || 0),
+            quantity: Number(i.quantity || i.qty || 1)
+          }));
+        }
+
+        const totalQty = items.reduce((sum, i) => sum + i.quantity, 0);
+        const totalAmount = items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+        const tableNumber = tableRes.rows[0]?.table_number || `Table ${tableId}`;
+        const floor = tableRes.rows[0]?.floor || 'Floor 1';
+        const cancelledBy = user.name || (user.role === 'owner' ? 'Owner' : 'Staff');
+        const orderNumber = `ORD-${orderId}`;
+
+        await db.query(
+          `INSERT INTO cancelled_orders 
+           (hotel_id, order_number, table_id, table_number, floor, cancelled_by, items_json, total_quantity, total_amount, cancellation_reason, kot_status, billing_status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          [
+            user.hotel_id || 1,
+            orderNumber,
+            tableId,
+            tableNumber,
+            floor,
+            cancelledBy,
+            JSON.stringify(items),
+            totalQty,
+            totalAmount,
+            reason || 'Order Cancelled',
+            'Not Printed',
+            'Not Settled'
+          ]
+        );
+
+        await db.query("UPDATE orders SET status = 'cancelled' WHERE id = $1", [orderId]);
+        notifyUpdate(user.hotel_id, 'table-update');
+      }
+
+      return { status: 200, data: { success: true, message: 'Table order cancelled successfully' } };
+    }
+
+    // ----------------------------------------
+    // EXPENSES ROUTES
+    // ----------------------------------------
+    if (path === '/expenses/summary' && methodUpper === 'GET') {
+      const { filter = 'Today', startDate, endDate } = queryParams;
+      let dateClause = "date(expense_date) = date('now', 'localtime')";
+      if (filter === 'Yesterday') {
+        dateClause = "date(expense_date) = date('now', '-1 day', 'localtime')";
+      } else if (filter === 'Last 15 Days') {
+        dateClause = "date(expense_date) >= date('now', '-14 days', 'localtime')";
+      } else if (filter === 'Current Month' || filter === 'Month') {
+        dateClause = "strftime('%Y-%m', expense_date) = strftime('%Y-%m', 'now', 'localtime')";
+      } else if (filter === 'Year') {
+        dateClause = "strftime('%Y', expense_date) = strftime('%Y', 'now', 'localtime')";
+      } else if (filter === 'Custom' && startDate && endDate) {
+        dateClause = `date(expense_date) >= date('${startDate}') AND date(expense_date) <= date('${endDate}')`;
+      }
+      const sumRes = await db.query(`SELECT COALESCE(SUM(amount), 0) as total_expenses FROM expenses WHERE hotel_id = $1 AND ${dateClause}`, [user.hotel_id]);
+      return { status: 200, data: { total_expenses: Number(sumRes.rows[0]?.total_expenses || 0) } };
+    }
+
+    if (path === '/expenses' && methodUpper === 'GET') {
+      const { filter = 'Today', startDate, endDate, page = 1, limit = 10 } = queryParams;
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 10;
+      const offset = (pageNum - 1) * limitNum;
+
+      let dateClause = "date(expense_date) = date('now', 'localtime')";
+      if (filter === 'Yesterday') {
+        dateClause = "date(expense_date) = date('now', '-1 day', 'localtime')";
+      } else if (filter === 'Last 15 Days') {
+        dateClause = "date(expense_date) >= date('now', '-14 days', 'localtime')";
+      } else if (filter === 'Current Month') {
+        dateClause = "strftime('%Y-%m', expense_date) = strftime('%Y-%m', 'now', 'localtime')";
+      } else if (filter === 'Last Month') {
+        dateClause = "strftime('%Y-%m', expense_date) = strftime('%Y-%m', 'now', '-1 month', 'localtime')";
+      } else if (filter === 'Custom' && startDate && endDate) {
+        dateClause = `date(expense_date) >= date('${startDate}') AND date(expense_date) <= date('${endDate}')`;
+      }
+
+      const totalRes = await db.query(`SELECT count(*) as count, COALESCE(SUM(amount), 0) as total_sum FROM expenses WHERE hotel_id = $1 AND ${dateClause}`, [user.hotel_id]);
+      const totalCount = Number(totalRes.rows[0]?.count || 0);
+      const totalExpensesAmount = Number(totalRes.rows[0]?.total_sum || 0);
+      const totalPages = Math.ceil(totalCount / limitNum) || 1;
+
+      const rowsRes = await db.query(
+        `SELECT * FROM expenses WHERE hotel_id = $1 AND ${dateClause} ORDER BY expense_date DESC, id DESC LIMIT $2 OFFSET $3`,
+        [user.hotel_id, limitNum, offset]
+      );
+
+      return {
+        status: 200,
+        data: {
+          expenses: rowsRes.rows.map(e => ({ ...e, amount: Number(e.amount) })),
+          totalCount,
+          totalPages,
+          currentPage: pageNum,
+          totalExpensesAmount
+        }
+      };
+    }
+
+    if (path === '/expenses' && methodUpper === 'POST') {
+      const { title, category, amount, expense_date, payment_method, description } = body;
+      const res = await db.query(
+        `INSERT INTO expenses (hotel_id, title, category, amount, expense_date, payment_method, description, created_by) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [user.hotel_id, title, category || 'Other', amount, expense_date || new Date().toISOString().split('T')[0], payment_method || 'Cash', description || '', user.name || 'Owner']
+      );
+      return { status: 201, data: res.rows[0] };
+    }
+
+    if (path.startsWith('/expenses/') && methodUpper === 'DELETE') {
+      const id = parseInt(path.split('/')[2]);
+      await db.query('DELETE FROM expenses WHERE id = $1 AND hotel_id = $2', [id, user.hotel_id]);
       return { status: 200, data: { success: true } };
     }
 
