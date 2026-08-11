@@ -8,6 +8,55 @@ function getLocalDateString(d = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+// Generate random 5-character alphanumeric Hotel Code (e.g. A7kP2)
+function generate5CharHotelCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < 5; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+// Check uniqueness in Supabase DB and generate unique 5-char code
+async function getOrCreateUniqueHotelCode(supabaseUrl, supabaseKey, accessToken) {
+  let existingCode = (localStorage.getItem('cfg_cloud_sync_hotel_code') || '').trim();
+
+  // If already a valid 5-character alphanumeric code, keep it
+  if (existingCode && existingCode.length === 5 && /^[a-zA-Z0-9]{5}$/.test(existingCode)) {
+    return existingCode;
+  }
+
+  let isUnique = false;
+  let newCode = '';
+  let attempts = 0;
+
+  while (!isUnique && attempts < 20) {
+    attempts++;
+    newCode = generate5CharHotelCode();
+    try {
+      const checkRes = await fetch(`${supabaseUrl}/rest/v1/hotels?hotel_code=eq.${newCode}&select=id`, {
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      const data = await checkRes.json().catch(() => []);
+      if (Array.isArray(data) && data.length === 0) {
+        isUnique = true;
+      }
+    } catch (e) {
+      isUnique = true;
+    }
+  }
+
+  if (newCode) {
+    localStorage.setItem('cfg_cloud_sync_hotel_code', newCode);
+    return newCode;
+  }
+  return existingCode || generate5CharHotelCode();
+}
+
 export async function getDailyAnalyticsData(targetDateStr) {
   try {
     const hotelRes = await db.query('SELECT name, location, phone FROM hotels LIMIT 1');
@@ -187,9 +236,8 @@ export async function performCloudSync() {
     const todayStr = getLocalDateString();
     const analytics = await getDailyAnalyticsData(todayStr);
 
-    const effectiveHotelCode = (hotelCode && hotelCode !== 'HOTEL_001') 
-      ? hotelCode 
-      : `HOTEL_${ownerId.slice(0, 8).toUpperCase()}`;
+    // Get or generate unique 5-character Hotel Code (e.g. A7kP2)
+    const effectiveHotelCode = await getOrCreateUniqueHotelCode(supabaseUrl, supabaseKey, accessToken);
 
     const hotelPayload = {
       owner_id: ownerId,
@@ -199,7 +247,7 @@ export async function performCloudSync() {
       phone: analytics.hotel.phone || ''
     };
 
-    const hotelRes = await fetch(`${supabaseUrl}/rest/v1/hotels?on_conflict=owner_id`, {
+    const hotelRes = await fetch(`${supabaseUrl}/rest/v1/hotels?on_conflict=hotel_code`, {
       method: 'POST',
       headers: {
         'apikey': supabaseKey,
@@ -211,7 +259,7 @@ export async function performCloudSync() {
     });
 
     if (!hotelRes.ok) {
-      await fetch(`${supabaseUrl}/rest/v1/hotels?on_conflict=hotel_code`, {
+      await fetch(`${supabaseUrl}/rest/v1/hotels?on_conflict=owner_id`, {
         method: 'POST',
         headers: {
           'apikey': supabaseKey,
