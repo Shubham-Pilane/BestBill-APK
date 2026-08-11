@@ -176,7 +176,8 @@ CREATE TABLE IF NOT EXISTS orders (
     source TEXT DEFAULT 'admin',
     is_prepared BOOLEAN DEFAULT 0,
     waiter_name TEXT,
-    kot_sent_at TIMESTAMP
+    kot_sent_at TIMESTAMP,
+    removed_items_json TEXT DEFAULT '[]'
 );
 
 CREATE TABLE IF NOT EXISTS bills (
@@ -436,6 +437,9 @@ export const initDb = async () => {
     
     // Always execute DDL schema check to auto-create missing tables (cancel_orders, expenses, etc.)
     db.run(DDL_SCHEMA);
+    try {
+      db.run("ALTER TABLE orders ADD COLUMN removed_items_json TEXT DEFAULT '[]';");
+    } catch (e) {}
     saveDbFileNow();
     
     // Enable Foreign Keys & Seed Defaults

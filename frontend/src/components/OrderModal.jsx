@@ -24,20 +24,10 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
   const handleConfirmCancelOrder = async () => {
     try {
-      if (table?.active_order_id) {
-        await api.post(`/tables/${table.id}/clear-order`, { reason: cancellationReason || 'Order Cancelled', items: orderItems });
-      } else {
-        const cancelPayloadItems = orderItems.length > 0 ? orderItems : [{ name: 'Cleared Table', price: 0, quantity: 1 }];
-        await api.post('/cancel-orders', {
-          table_id: table.id,
-          table_number: table.table_number,
-          floor: table.floor,
-          items: cancelPayloadItems,
-          cancellation_reason: cancellationReason || 'Order Cancelled',
-          kot_status: 'Not Printed',
-          billing_status: 'Not Settled'
-        });
-      }
+      await api.post(`/tables/${table.id}/clear-order`, {
+        reason: cancellationReason || 'Order Cancelled',
+        items: orderItems
+      });
       setOrderItems([]);
       toast.success('Order cancelled and table cleared!');
       setShowCancelConfirmModal(false);

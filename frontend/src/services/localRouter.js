@@ -17,6 +17,27 @@ const parseQueryParams = (url) => {
   return params;
 };
 
+// Combine active items and removed items history into a merged list
+const combineAndMergeItems = (activeItems = [], removedItems = []) => {
+  const map = new Map();
+  const processItem = (item) => {
+    if (!item) return;
+    const name = item.name || 'Item';
+    const price = Number(item.price || 0);
+    const qty = Number(item.quantity || item.qty || 1);
+    const key = `${name}___${price}`;
+    if (map.has(key)) {
+      const existing = map.get(key);
+      existing.quantity += qty;
+    } else {
+      map.set(key, { name, price, quantity: qty });
+    }
+  };
+  (activeItems || []).forEach(processItem);
+  (removedItems || []).forEach(processItem);
+  return Array.from(map.values());
+};
+
 // Generate a simple mock JWT
 const generateMockToken = (userId, role, hotelId) => {
   return `mock-token-${userId}-${role}-${hotelId}-${Date.now()}`;
@@ -426,6 +447,31 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const orderItemId = parseInt(path.split('/')[5]);
       const { quantity } = body;
 
+      const itemQuery = await db.query(`
+        SELECT oi.id, oi.order_id, oi.quantity, mi.name, mi.price
+        FROM order_items oi
+        JOIN menu_items mi ON oi.menu_item_id = mi.id
+        WHERE oi.id = $1 
+           OR (oi.order_id IN (SELECT id FROM orders WHERE table_id = $2 AND status = 'active') AND oi.menu_item_id = $1)
+      `, [orderItemId, tableId]);
+
+      if (itemQuery.rows.length > 0) {
+        const item = itemQuery.rows[0];
+        const oldQty = Number(item.quantity || 1);
+        const newQty = Number(quantity || 0);
+
+        if (newQty < oldQty) {
+          const diff = oldQty - newQty;
+          const orderRow = await db.query('SELECT removed_items_json FROM orders WHERE id = $1', [item.order_id]);
+          let removedItems = [];
+          try {
+            removedItems = JSON.parse(orderRow.rows[0]?.removed_items_json || '[]');
+          } catch (e) {}
+          removedItems.push({ name: item.name, price: Number(item.price || 0), quantity: diff });
+          await db.query('UPDATE orders SET removed_items_json = $1 WHERE id = $2', [JSON.stringify(removedItems), item.order_id]);
+        }
+      }
+
       await db.query(`
         UPDATE order_items 
         SET quantity = $1 
@@ -441,10 +487,10 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const tableId = parseInt(path.split('/')[2]);
       const orderItemId = parseInt(path.split('/')[5]);
 
-      let itemQuery = await db.query('SELECT id, order_id FROM order_items WHERE id = $1', [orderItemId]);
+      let itemQuery = await db.query('SELECT oi.id, oi.order_id, oi.quantity, mi.name, mi.price FROM order_items oi JOIN menu_items mi ON oi.menu_item_id = mi.id WHERE oi.id = $1', [orderItemId]);
       if (itemQuery.rows.length === 0) {
         itemQuery = await db.query(
-          "SELECT id, order_id FROM order_items WHERE menu_item_id = $1 AND order_id IN (SELECT id FROM orders WHERE table_id = $2 AND status = 'active')",
+          "SELECT oi.id, oi.order_id, oi.quantity, mi.name, mi.price FROM order_items oi JOIN menu_items mi ON oi.menu_item_id = mi.id WHERE oi.menu_item_id = $1 AND oi.order_id IN (SELECT id FROM orders WHERE table_id = $2 AND status = 'active')",
           [orderItemId, tableId]
         );
       }
@@ -452,50 +498,66 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       if (itemQuery.rows.length === 0) return { status: 404, data: { message: 'Item not found' } };
       const actualItemId = itemQuery.rows[0].id;
       const orderId = itemQuery.rows[0].order_id;
+      const deletedItemName = itemQuery.rows[0].name;
+      const deletedItemPrice = Number(itemQuery.rows[0].price || 0);
+      const deletedItemQty = Number(itemQuery.rows[0].quantity || 1);
 
-      const beforeItemsRes = await db.query(`
-        SELECT oi.*, mi.name, mi.price 
+      // Append deleted item to removed_items_json
+      const orderRow = await db.query('SELECT removed_items_json, kot_sent_at FROM orders WHERE id = $1', [orderId]);
+      let removedItems = [];
+      try {
+        removedItems = JSON.parse(orderRow.rows[0]?.removed_items_json || '[]');
+      } catch (e) {}
+      removedItems.push({ name: deletedItemName, price: deletedItemPrice, quantity: deletedItemQty });
+      await db.query('UPDATE orders SET removed_items_json = $1 WHERE id = $2', [JSON.stringify(removedItems), orderId]);
+
+      // Delete item from order_items
+      await db.query('DELETE FROM order_items WHERE id = $1', [actualItemId]);
+
+      // Fetch remaining active items AFTER deletion
+      const activeItemsRes = await db.query(`
+        SELECT oi.quantity, mi.name, mi.price 
         FROM order_items oi 
         JOIN menu_items mi ON oi.menu_item_id = mi.id 
-        WHERE oi.order_id = $1
+        WHERE oi.order_id = $1 AND oi.quantity > 0
       `, [orderId]);
       
-      const beforeItems = beforeItemsRes.rows.map(i => ({
+      const currentActiveItems = activeItemsRes.rows.map(i => ({
          name: i.name,
          price: Number(i.price || 0),
          quantity: Number(i.quantity || 1)
       }));
 
-      await db.query('DELETE FROM order_items WHERE id = $1', [actualItemId]);
-
-      const remainingQuery = await db.query('SELECT count(*) as count FROM order_items WHERE order_id = $1 AND quantity > 0', [orderId]);
-      const hasRemaining = remainingQuery.rows[0].count > 0;
+      const hasRemaining = currentActiveItems.length > 0;
 
       if (!hasRemaining) {
         const tableRes = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [tableId]);
         const tableNumber = tableRes.rows[0]?.table_number || `Table ${tableId}`;
         const floor = tableRes.rows[0]?.floor || 'Floor 1';
         const cancelledBy = user?.name || (user?.role === 'owner' ? 'Owner' : 'Staff');
+        const isKotPrinted = !!orderRow.rows[0]?.kot_sent_at;
 
-        const totalQty = beforeItems.reduce((sum, i) => sum + i.quantity, 0);
-        const totalAmount = beforeItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+        // Combine currentActiveItems (which is []) + removedItems history (which has all deleted items)
+        const allOriginalItems = combineAndMergeItems(currentActiveItems, removedItems);
+        const totalQty = allOriginalItems.reduce((sum, i) => sum + i.quantity, 0);
+        const totalAmount = allOriginalItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
 
         await db.query(
           `INSERT INTO cancelled_orders 
            (hotel_id, order_number, table_id, table_number, floor, cancelled_by, items_json, total_quantity, total_amount, cancellation_reason, kot_status, billing_status)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
           [
-            user.hotel_id,
+            user?.hotel_id || 1,
             `ORD-${orderId}`,
             tableId,
             tableNumber,
             floor,
             cancelledBy,
-            JSON.stringify(beforeItems),
+            JSON.stringify(allOriginalItems),
             totalQty,
             totalAmount,
             'All items manually removed',
-            'Not Printed',
+            isKotPrinted ? 'Printed' : 'Not Printed',
             'Not Settled'
           ]
         );
@@ -505,15 +567,8 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         return { status: 200, data: { items: [], order_deleted: true, message: 'All items removed, order cancelled' } };
       }
 
-      const updatedItems = await db.query(
-        `SELECT oi.*, mi.name, mi.price FROM order_items oi 
-         JOIN menu_items mi ON oi.menu_item_id = mi.id 
-         WHERE oi.order_id = $1 ORDER BY oi.created_at ASC`,
-        [orderId]
-      );
-
       notifyUpdate('table-update');
-      return { status: 200, data: { items: updatedItems.rows, order_deleted: false } };
+      return { status: 200, data: { items: currentActiveItems, order_deleted: false } };
     }
 
 
@@ -1622,16 +1677,21 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
       const printPayload = {
         type: 'CANCEL_ORDER',
+        isCancelOrder: true,
+        billId: cancelledOrder.order_number,
         orderNumber: cancelledOrder.order_number,
-        table: cancelledOrder.table_number,
+        table: cancelledOrder.table_number ? `Table: ${cancelledOrder.table_number} (${cancelledOrder.floor || 'Floor 1'})` : '',
         floor: cancelledOrder.floor,
         cancelledBy: cancelledOrder.cancelled_by,
         items,
-        totalAmount: cancelledOrder.total_amount,
+        totalAmount: Number(cancelledOrder.total_amount || 0),
+        finalAmount: Number(cancelledOrder.total_amount || 0),
+        subtotal: Number(cancelledOrder.total_amount || 0),
         kotStatus: cancelledOrder.kot_status,
         billingStatus: cancelledOrder.billing_status,
         cancellationReason: cancelledOrder.cancellation_reason,
         cancelDate: cancelledOrder.cancel_date,
+        dateStr: cancelledOrder.cancel_date ? new Date(cancelledOrder.cancel_date).toLocaleString() : new Date().toLocaleString(),
         hotelName: hotel.name || 'BestBill POS',
         hotelPhone: hotel.phone || '',
         hotelLocation: hotel.location || ''
@@ -1688,35 +1748,57 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const tableId = parseInt(parts[2]);
       const itemId = parseInt(parts[5]);
 
-      const orderRes = await db.query("SELECT id FROM orders WHERE table_id = $1 AND status = 'active'", [tableId]);
+      const orderRes = await db.query("SELECT id, kot_sent_at, removed_items_json FROM orders WHERE table_id = $1 AND status = 'active'", [tableId]);
       if (orderRes.rows.length > 0) {
         const orderId = orderRes.rows[0].id;
+        const isKotPrinted = !!orderRes.rows[0].kot_sent_at;
 
-        // Fetch items before we possibly delete the last one
-        const beforeItemsRes = await db.query(`
-          SELECT oi.*, mi.name, mi.price 
+        // Fetch active items before update/delete to inspect target item
+        const beforeActiveRes = await db.query(`
+          SELECT oi.id, oi.quantity, mi.name, mi.price 
           FROM order_items oi 
           JOIN menu_items mi ON oi.menu_item_id = mi.id 
           WHERE oi.order_id = $1
         `, [orderId]);
-        const beforeItems = beforeItemsRes.rows.map(i => ({
+        const beforeActiveItems = beforeActiveRes.rows.map(i => ({
            name: i.name,
            price: Number(i.price || 0),
-           quantity: Number(i.quantity || 1)
+           quantity: Number(i.quantity || 1),
+           id: i.id
         }));
 
+        let removedItems = [];
+        try {
+          removedItems = JSON.parse(orderRes.rows[0]?.removed_items_json || '[]');
+        } catch (e) {}
+
         if (methodUpper === 'DELETE') {
+          const targetItem = beforeActiveItems.find(i => i.id === itemId);
+          if (targetItem) {
+            removedItems.push({ name: targetItem.name, price: targetItem.price, quantity: targetItem.quantity });
+            await db.query('UPDATE orders SET removed_items_json = $1 WHERE id = $2', [JSON.stringify(removedItems), orderId]);
+          }
           await db.query('DELETE FROM order_items WHERE id = $1 AND order_id = $2', [itemId, orderId]);
         } else if (methodUpper === 'PUT') {
           const { quantity } = body;
-          if (quantity <= 0) {
-            await db.query('DELETE FROM order_items WHERE id = $1 AND order_id = $2', [itemId, orderId]);
-          } else {
-            await db.query('UPDATE order_items SET quantity = $1 WHERE id = $2 AND order_id = $3', [quantity, itemId, orderId]);
+          const targetItem = beforeActiveItems.find(i => i.id === itemId);
+          if (targetItem) {
+            if (quantity <= 0) {
+              removedItems.push({ name: targetItem.name, price: targetItem.price, quantity: targetItem.quantity });
+              await db.query('UPDATE orders SET removed_items_json = $1 WHERE id = $2', [JSON.stringify(removedItems), orderId]);
+              await db.query('DELETE FROM order_items WHERE id = $1 AND order_id = $2', [itemId, orderId]);
+            } else {
+              if (quantity < targetItem.quantity) {
+                const diff = targetItem.quantity - quantity;
+                removedItems.push({ name: targetItem.name, price: targetItem.price, quantity: diff });
+                await db.query('UPDATE orders SET removed_items_json = $1 WHERE id = $2', [JSON.stringify(removedItems), orderId]);
+              }
+              await db.query('UPDATE order_items SET quantity = $1 WHERE id = $2 AND order_id = $3', [quantity, itemId, orderId]);
+            }
           }
         }
 
-        // Check remaining active items
+        // Fetch remaining active items AFTER deletion
         const remainingRes = await db.query(`
           SELECT oi.*, mi.name, mi.price 
           FROM order_items oi 
@@ -1724,42 +1806,50 @@ export async function handleRequest(method, url, body = null, headers = {}) {
           WHERE oi.order_id = $1 AND oi.quantity > 0
         `, [orderId]);
 
-        if (remainingRes.rows.length === 0) {
-          // All items removed! Record in cancelled_orders using the state of items right before this action
+        const currentActiveItems = remainingRes.rows.map(i => ({
+           name: i.name,
+           price: Number(i.price || 0),
+           quantity: Number(i.quantity || 1)
+        }));
+
+        if (currentActiveItems.length === 0) {
+          // All items removed! Record complete cancelled_orders record
           const tableRes = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [tableId]);
           const tableNumber = tableRes.rows[0]?.table_number || `Table ${tableId}`;
           const floor = tableRes.rows[0]?.floor || 'Floor 1';
-          const cancelledBy = user.name || (user.role === 'owner' ? 'Owner' : 'Staff');
+          const cancelledBy = user?.name || (user?.role === 'owner' ? 'Owner' : 'Staff');
 
-          const totalQty = beforeItems.reduce((sum, i) => sum + i.quantity, 0);
-          const totalAmount = beforeItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+          // combine currentActiveItems (which is []) + removedItems (which has all deleted items)
+          const allOriginalItems = combineAndMergeItems(currentActiveItems, removedItems);
+          const totalQty = allOriginalItems.reduce((sum, i) => sum + i.quantity, 0);
+          const totalAmount = allOriginalItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
 
           await db.query(
             `INSERT INTO cancelled_orders 
              (hotel_id, order_number, table_id, table_number, floor, cancelled_by, items_json, total_quantity, total_amount, cancellation_reason, kot_status, billing_status)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
             [
-              user.hotel_id,
+              user?.hotel_id || 1,
               `ORD-${orderId}`,
               tableId,
               tableNumber,
               floor,
               cancelledBy,
-              JSON.stringify(beforeItems),
+              JSON.stringify(allOriginalItems),
               totalQty,
               totalAmount,
               'All items manually removed',
-              'Not Printed',
+              isKotPrinted ? 'Printed' : 'Not Printed',
               'Not Settled'
             ]
           );
 
           await db.query("UPDATE orders SET status = 'cancelled' WHERE id = $1", [orderId]);
-          notifyUpdate(user.hotel_id, 'table-update');
+          notifyUpdate('table-update');
           return { status: 200, data: { items: [], order_deleted: true, message: 'All items removed, order cancelled' } };
         }
 
-        notifyUpdate(user.hotel_id, 'table-update');
+        notifyUpdate('table-update');
         return { status: 200, data: { items: remainingRes.rows, order_deleted: false } };
       }
     }
@@ -1769,9 +1859,10 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const tableId = parseInt(parts[2]);
       const { reason } = body;
 
-      const orderRes = await db.query("SELECT id FROM orders WHERE table_id = $1 AND status = 'active'", [tableId]);
+      const orderRes = await db.query("SELECT id, kot_sent_at, removed_items_json FROM orders WHERE table_id = $1 AND status = 'active'", [tableId]);
       if (orderRes.rows.length > 0) {
         const orderId = orderRes.rows[0].id;
+        const isKotPrinted = !!orderRes.rows[0].kot_sent_at;
 
         const tableRes = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [tableId]);
         const itemsRes = await db.query(`
@@ -1781,25 +1872,32 @@ export async function handleRequest(method, url, body = null, headers = {}) {
           WHERE oi.order_id = $1
         `, [orderId]);
 
-        let items = itemsRes.rows.map(i => ({
+        let activeItems = itemsRes.rows.map(i => ({
           name: i.name,
           price: Number(i.price || 0),
           quantity: Number(i.quantity || 1)
         }));
 
-        if (items.length === 0 && Array.isArray(body?.items) && body.items.length > 0) {
-          items = body.items.map(i => ({
+        let removedItems = [];
+        try {
+          removedItems = JSON.parse(orderRes.rows[0]?.removed_items_json || '[]');
+        } catch (e) {}
+
+        let allOriginalItems = combineAndMergeItems(activeItems, removedItems);
+
+        if (allOriginalItems.length === 0 && Array.isArray(body?.items) && body.items.length > 0) {
+          allOriginalItems = body.items.map(i => ({
             name: i.name || 'Item',
             price: Number(i.price || 0),
             quantity: Number(i.quantity || i.qty || 1)
           }));
         }
 
-        const totalQty = items.reduce((sum, i) => sum + i.quantity, 0);
-        const totalAmount = items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+        const totalQty = allOriginalItems.reduce((sum, i) => sum + i.quantity, 0);
+        const totalAmount = allOriginalItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
         const tableNumber = tableRes.rows[0]?.table_number || `Table ${tableId}`;
         const floor = tableRes.rows[0]?.floor || 'Floor 1';
-        const cancelledBy = user.name || (user.role === 'owner' ? 'Owner' : 'Staff');
+        const cancelledBy = user?.name || (user?.role === 'owner' ? 'Owner' : 'Staff');
         const orderNumber = `ORD-${orderId}`;
 
         await db.query(
@@ -1807,23 +1905,60 @@ export async function handleRequest(method, url, body = null, headers = {}) {
            (hotel_id, order_number, table_id, table_number, floor, cancelled_by, items_json, total_quantity, total_amount, cancellation_reason, kot_status, billing_status)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
           [
-            user.hotel_id || 1,
+            user?.hotel_id || 1,
             orderNumber,
             tableId,
             tableNumber,
             floor,
             cancelledBy,
-            JSON.stringify(items),
+            JSON.stringify(allOriginalItems),
             totalQty,
             totalAmount,
             reason || 'Order Cancelled',
-            'Not Printed',
+            isKotPrinted ? 'Printed' : 'Not Printed',
             'Not Settled'
           ]
         );
 
+        await db.query("DELETE FROM order_items WHERE order_id = $1", [orderId]);
         await db.query("UPDATE orders SET status = 'cancelled' WHERE id = $1", [orderId]);
-        notifyUpdate(user.hotel_id, 'table-update');
+        notifyUpdate('table-update');
+      } else {
+        if (Array.isArray(body?.items) && body.items.length > 0) {
+          const tableRes = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [tableId]);
+          const tableNumber = tableRes.rows[0]?.table_number || `Table ${tableId}`;
+          const floor = tableRes.rows[0]?.floor || 'Floor 1';
+          const cancelledBy = user?.name || (user?.role === 'owner' ? 'Owner' : 'Staff');
+          
+          const items = body.items.map(i => ({
+            name: i.name || 'Item',
+            price: Number(i.price || 0),
+            quantity: Number(i.quantity || i.qty || 1)
+          }));
+          const totalQty = items.reduce((sum, i) => sum + i.quantity, 0);
+          const totalAmount = items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+
+          await db.query(
+            `INSERT INTO cancelled_orders 
+             (hotel_id, order_number, table_id, table_number, floor, cancelled_by, items_json, total_quantity, total_amount, cancellation_reason, kot_status, billing_status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            [
+              user?.hotel_id || 1,
+              `ORD-TBL${tableId}`,
+              tableId,
+              tableNumber,
+              floor,
+              cancelledBy,
+              JSON.stringify(items),
+              totalQty,
+              totalAmount,
+              reason || 'Order Cancelled',
+              'Not Printed',
+              'Not Settled'
+            ]
+          );
+          notifyUpdate('table-update');
+        }
       }
 
       return { status: 200, data: { success: true, message: 'Table order cancelled successfully' } };

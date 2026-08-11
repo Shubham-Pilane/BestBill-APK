@@ -526,19 +526,31 @@ export async function formatBill(data, printerSize = '58mm') {
     return builder.build();
   }
 
-  if (data.isCreditSettlement) {
+  const isCancelOrder = data.type === 'CANCEL_ORDER' || data.isCancelOrder;
+
+  if (isCancelOrder) {
+    builder.alignCenter()
+      .bold(true)
+      .text('*** CANCEL ORDER ***')
+      .bold(false);
+  } else if (data.isCreditSettlement) {
     builder.alignCenter()
       .bold(true)
       .text('*** CREDIT SETTLEMENT ***')
       .bold(false);
   }
 
+  const billNoStr = data.billId || data.orderNumber || data.order_number || data.id || 'N/A';
+  const billLabel = isCancelOrder ? 'CANCEL ORDER NO:' : 'BILL NO:';
+
   builder.line('=', LINE_WIDTH)
     .alignLeft()
     .bold()
-    .text(`BILL NO: ${data.billId}`);
+    .text(`${billLabel} ${billNoStr}`);
 
-  wordWrap(data.table || '', LINE_WIDTH).forEach(l => builder.text(l));
+  if (data.table) {
+    wordWrap(String(data.table), LINE_WIDTH).forEach(l => builder.text(l));
+  }
 
   builder.bold(false)
     .text(`Date: ${dateStr}`)
@@ -559,7 +571,7 @@ export async function formatBill(data, printerSize = '58mm') {
 
   builder.line('-', LINE_WIDTH);
 
-  data.items.forEach(item => {
+  (data.items || []).forEach(item => {
     const qty = item.quantity || item.qty || 1;
     const rate = formatAmount(item.price);
     const amt = formatAmount(item.price * qty);
@@ -608,11 +620,27 @@ export async function formatBill(data, printerSize = '58mm') {
     builder.text(padText(`Discount (${data.discountPercentage}%):`, labelLen) + ' ' + padText(`-${formatAmount(discAmt)}`, amtLen, 'right'));
   }
 
+  const finalAmountToDisplay = data.finalAmount !== undefined && data.finalAmount !== null
+    ? Number(data.finalAmount)
+    : (data.totalAmount !== undefined && data.totalAmount !== null
+        ? Number(data.totalAmount)
+        : Number(data.total_amount || 0));
+
   builder.line('-', LINE_WIDTH)
     .bold(true)
-    .text(padText('GRAND TOTAL:', labelLen) + ' ' + padText(formatAmount(data.finalAmount), amtLen, 'right'))
+    .text(padText('GRAND TOTAL:', labelLen) + ' ' + padText(formatAmount(finalAmountToDisplay), amtLen, 'right'))
     .bold(false)
     .line('=', LINE_WIDTH);
+
+  if (isCancelOrder) {
+    if (data.cancelledBy) {
+      builder.text(`Cancelled By: ${data.cancelledBy}`);
+    }
+    if (data.cancellationReason) {
+      builder.text(`Reason: ${data.cancellationReason}`);
+    }
+    builder.line('-', LINE_WIDTH);
+  }
 
   if (data.isCreditSettlement) {
     const payMode = (data.settlementPaymentMethod || 'CASH').toUpperCase();
