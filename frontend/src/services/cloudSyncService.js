@@ -18,35 +18,13 @@ function generate5CharHotelCode() {
   return result;
 }
 
-// Check uniqueness in Supabase DB and generate unique 5-char code
+// Check uniqueness in Supabase DB and generate unique 5-char code for THIS store
 async function getOrCreateUniqueHotelCode(supabaseUrl, supabaseKey, accessToken, ownerId) {
   let existingCode = (localStorage.getItem('cfg_cloud_sync_hotel_code') || '').trim();
 
-  // If already a valid 5-character alphanumeric code, keep it
+  // If already a valid 5-character alphanumeric code for THIS store, keep it
   if (existingCode && existingCode.length === 5 && /^[a-zA-Z0-9]{5}$/.test(existingCode)) {
     return existingCode;
-  }
-
-  // Check if Supabase hotels table already assigned a hotel_code for this owner_id
-  if (ownerId) {
-    try {
-      const ownerCheckRes = await fetch(`${supabaseUrl}/rest/v1/hotels?owner_id=eq.${ownerId}&select=hotel_code`, {
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
-      const ownerHotels = await ownerCheckRes.json().catch(() => []);
-      if (Array.isArray(ownerHotels) && ownerHotels.length > 0) {
-        const remoteCode = (ownerHotels[0].hotel_code || '').trim();
-        if (remoteCode && remoteCode.length === 5 && /^[a-zA-Z0-9]{5}$/.test(remoteCode)) {
-          localStorage.setItem('cfg_cloud_sync_hotel_code', remoteCode);
-          return remoteCode;
-        }
-      }
-    } catch (e) {
-      console.warn('[CLOUD SYNC] Error fetching existing hotel code by owner_id:', e.message);
-    }
   }
 
   let isUnique = false;
@@ -269,19 +247,7 @@ export async function performCloudSync() {
       phone: analytics.hotel.phone || ''
     };
 
-    // 1. First upsert hotel by owner_id (so 1 owner only ever has 1 unique hotel entry)
-    await fetch(`${supabaseUrl}/rest/v1/hotels?on_conflict=owner_id`, {
-      method: 'POST',
-      headers: {
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify(hotelPayload)
-    }).catch(err => console.log('[CLOUD SYNC] Hotel table owner_id upsert:', err.message));
-
-    // 2. Secondary upsert by hotel_code
+    // Upsert hotel strictly by hotel_code (1 unique row per hotel store outlet)
     await fetch(`${supabaseUrl}/rest/v1/hotels?on_conflict=hotel_code`, {
       method: 'POST',
       headers: {
@@ -322,8 +288,8 @@ export async function performCloudSync() {
         synced_at: new Date().toISOString()
       };
 
-      // Query existing snapshots for this owner OR hotel_code on this date
-      const checkSnapRes = await fetch(`${supabaseUrl}/rest/v1/analytics_snapshots?or=(and(owner_id.eq.${ownerId},snapshot_date.eq.${dateStr}),and(hotel_code.eq.${effectiveHotelCode},snapshot_date.eq.${dateStr}))&select=id`, {
+      // Query existing snapshots strictly for THIS hotel_code on THIS date
+      const checkSnapRes = await fetch(`${supabaseUrl}/rest/v1/analytics_snapshots?hotel_code=eq.${effectiveHotelCode}&snapshot_date=eq.${dateStr}&select=id`, {
         headers: {
           'apikey': supabaseKey,
           'Authorization': `Bearer ${accessToken}`
@@ -332,7 +298,6 @@ export async function performCloudSync() {
       const existingSnaps = await checkSnapRes.json().catch(() => []);
 
       if (Array.isArray(existingSnaps) && existingSnaps.length > 0) {
-        // Keep the main row and update it
         const primaryId = existingSnaps[0].id;
         await fetch(`${supabaseUrl}/rest/v1/analytics_snapshots?id=eq.${primaryId}`, {
           method: 'PATCH',
