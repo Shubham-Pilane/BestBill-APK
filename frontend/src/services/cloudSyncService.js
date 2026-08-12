@@ -22,6 +22,13 @@ function generate5CharHotelCode() {
 async function getOrCreateUniqueHotelCode(supabaseUrl, supabaseKey, accessToken) {
   let existingCode = (localStorage.getItem('cfg_cloud_sync_hotel_code') || '').trim();
 
+  // Auto-heal legacy or invalid hotel codes (e.g. HOTEL_... or HOTEL_001)
+  if (existingCode && (!/^[a-zA-Z0-9]{5}$/.test(existingCode) || existingCode.startsWith('HOTEL_'))) {
+    console.log(`[CLOUD SYNC] Auto-healing legacy hotel code "${existingCode}" -> generating 5-char code...`);
+    localStorage.removeItem('cfg_cloud_sync_hotel_code');
+    existingCode = '';
+  }
+
   // 1. If already a valid 5-character alphanumeric code for THIS store/device, ALWAYS keep it permanently!
   if (existingCode && existingCode.length === 5 && /^[a-zA-Z0-9]{5}$/.test(existingCode)) {
     return existingCode;
