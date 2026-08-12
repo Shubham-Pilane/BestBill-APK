@@ -19,14 +19,15 @@ function generate5CharHotelCode() {
 }
 
 // Check uniqueness in Supabase DB and generate unique 5-char code for THIS store
-async function getOrCreateUniqueHotelCode(supabaseUrl, supabaseKey, accessToken, ownerId) {
+async function getOrCreateUniqueHotelCode(supabaseUrl, supabaseKey, accessToken) {
   let existingCode = (localStorage.getItem('cfg_cloud_sync_hotel_code') || '').trim();
 
-  // If already a valid 5-character alphanumeric code for THIS store, keep it
+  // 1. If already a valid 5-character alphanumeric code for THIS store/device, ALWAYS keep it permanently!
   if (existingCode && existingCode.length === 5 && /^[a-zA-Z0-9]{5}$/.test(existingCode)) {
     return existingCode;
   }
 
+  // 2. Generate a brand new globally unique 5-character code for THIS store outlet
   let isUnique = false;
   let newCode = '';
   let attempts = 0;
@@ -50,11 +51,9 @@ async function getOrCreateUniqueHotelCode(supabaseUrl, supabaseKey, accessToken,
     }
   }
 
-  if (newCode) {
-    localStorage.setItem('cfg_cloud_sync_hotel_code', newCode);
-    return newCode;
-  }
-  return existingCode || generate5CharHotelCode();
+  const finalCode = newCode || existingCode || generate5CharHotelCode();
+  localStorage.setItem('cfg_cloud_sync_hotel_code', finalCode);
+  return finalCode;
 }
 
 export async function getDailyAnalyticsData(targetDateStr) {
@@ -237,7 +236,7 @@ export async function performCloudSync() {
     const analytics = await getDailyAnalyticsData(todayStr);
 
     // Get or generate unique 5-character Hotel Code (e.g. A7kP2)
-    const effectiveHotelCode = await getOrCreateUniqueHotelCode(supabaseUrl, supabaseKey, accessToken, ownerId);
+    const effectiveHotelCode = await getOrCreateUniqueHotelCode(supabaseUrl, supabaseKey, accessToken);
 
     const hotelPayload = {
       owner_id: ownerId,
