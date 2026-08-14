@@ -43,6 +43,12 @@ $env:PATH = "$jdkPath\bin;$sdkHome\cmdline-tools\latest\bin;$env:PATH"
 # Write local.properties
 Set-Content -Path "d:\BestBill-apk\frontend\android\local.properties" -Value "sdk.dir=d:/BestBill-apk/sdk/android-sdk"
 
+# Run Web Build & Capacitor Sync
+Write-Host "Building Web Application..."
+cd d:\BestBill-apk\frontend
+npm run build
+npx cap sync android
+
 # Run Android build
 Write-Host "Building APK..."
 cd d:\BestBill-apk\frontend\android

@@ -487,7 +487,7 @@ const Login = () => {
                       placeholder="e.g. John Doe"
                       required
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => setName(e.target.value.replace(/[^a-zA-Z\s.-]/g, ''))}
                     />
                   </div>
                 </div>
@@ -515,7 +515,7 @@ const Login = () => {
                       placeholder="e.g. 9876543210"
                       required
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
                     />
                   </div>
                 </div>

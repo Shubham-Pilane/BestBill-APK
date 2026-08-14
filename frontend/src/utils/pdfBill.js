@@ -75,8 +75,30 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
   const finalAmount = parseFloat(billData.final_amount || subtotal + gstAmount);
   const discountVal = (subtotal + gstAmount) * (discountPercentage / 100);
 
+  const partnerName = billData.delivery_partner || billData.deliveryPartner || billData.selectedDeliveryPartner || '';
+  const isOnlineOrder = String(tableOrRoom || '').toLowerCase().includes('online') || 
+                        Boolean(partnerName) ||
+                        ['zomato', 'swiggy', 'uber', 'delivery', 'online'].some(p => paymentMethod.toLowerCase().includes(p));
+  
+  const onlineOrderTitle = partnerName ? `${partnerName.toUpperCase()} ORDER` :
+                           paymentMethod.includes('ZOMATO') ? 'ZOMATO ORDER' :
+                           paymentMethod.includes('SWIGGY') ? 'SWIGGY ORDER' :
+                           'ONLINE ORDER';
+
   const docDefinition = {
     content: [
+      // Online Order Header Banner
+      isOnlineOrder ? {
+        table: {
+          widths: ['*'],
+          body: [
+            [{ text: `*** ${onlineOrderTitle.toUpperCase()} ***`, bold: true, fontSize: 13, color: '#ffffff', alignment: 'center', margin: [0, 4, 0, 4] }]
+          ]
+        },
+        layout: { fillColor: () => '#e11d48', hLineWidth: () => 0, vLineWidth: () => 0 },
+        margin: [0, 0, 0, 10]
+      } : {},
+
       // Header Section
       {
         columns: [

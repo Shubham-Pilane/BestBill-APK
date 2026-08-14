@@ -821,16 +821,20 @@ const Profile = () => {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                             <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>MOBILE NUMBER</label>
                                             <input 
+                                                type="tel"
+                                                maxLength={10}
                                                 value={hotelData.phone} 
-                                                onChange={e => setHotelData({ ...hotelData, phone: e.target.value })} 
+                                                onChange={e => setHotelData({ ...hotelData, phone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) })} 
+                                                placeholder="10-digit Mobile Number"
                                                 style={{width: '100%', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500, outline: 'none' }} 
                                             />
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                             <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>HOTEL EMAIL</label>
                                             <input 
+                                                type="email"
                                                 value={hotelData.email} 
-                                                onChange={e => setHotelData({ ...hotelData, email: e.target.value })} 
+                                                onChange={e => setHotelData({ ...hotelData, email: e.target.value.trim() })} 
                                                 style={{width: '100%', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500, outline: 'none' }} 
                                             />
                                         </div>
@@ -848,8 +852,10 @@ const Profile = () => {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                             <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>FSSAI NUMBER</label>
                                             <input 
+                                                type="text"
+                                                maxLength={14}
                                                 value={hotelData.fssai_number} 
-                                                onChange={e => setHotelData({ ...hotelData, fssai_number: e.target.value })} 
+                                                onChange={e => setHotelData({ ...hotelData, fssai_number: e.target.value.replace(/[^0-9]/g, '').slice(0, 14) })} 
                                                 style={{width: '100%', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500, outline: 'none' }} 
                                             />
                                          </div>
@@ -1438,42 +1444,6 @@ const Profile = () => {
                                             name="whatsAppBillingModule"
                                             checked={whatsAppBillingEnabled} 
                                             onChange={() => handleToggleWhatsAppBilling(true)}
-                                            style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
-                                        />
-                                        Enabled
-                                    </label>
-                                </div>
-                            </div>
-
-                            {/* Token Counter Module */}
-                            <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
-                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Token Counter</h3>
-                                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
-                                        Enable token counters on the dashboard. Receipts printed from token counters will only print items list and grand totals.
-                                        This module requires a passcode to unlock.
-                                    </p>
-                                </div>
-                                
-                                {/* Toggle / Radio Control */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)' }}>
-                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                        <input 
-                                            type="radio" 
-                                            name="tokenCounterModule"
-                                            checked={!tokenCounterEnabled} 
-                                            onChange={() => handleToggleTokenCounter(false)}
-                                            style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
-                                        />
-                                        Disabled
-                                    </label>
-                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
-                                        <input 
-                                            type="radio" 
-                                            name="tokenCounterModule"
-                                            checked={tokenCounterEnabled} 
-                                            onChange={() => handleToggleTokenCounter(true)}
                                             style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
                                         />
                                         Enabled

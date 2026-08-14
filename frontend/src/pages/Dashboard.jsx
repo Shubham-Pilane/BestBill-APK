@@ -262,6 +262,18 @@ const Dashboard = () => {
     }
   };
 
+  const createOnlineCounter = async (e) => {
+    e.preventDefault();
+    if (!isOwner) return;
+    try {
+      await api.post('/tables/batch', { tableNumbers: ['Online Order'], floor: 'Counter' });
+      toast.success('Online Order counter created!');
+      fetchTables();
+    } catch (err) {
+      toast.error('Failed to create Online Order counter');
+    }
+  };
+
   // Extract Parcel Counter tables (any table with "parcel" in its name)
   const parcelTables = useMemo(() => {
     return (tables || []).filter(t => String(t.table_number || '').toLowerCase().includes('parcel'));
@@ -272,12 +284,17 @@ const Dashboard = () => {
     return (tables || []).filter(t => String(t.table_number || '').toLowerCase().includes('token'));
   }, [tables]);
 
-  // Group tables by floor - Memoized for performance (excluding parcel and token counters)
+  // Extract Online Counter tables (any table with "online" in its name)
+  const onlineTables = useMemo(() => {
+    return (tables || []).filter(t => String(t.table_number || '').toLowerCase().includes('online'));
+  }, [tables]);
+
+  // Group tables by floor - Memoized for performance (excluding parcel, token, and online counters)
   const groupedTables = useMemo(() => {
     return (tables || [])
       .filter(t => {
         const name = String(t.table_number || '').toLowerCase();
-        return !name.includes('parcel') && !name.includes('token');
+        return !name.includes('parcel') && !name.includes('token') && !name.includes('online');
       })
       .reduce((acc, table) => {
         let floor = table.floor || 'Floor 1';
@@ -518,35 +535,61 @@ const Dashboard = () => {
                     Parcel Counter
                   </button>
 
-                  {user?.tokenCounterEnabled && (
-                    <button
-                      onClick={(e) => {
-                        setShowCreateDropdown(false);
-                        createTokenCounter(e);
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        color: '#10b981',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        fontWeight: 700,
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        width: '100%',
-                        textAlign: 'left',
-                        transition: 'all 0.15s'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-border)'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-                      Token Counter
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      setShowCreateDropdown(false);
+                      createTokenCounter(e);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      color: '#10b981',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      width: '100%',
+                      textAlign: 'left',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-border)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+                    Token Counter
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      setShowCreateDropdown(false);
+                      createOnlineCounter(e);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      color: '#a855f7',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      width: '100%',
+                      textAlign: 'left',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-border)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#a855f7' }}></span>
+                    Online Orders
+                  </button>
 
                   <button
                     onClick={() => {
@@ -644,10 +687,10 @@ const Dashboard = () => {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          {/* Fallback for only parcel counters or token counters, no floors */}
-          {floors.length === 0 && (parcelTables.length > 0 || tokenTables.length > 0) && (
+          {/* Fallback for only parcel, token, or online counters, no floors */}
+          {floors.length === 0 && (parcelTables.length > 0 || tokenTables.length > 0 || onlineTables.length > 0) && (
              <div className="tables-grid">
-                {[...parcelTables, ...tokenTables].map((table) => (
+                {[...parcelTables, ...tokenTables, ...onlineTables].map((table) => (
                     <TableCard 
                       key={table.id} 
                       table={table} 
@@ -666,7 +709,7 @@ const Dashboard = () => {
           )}
 
           {floors.map((floor, floorIndex) => {
-             const floorTables = floorIndex === 0 ? [...parcelTables, ...tokenTables, ...groupedTables[floor]] : groupedTables[floor];
+             const floorTables = floorIndex === 0 ? [...parcelTables, ...tokenTables, ...onlineTables, ...groupedTables[floor]] : groupedTables[floor];
              const tableCount = floorTables.length;
              return (
                <div key={floor} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -904,12 +947,14 @@ const TableCard = React.memo(({ table, isOwner, onOpen, onEdit, onDelete, onSwap
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span className="card-header-label" style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+        <span className="card-header-label" style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {String(table.table_number || '').toLowerCase().includes('parcel') 
             ? 'SERVICE DESK' 
             : String(table.table_number || '').toLowerCase().includes('token')
               ? 'TOKEN COUNTER'
-              : `TABLE ${table.table_number}`
+              : String(table.table_number || '').toLowerCase().includes('online')
+                ? 'ONLINE COUNTER'
+                : `TABLE ${table.table_number}`
           }
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -944,13 +989,18 @@ const TableCard = React.memo(({ table, isOwner, onOpen, onEdit, onDelete, onSwap
 
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         <h3 style={{
-          fontSize: (String(table.table_number || '').toLowerCase().includes('parcel') || String(table.table_number || '').toLowerCase().includes('token')) 
-            ? '30px' 
+          fontSize: (String(table.table_number || '').toLowerCase().includes('parcel') || 
+                     String(table.table_number || '').toLowerCase().includes('token') ||
+                     String(table.table_number || '').toLowerCase().includes('online')) 
+            ? '28px' 
             : '48px', 
           fontWeight: 900, 
           color: 'var(--text-primary)', 
           margin: 0, 
-          letterSpacing: '-0.05em' 
+          letterSpacing: '-0.05em',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
         }}>{table.table_number}</h3>
         <span className="card-status-label" style={{ fontSize: '12px', fontWeight: 800, color: table.active_order_id ? '#f43f5e' : '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {table.active_order_id ? 'OCCUPIED' : 'AVAILABLE'}

@@ -465,6 +465,18 @@ export async function formatBill(data, printerSize = '58mm') {
   if (data.hotelPhone) builder.text(`Phone: ${data.hotelPhone}`);
   if (data.hotelFssai) builder.text(`FSSAI: ${data.hotelFssai}`);
 
+  const isOnlineOrder = data.isOnlineOrder || String(data.table || '').toLowerCase().includes('online') || 
+                        ['zomato', 'swiggy', 'uber', 'delivery'].some(p => String(data.paymentMethod || '').toLowerCase().includes(p));
+  if (isOnlineOrder) {
+    const payM = String(data.paymentMethod || '').toUpperCase();
+    const bannerText = payM.includes('ZOMATO') ? '*** ZOMATO ORDER ***' : payM.includes('SWIGGY') ? '*** SWIGGY ORDER ***' : `*** ${payM || 'ONLINE'} ORDER ***`;
+    builder.alignCenter()
+      .bold(true)
+      .text(bannerText)
+      .bold(false)
+      .line('=', LINE_WIDTH);
+  }
+
   if (data.isToken) {
     builder.alignCenter()
       .bold(true)
