@@ -5,12 +5,14 @@ import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
 import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, ChevronsDown, Ticket, Ban, Edit2 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import SwapModal from './SwapModal';
 import { onUpdate } from '../services/socketService';
 
 const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) => {
   if (!table) return null;
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   const [categories, setCategories] = useState(initialMenu?.categories || []);
   const [allItems, setAllItems] = useState([]);
@@ -998,47 +1000,49 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                       onClick={() => setShowCancelConfirmModal(true)} 
                       style={{ width: '100%', padding: '11px', borderRadius: '12px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 900, fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '6px' }}
                     >
-                      <Ban size={14} /> CANCEL ORDER / CLEAR TABLE
+                      <Ban size={15} /> {t('cancel_order', 'CANCEL ORDER / CLEAR TABLE')}
                     </button>
                   )}
-                </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Right Panel: Desktop Active Selection Cart */}
+        {/* Right Panel: Desktop Active Selection Cart */}
           {!isMobile && (
-            <div className="order-modal-cart" style={{ width: '400px', backgroundColor: 'var(--bg-base)', display: 'flex', flexDirection: 'column' }}>
+            <div className="order-modal-cart" style={{ width: '400px', backgroundColor: 'var(--bg-base)', display: 'flex', flexDirection: 'column', height: '100%' }}>
               
               {/* Active Selection Header */}
-              <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                 <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'rgba(14, 165, 233, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9' }}>
-                    <Receipt size={16} />
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                 <div style={{ width: '26px', height: '26px', borderRadius: '8px', backgroundColor: 'rgba(14, 165, 233, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9' }}>
+                    <Receipt size={15} />
                  </div>
-                 <h3 style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Active Selection</h3>
+                 <h3 style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
+                   {t('active_selection', 'Active Selection')} ({orderItems.length})
+                 </h3>
               </div>
  
               {/* Cart Items List */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px', minHeight: 0 }}>
                 {orderItems.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '13px', fontStyle: 'italic' }}>
+                  <div style={{ textAlign: 'center', padding: '30px 20px', color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic' }}>
                     No items selected yet. Tap items on the left to add.
                   </div>
                 ) : (
                   orderItems.map(item => (
-                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
-                      <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
-                        <div style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px', wordBreak: 'break-word' }}>{item.name}</div>
-                        <div style={{ color: '#10b981', fontSize: '12px', fontWeight: 900, marginTop: '2px' }}>
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
+                        <div style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                        <div style={{ color: '#10b981', fontSize: '12px', fontWeight: 900, marginTop: '1px' }}>
                           ₹{item.price}
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-base)', borderRadius: '12px', padding: '4px', border: '1px solid var(--border-color)' }}>
-                          <button onClick={() => updateQuantity(item.id, -1, item.menu_item_id)} style={{ width: '28px', height: '28px', border: 'none', backgroundColor: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={14} /></button>
-                          <span style={{ width: '28px', textAlign: 'center', fontWeight: 900, color: 'var(--text-primary)', fontSize: '14px' }}>{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, 1, item.menu_item_id)} style={{ width: '28px', height: '28px', border: 'none', backgroundColor: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={14} /></button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-base)', borderRadius: '10px', padding: '2px', border: '1px solid var(--border-color)' }}>
+                          <button onClick={() => updateQuantity(item.id, -1, item.menu_item_id)} style={{ width: '24px', height: '24px', border: 'none', backgroundColor: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={12} /></button>
+                          <span style={{ width: '24px', textAlign: 'center', fontWeight: 900, color: 'var(--text-primary)', fontSize: '13px' }}>{item.quantity}</span>
+                          <button onClick={() => updateQuantity(item.id, 1, item.menu_item_id)} style={{ width: '24px', height: '24px', border: 'none', backgroundColor: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={12} /></button>
                         </div>
                       </div>
                     </div>
@@ -1047,75 +1051,77 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               </div>
 
               {/* Desktop Active Selection Actions Footer */}
-              <div style={{ padding: '20px', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700 }}>Subtotal</span>
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '15px' }}>₹{orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>{t('subtotal', 'Subtotal')}</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px' }}>₹{orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</span>
                 </div>
                 
                 {Boolean(user?.gst_percentage) && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700 }}>GST ({user.gst_percentage}%)</span>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '15px' }}>₹{(orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (user.gst_percentage / 100)).toFixed(2)}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>{t('gst', 'GST')} ({user.gst_percentage}%)</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px' }}>₹{(orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (user.gst_percentage / 100)).toFixed(2)}</span>
                   </div>
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 800 }}>DISCOUNT (%)</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 800 }}>{t('loyalty_discount', 'DISCOUNT (%)')}</span>
                   <input 
                     type="number" 
                     value={discount} 
                     onChange={e => setDiscount(e.target.value === '' ? '' : Math.max(0, Math.min(100, e.target.value)))} 
-                    style={{ width: '50px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '13px', borderRadius: '6px', padding: '2px 4px' }} 
+                    style={{ width: '45px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '12px', borderRadius: '6px', padding: '2px 4px' }} 
                   />
                 </div>
 
                 <div style={{ height: '1px', backgroundColor: 'var(--border-color)' }}></div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-primary)' }}>Grand Total</span>
-                  <span style={{ color: '#10b981', fontSize: '22px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
+                  <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)' }}>{t('final_due', 'Grand Total')}</span>
+                  <span style={{ color: '#10b981', fontSize: '18px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
                 </div>
 
                 {showKotButton ? (
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     <button 
                       disabled={orderItems.length === 0} 
                       onClick={sendToKitchen} 
                       style={{ 
-                        flex: 1, 
-                        padding: '14px', 
-                        borderRadius: '14px', 
+                        padding: '10px 6px', 
+                        borderRadius: '10px', 
                         backgroundColor: '#f59e0b', 
                         color: '#ffffff', 
                         border: 'none', 
                         fontWeight: 900, 
-                        fontSize: '13px', 
+                        fontSize: '11px', 
                         cursor: 'pointer', 
                         opacity: orderItems.length === 0 ? 0.3 : 1, 
-                        boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)' 
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
                       }}
                     >
-                      PRINT KOT
+                      {t('print_kot', 'PRINT KOT')}
                     </button>
                     <button 
                       disabled={orderItems.length === 0} 
                       onClick={generateBill} 
                       style={{ 
-                        flex: 1, 
-                        padding: '14px', 
-                        borderRadius: '14px', 
+                        padding: '10px 6px', 
+                        borderRadius: '10px', 
                         backgroundColor: '#0ea5e9', 
                         color: '#ffffff', 
                         border: 'none', 
                         fontWeight: 900, 
-                        fontSize: '13px', 
+                        fontSize: '11px', 
                         cursor: 'pointer', 
                         opacity: orderItems.length === 0 ? 0.3 : 1, 
-                        boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)' 
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
                       }}
                     >
-                      SETTLE BILL
+                      {t('settle_bill', 'SETTLE BILL')}
                     </button>
                   </div>
                 ) : (
@@ -1124,45 +1130,18 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     onClick={generateBill} 
                     style={{ 
                       width: '100%', 
-                      padding: '14px', 
-                      borderRadius: '14px', 
+                      padding: '10px 6px', 
+                      borderRadius: '10px', 
                       backgroundColor: '#0ea5e9', 
                       color: '#ffffff', 
                       border: 'none', 
                       fontWeight: 900, 
-                      fontSize: '14px', 
+                      fontSize: '12px', 
                       cursor: 'pointer', 
-                      opacity: orderItems.length === 0 ? 0.3 : 1, 
-                      transition: '0.2s', 
-                      boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)' 
+                      opacity: orderItems.length === 0 ? 0.3 : 1
                     }}
                   >
-                    {table.table_number === 'Parcel Counter' ? 'SETTLE BILL' : 'SETTLE TRANSACTION'}
-                  </button>
-                )}
-
-                {(cancelOrdersEnabled && (table.active_order_id || orderItems.length > 0)) && (
-                  <button 
-                    type="button" 
-                    onClick={() => setShowCancelConfirmModal(true)} 
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      borderRadius: '14px', 
-                      backgroundColor: 'rgba(239, 68, 68, 0.12)', 
-                      color: '#f43f5e', 
-                      border: '1px solid rgba(239, 68, 68, 0.3)', 
-                      fontWeight: 900, 
-                      fontSize: '13px', 
-                      cursor: 'pointer', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      gap: '6px', 
-                      marginTop: '4px' 
-                    }}
-                  >
-                    <Ban size={15} /> CANCEL ORDER / CLEAR TABLE
+                    {t('settle_bill', 'SETTLE BILL')}
                   </button>
                 )}
               </div>

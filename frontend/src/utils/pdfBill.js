@@ -14,6 +14,7 @@ const formatAmount = (val) => {
  * Generates a professionally formatted PDF bill document definition using pdfMake.
  */
 export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
+  const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || billData?.language === 'mr';
   const hotelName = (hotelInfo.hotel_name || hotelInfo.name || 'BESTBILL').toUpperCase();
   const address = hotelInfo.hotel_location || hotelInfo.location || hotelInfo.address || '';
   const phone = hotelInfo.hotel_phone || hotelInfo.phone || '';
@@ -23,12 +24,12 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
   const logoUrl = hotelInfo.logo_url || '';
 
   const billId = billData.id || billData.bill_id || 'N/A';
-  const tableOrRoom = billData.table || billData.table_number || (billData.room_number ? `Room ${billData.room_number}` : 'Counter');
+  const tableOrRoom = billData.table || billData.table_number || (billData.room_number ? (isMarathi ? `रूम ${billData.room_number}` : `Room ${billData.room_number}`) : (isMarathi ? 'काउंटर' : 'Counter'));
   const dateStr = billData.created_at ? new Date(billData.created_at).toLocaleDateString() : new Date().toLocaleDateString();
   const timeStr = billData.created_at ? new Date(billData.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const paymentMethod = (billData.payment_method || 'Cash').toUpperCase();
   const isPaid = billData.is_paid === 1 || billData.is_paid === true;
-  const paymentStatus = isPaid ? `PAID (${paymentMethod})` : 'UNPAID';
+  const paymentStatus = isPaid ? (isMarathi ? `जमा (${paymentMethod})` : `PAID (${paymentMethod})`) : (isMarathi ? 'प्रलंबित' : 'UNPAID');
 
   const items = billData.items || billData.parsedItems || [];
   const roomCharge = parseFloat(billData.room_charge || 0);
@@ -36,11 +37,11 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
   // Build items table body
   const tableBody = [
     [
-      { text: 'Sr.', style: 'tableHeader', alignment: 'center' },
-      { text: 'Item Description', style: 'tableHeader' },
-      { text: 'Qty', style: 'tableHeader', alignment: 'center' },
-      { text: 'Rate (₹)', style: 'tableHeader', alignment: 'right' },
-      { text: 'Amount (₹)', style: 'tableHeader', alignment: 'right' }
+      { text: isMarathi ? 'अ.क्र.' : 'Sr.', style: 'tableHeader', alignment: 'center' },
+      { text: isMarathi ? 'पदार्थ (Item)' : 'Item Description', style: 'tableHeader' },
+      { text: isMarathi ? 'नग' : 'Qty', style: 'tableHeader', alignment: 'center' },
+      { text: isMarathi ? 'दर (₹)' : 'Rate (₹)', style: 'tableHeader', alignment: 'right' },
+      { text: isMarathi ? 'रक्कम (₹)' : 'Amount (₹)', style: 'tableHeader', alignment: 'right' }
     ]
   ];
 
@@ -48,7 +49,7 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
   if (roomCharge > 0) {
     tableBody.push([
       { text: index++, alignment: 'center' },
-      { text: 'Room Charge', bold: true },
+      { text: isMarathi ? 'रूम शुल्क' : 'Room Charge', bold: true },
       { text: '1', alignment: 'center' },
       { text: formatAmount(roomCharge), alignment: 'right' },
       { text: formatAmount(roomCharge), alignment: 'right' }
@@ -142,14 +143,14 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
             [
               {
                 stack: [
-                  { text: `INVOICE / BILL NO: #${billId}`, bold: true, fontSize: 11, color: '#0f172a' },
-                  { text: `Table / Details: ${tableOrRoom}`, fontSize: 10, color: '#334155', margin: [0, 2, 0, 0] }
+                  { text: isMarathi ? `बिल क्रमांक: #${billId}` : `INVOICE / BILL NO: #${billId}`, bold: true, fontSize: 11, color: '#0f172a' },
+                  { text: isMarathi ? `टेबल / माहिती: ${tableOrRoom}` : `Table / Details: ${tableOrRoom}`, fontSize: 10, color: '#334155', margin: [0, 2, 0, 0] }
                 ]
               },
               {
                 stack: [
-                  { text: `Date: ${dateStr}  Time: ${timeStr}`, fontSize: 10, color: '#334155', alignment: 'right' },
-                  { text: `Status: ${paymentStatus}`, bold: true, fontSize: 10, color: isPaid ? '#16a34a' : '#dc2626', alignment: 'right', margin: [0, 2, 0, 0] }
+                  { text: `${isMarathi ? 'तारीख' : 'Date'}: ${dateStr}  ${isMarathi ? 'वेळ' : 'Time'}: ${timeStr}`, fontSize: 10, color: '#334155', alignment: 'right' },
+                  { text: `${isMarathi ? 'स्थिती' : 'Status'}: ${paymentStatus}`, bold: true, fontSize: 10, color: isPaid ? '#16a34a' : '#dc2626', alignment: 'right', margin: [0, 2, 0, 0] }
                 ]
               }
             ]
@@ -194,11 +195,11 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
             table: {
               widths: ['*', 'auto'],
               body: [
-                ['Subtotal:', { text: `₹${formatAmount(subtotal)}`, alignment: 'right' }],
-                gstPercentage > 0 ? [`GST (${gstPercentage}%):`, { text: `₹${formatAmount(gstAmount)}`, alignment: 'right' }] : null,
-                discountPercentage > 0 ? [`Discount (${discountPercentage}%):`, { text: `-₹${formatAmount(discountVal)}`, alignment: 'right' }] : null,
+                [isMarathi ? 'उपएकूण (Subtotal):' : 'Subtotal:', { text: `₹${formatAmount(subtotal)}`, alignment: 'right' }],
+                gstPercentage > 0 ? [isMarathi ? `जीएसटी (${gstPercentage}%):` : `GST (${gstPercentage}%):`, { text: `₹${formatAmount(gstAmount)}`, alignment: 'right' }] : null,
+                discountPercentage > 0 ? [isMarathi ? `सवलत (${discountPercentage}%):` : `Discount (${discountPercentage}%):`, { text: `-₹${formatAmount(discountVal)}`, alignment: 'right' }] : null,
                 [
-                  { text: 'GRAND TOTAL:', bold: true, fontSize: 13, color: '#0f172a' },
+                  { text: isMarathi ? 'एकूण देय (Grand Total):' : 'Grand Total:', bold: true, fontSize: 13, color: '#0f172a' },
                   { text: `₹${formatAmount(finalAmount)}`, bold: true, fontSize: 14, color: '#0ea5e9', alignment: 'right' }
                 ]
               ].filter(Boolean)

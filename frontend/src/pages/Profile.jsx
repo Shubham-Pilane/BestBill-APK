@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { User, Mail, Lock, ShieldCheck, Save, Eye, EyeOff, LayoutPanelLeft, UserCircle, Wallet, Users, Trash2, UserPlus, Fingerprint, MapPin, Percent, Upload, Image as ImageIcon, Printer, ChevronDown, Globe, Download, QrCode, Key, RotateCw } from 'lucide-react';
@@ -11,6 +12,8 @@ import ConfirmModal from '../components/ConfirmModal';
 
 const Profile = () => {
     const { user, updateUser } = useAuth();
+    const { language, setLanguage, t } = useLanguage();
+    const [showLanguageSettings, setShowLanguageSettings] = useState(true);
     const isAdmin = user?.role === 'admin';
     const isOwner = user?.role === 'owner';
     const themeColor = isAdmin ? '#10b981' : '#0ea5e9';
@@ -731,6 +734,64 @@ const Profile = () => {
     return (
     <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '100px', overflow: 'hidden' }}>
             
+            {/* Language Settings Card */}
+            <div style={{ width: '100%' }}>
+                <div 
+                    onClick={() => setShowLanguageSettings(!showLanguageSettings)}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showLanguageSettings ? '12px' : '0', cursor: 'pointer', backgroundColor: 'var(--bg-card)', padding: '14px 20px', borderRadius: '12px', border: '1px solid var(--border-rgba-05)', transition: 'all 0.2s' }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <Globe size={22} style={{ color: '#8b5cf6' }} />
+                        <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                            {t('profile_language_settings', 'Language Settings')}
+                        </h2>
+                    </div>
+                    <ChevronDown 
+                        size={20} 
+                        style={{ 
+                            color: 'var(--text-muted)', 
+                            transform: showLanguageSettings ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.3s ease'
+                        }} 
+                    />
+                </div>
+                {showLanguageSettings && (
+                    <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-rgba-05)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                                {t('profile_select_language', 'Select Language')}
+                            </label>
+                            <select 
+                                value={language} 
+                                onChange={(e) => {
+                                    setLanguage(e.target.value);
+                                    toast.success(e.target.value === 'mr' ? 'अ‍ॅपची भाषा मराठी सेट केली आहे!' : 'Application language set to English!');
+                                }}
+                                style={{
+                                    width: '100%',
+                                    maxWidth: '400px',
+                                    padding: '12px 16px',
+                                    borderRadius: '10px',
+                                    backgroundColor: 'var(--bg-base)',
+                                    border: '1px solid var(--bg-border)',
+                                    color: 'var(--text-primary)',
+                                    fontWeight: 600,
+                                    fontSize: '15px',
+                                    outline: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <option value="en">English (English)</option>
+                                <option value="mr">Marathi (मराठी)</option>
+                            </select>
+                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                                {language === 'mr' ? 'भाषा बदलल्याने संपूर्ण अ‍ॅपची भाषा मराठी होईल.' : 'Selecting a language updates the user interface text across the entire application.'}
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </div>
+
             {/* Security Core Card */}
             <div style={{ width: '100%' }}>
                 <div 
@@ -739,7 +800,7 @@ const Profile = () => {
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <UserCircle size={22} style={{ color: themeColor }} />
-                        <h2 style={{fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Security Core</h2>
+                        <h2 style={{fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{t('profile_security_core', 'Security Core')}</h2>
                     </div>
                     <ChevronDown 
                         size={20} 
@@ -783,7 +844,7 @@ const Profile = () => {
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <LayoutPanelLeft size={22} style={{ color: '#0ea5e9' }} />
-                            <h2 style={{fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Hotel Profile</h2>
+                            <h2 style={{fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{t('profile_hotel_profile', 'Hotel Profile')}</h2>
                         </div>
                         <ChevronDown 
                             size={20} 
@@ -972,7 +1033,7 @@ const Profile = () => {
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <Printer size={22} style={{ color: '#10b981' }} />
-                            <h2 style={{fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Bluetooth Thermal Printers</h2>
+                            <h2 style={{fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{t('profile_printers', 'Bluetooth Thermal Printers')}</h2>
                         </div>
                         <ChevronDown 
                             size={20} 
@@ -1184,7 +1245,7 @@ const Profile = () => {
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <ShieldCheck size={22} style={{ color: '#f43f5e' }} />
-                            <h2 style={{fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>System Modules & Licensing</h2>
+                            <h2 style={{fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{t('profile_licensing', 'System Modules & Licensing')}</h2>
                         </div>
                         <ChevronDown 
                             size={20} 

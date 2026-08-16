@@ -254,10 +254,11 @@ export async function formatKOT(data, printerSize = '58mm') {
   const LINE_WIDTH = is58mm ? 32 : 48;
   const builder = new EscposBuilder(is58mm);
   const dateStr = new Date().toLocaleString();
+  const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr';
 
   let tStr = String(data.table || '');
   if (!tStr.toLowerCase().includes('room') && !tStr.toLowerCase().includes('parcel')) {
-    tStr = `Table ${tStr}`;
+    tStr = isMarathi ? `टेबल ${tStr}` : `Table ${tStr}`;
   }
   if (data.floor && !tStr.toLowerCase().includes('parcel')) {
     tStr += ` - ${data.floor}`;
@@ -266,7 +267,7 @@ export async function formatKOT(data, printerSize = '58mm') {
   builder.alignCenter()
     .setFontDouble()
     .bold()
-    .text('KITCHEN ORDER')
+    .text(isMarathi ? 'किचन ऑर्डर (KOT)' : 'KITCHEN ORDER')
     .setFontNormal()
     .bold(false)
     .line('=', LINE_WIDTH)
@@ -275,17 +276,18 @@ export async function formatKOT(data, printerSize = '58mm') {
 
   wordWrap(tStr, LINE_WIDTH).forEach(l => builder.text(l));
 
-
-
   builder.bold(false)
-    .text(`DATE: ${dateStr}`)
+    .text(`${isMarathi ? 'तारीख' : 'DATE'}: ${dateStr}`)
     .line('-', LINE_WIDTH)
     .setFontNormal();
 
   const qtyLen = is58mm ? 4 : 6;
   const itemLen = LINE_WIDTH - qtyLen - 1;
 
-  builder.bold(true).text(padText('ITEM', itemLen) + ' ' + padText('QTY', qtyLen, 'right')).bold(false);
+  const itemHeader = isMarathi ? 'पदार्थ' : 'ITEM';
+  const qtyHeader = isMarathi ? 'नग' : 'QTY';
+
+  builder.bold(true).text(padText(itemHeader, itemLen) + ' ' + padText(qtyHeader, qtyLen, 'right')).bold(false);
   builder.line('-', LINE_WIDTH);
 
   data.items.forEach(item => {
@@ -308,7 +310,7 @@ export async function formatKOT(data, printerSize = '58mm') {
     .line('-', LINE_WIDTH);
 
   if (data.notes) {
-    builder.bold().text('NOTES:');
+    builder.bold().text(isMarathi ? 'टिप (NOTES):' : 'NOTES:');
     wordWrap(String(data.notes), LINE_WIDTH).forEach(l => builder.text(l));
     builder.bold(false).line('-', LINE_WIDTH);
   }
@@ -431,6 +433,7 @@ export async function formatBill(data, printerSize = '58mm') {
   const LINE_WIDTH = is58mm ? 32 : 48;
   const builder = new EscposBuilder(is58mm);
   const dateStr = new Date().toLocaleString();
+  const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr';
 
   builder.alignCenter();
 
@@ -480,23 +483,23 @@ export async function formatBill(data, printerSize = '58mm') {
   if (data.isToken) {
     builder.alignCenter()
       .bold(true)
-      .text('*** CUSTOMER / KITCHEN TOKEN ***')
+      .text(isMarathi ? '*** ग्राहक / किचन टोकन ***' : '*** CUSTOMER / KITCHEN TOKEN ***')
       .bold(false)
       .line('=', LINE_WIDTH)
       .alignLeft()
       .bold()
-      .text(`TOKEN NO: #${data.billId}`);
+      .text(`${isMarathi ? 'टोकन क्र.' : 'TOKEN NO'}: #${data.billId}`);
 
     wordWrap(data.table || '', LINE_WIDTH).forEach(l => builder.text(l));
 
     builder.bold(false)
-      .text(`Date: ${dateStr}`)
+      .text(`${isMarathi ? 'तारीख' : 'Date'}: ${dateStr}`)
       .line('-', LINE_WIDTH);
 
     const qtyLen = 6;
     const itemLen = LINE_WIDTH - qtyLen - 1;
     builder.bold(true).text(
-      padText('ITEM', itemLen) + ' ' + padText('QTY', qtyLen, 'right')
+      padText(isMarathi ? 'पदार्थ' : 'ITEM', itemLen) + ' ' + padText(isMarathi ? 'नग' : 'QTY', qtyLen, 'right')
     ).bold(false).line('-', LINE_WIDTH);
 
     data.items.forEach(item => {
@@ -517,7 +520,7 @@ export async function formatBill(data, printerSize = '58mm') {
     builder.line('=', LINE_WIDTH)
       .alignCenter()
       .bold(true)
-      .text('PLEASE WAIT FOR YOUR NUMBER')
+      .text(isMarathi ? 'कृपया आपल्या क्रमांकाची प्रतीक्षा करा' : 'PLEASE WAIT FOR YOUR NUMBER')
       .bold(false);
 
     try {
@@ -543,17 +546,17 @@ export async function formatBill(data, printerSize = '58mm') {
   if (isCancelOrder) {
     builder.alignCenter()
       .bold(true)
-      .text('*** CANCEL ORDER ***')
+      .text(isMarathi ? '*** रद्द केलेली ऑर्डर ***' : '*** CANCEL ORDER ***')
       .bold(false);
   } else if (data.isCreditSettlement) {
     builder.alignCenter()
       .bold(true)
-      .text('*** CREDIT SETTLEMENT ***')
+      .text(isMarathi ? '*** जमा उधारी / खाते ***' : '*** CREDIT SETTLEMENT ***')
       .bold(false);
   }
 
   const billNoStr = data.billId || data.orderNumber || data.order_number || data.id || 'N/A';
-  const billLabel = isCancelOrder ? 'CANCEL ORDER NO:' : 'BILL NO:';
+  const billLabel = isCancelOrder ? (isMarathi ? 'रद्द ऑर्डर क्र.:' : 'CANCEL ORDER NO:') : (isMarathi ? 'बिल क्र.:' : 'BILL NO:');
 
   builder.line('=', LINE_WIDTH)
     .alignLeft()
@@ -565,7 +568,7 @@ export async function formatBill(data, printerSize = '58mm') {
   }
 
   builder.bold(false)
-    .text(`Date: ${dateStr}`)
+    .text(`${isMarathi ? 'तारीख' : 'Date'}: ${dateStr}`)
     .line('-', LINE_WIDTH);
 
   // Items header
@@ -575,10 +578,10 @@ export async function formatBill(data, printerSize = '58mm') {
   const itemLen = LINE_WIDTH - qtyLen - rateLen - amtLen - 3;
 
   builder.bold(true).text(
-    padText('ITEM', itemLen) + ' ' +
-    padText('QTY', qtyLen, 'right') + ' ' +
-    padText('RATE', rateLen, 'right') + ' ' +
-    padText('AMT', amtLen, 'right')
+    padText(isMarathi ? 'पदार्थ' : 'ITEM', itemLen) + ' ' +
+    padText(isMarathi ? 'नग' : 'QTY', qtyLen, 'right') + ' ' +
+    padText(isMarathi ? 'दर' : 'RATE', rateLen, 'right') + ' ' +
+    padText(isMarathi ? 'रक्कम' : 'AMT', amtLen, 'right')
   ).bold(false);
 
   builder.line('-', LINE_WIDTH);
@@ -623,13 +626,13 @@ export async function formatBill(data, printerSize = '58mm') {
   const gstPct = Number(data.gst_percentage) || 0;
   const gstAmt = Number(data.gst) || 0;
   if (gstPct > 0 || gstAmt > 0) {
-    builder.text(padText(`GST (${gstPct}%):`, labelLen) + ' ' + padText(formatAmount(gstAmt), amtLen, 'right'));
+    builder.text(padText(isMarathi ? `जीएसटी (${gstPct}%):` : `GST (${gstPct}%):`, labelLen) + ' ' + padText(formatAmount(gstAmt), amtLen, 'right'));
   }
 
   if (data.discountPercentage > 0) {
     const preVal = Number(data.subtotal) + Number(data.gst);
     const discAmt = preVal * (data.discountPercentage / 100);
-    builder.text(padText(`Discount (${data.discountPercentage}%):`, labelLen) + ' ' + padText(`-${formatAmount(discAmt)}`, amtLen, 'right'));
+    builder.text(padText(isMarathi ? `सवलत (${data.discountPercentage}%):` : `Discount (${data.discountPercentage}%):`, labelLen) + ' ' + padText(`-${formatAmount(discAmt)}`, amtLen, 'right'));
   }
 
   const finalAmountToDisplay = data.finalAmount !== undefined && data.finalAmount !== null
@@ -640,16 +643,16 @@ export async function formatBill(data, printerSize = '58mm') {
 
   builder.line('-', LINE_WIDTH)
     .bold(true)
-    .text(padText('GRAND TOTAL:', labelLen) + ' ' + padText(formatAmount(finalAmountToDisplay), amtLen, 'right'))
+    .text(padText(isMarathi ? 'एकूण देय (TOTAL):' : 'GRAND TOTAL:', labelLen) + ' ' + padText(formatAmount(finalAmountToDisplay), amtLen, 'right'))
     .bold(false)
     .line('=', LINE_WIDTH);
 
   if (isCancelOrder) {
     if (data.cancelledBy) {
-      builder.text(`Cancelled By: ${data.cancelledBy}`);
+      builder.text(isMarathi ? `रद्द करणारे: ${data.cancelledBy}` : `Cancelled By: ${data.cancelledBy}`);
     }
     if (data.cancellationReason) {
-      builder.text(`Reason: ${data.cancellationReason}`);
+      builder.text(isMarathi ? `कारण: ${data.cancellationReason}` : `Reason: ${data.cancellationReason}`);
     }
     builder.line('-', LINE_WIDTH);
   }
@@ -657,7 +660,7 @@ export async function formatBill(data, printerSize = '58mm') {
   if (data.isCreditSettlement) {
     const payMode = (data.settlementPaymentMethod || 'CASH').toUpperCase();
     builder.bold(true)
-      .text(padText('SETTLEMENT MODE:', labelLen) + ' ' + padText(payMode, amtLen, 'right'))
+      .text(padText(isMarathi ? 'जमा प्रकार:' : 'SETTLEMENT MODE:', labelLen) + ' ' + padText(payMode, amtLen, 'right'))
       .bold(false)
       .line('-', LINE_WIDTH);
   }
@@ -667,7 +670,7 @@ export async function formatBill(data, printerSize = '58mm') {
     const upiLink = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.hotelName || '')}&am=${data.finalAmount}&cu=INR`;
     builder.alignCenter()
       .bold(true)
-      .text('SCAN TO PAY WITH ANY UPI APP')
+      .text(isMarathi ? 'यूपीआय द्वारे पेमेंट स्कॅन करा' : 'SCAN TO PAY WITH ANY UPI APP')
       .bold(false)
       .qrCode(upiLink)
       .text(`UPI ID: ${data.upiId}`)
@@ -676,7 +679,7 @@ export async function formatBill(data, printerSize = '58mm') {
 
   builder.alignCenter()
     .bold(true)
-    .text('THANK YOU! VISIT AGAIN')
+    .text(isMarathi ? 'धन्यवाद! पुन्हा भेट द्या.' : 'THANK YOU! VISIT AGAIN')
     .bold(false);
 
   try {

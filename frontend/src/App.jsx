@@ -3,6 +3,7 @@ import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { LanguageProvider } from './context/LanguageContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import MenuManagement from './pages/MenuManagement';
@@ -72,125 +73,121 @@ const InventoryRoute = ({ children }) => {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <AuthProvider>
-          <Router>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Home />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/menu" element={
-                <ProtectedRoute>
-                  <OwnerRoute>
+      <LanguageProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <Router>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/" element={
+                  <ProtectedRoute>
                     <Layout>
-                      <MenuManagement />
+                      <Home />
                     </Layout>
-                  </OwnerRoute>
-                </ProtectedRoute>
-              } />
-              <Route path="/kitchen-kot" element={
-                <ProtectedRoute>
-                  <OwnerRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/kot" element={
+                  <ProtectedRoute>
                     <Layout>
                       <KitchenKOT />
                     </Layout>
-                  </OwnerRoute>
-                </ProtectedRoute>
-              } />
-              <Route path="/history" element={
-                <ProtectedRoute>
-                  <OwnerRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/history" element={
+                  <ProtectedRoute>
                     <Layout>
                       <BillingHistory />
                     </Layout>
-                  </OwnerRoute>
-                </ProtectedRoute>
-              } />
-              <Route path="/cancel-orders" element={
-                <ProtectedRoute>
-                  <OwnerRoute>
-                    <Layout>
-                      <CancelOrders />
-                    </Layout>
-                  </OwnerRoute>
-                </ProtectedRoute>
-              } />
-              <Route path="/expenses" element={
-                <ProtectedRoute>
-                  <OwnerRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/expenses" element={
+                  <ProtectedRoute>
                     <Layout>
                       <ExpenseManagement />
                     </Layout>
-                  </OwnerRoute>
-                </ProtectedRoute>
-              } />
-              <Route path="/credit" element={
-                <ProtectedRoute>
-                  <OwnerRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/cancel-orders" element={
+                  <ProtectedRoute>
+                    <OwnerRoute>
+                      <Layout>
+                        <CancelOrders />
+                      </Layout>
+                    </OwnerRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/menu" element={
+                  <ProtectedRoute>
+                    <OwnerRoute>
+                      <Layout>
+                        <MenuManagement />
+                      </Layout>
+                    </OwnerRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/credit" element={
+                  <ProtectedRoute>
+                    <OwnerRoute>
+                      <Layout>
+                        <CreditManagement />
+                      </Layout>
+                    </OwnerRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/inventory" element={
+                  <ProtectedRoute>
+                    <InventoryRoute>
+                      <Layout>
+                        <InventoryManagement />
+                      </Layout>
+                    </InventoryRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/profile" element={
+                  <ProtectedRoute>
                     <Layout>
-                      <CreditManagement />
+                      <Profile />
                     </Layout>
-                  </OwnerRoute>
-                </ProtectedRoute>
-              } />
-              <Route path="/inventory" element={
-                <ProtectedRoute>
-                  <InventoryRoute>
-                    <Layout>
-                      <InventoryManagement />
-                    </Layout>
-                  </InventoryRoute>
-                </ProtectedRoute>
-              } />
-              <Route path="/profile" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Profile />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-            <Toaster 
-              position="top-right" 
-              containerStyle={{ pointerEvents: 'none' }}
-              toastOptions={{
-                duration: 1500,
-                style: {
-                  background: 'var(--bg-card)',
-                  color: 'var(--text-primary)',
-                  borderRadius: '12px',
-                  border: '1px solid var(--border-rgba-05)',
-                  fontWeight: 600,
-                  fontSize: '14px',
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
-                  backdropFilter: 'blur(8px)',
-                  pointerEvents: 'none'
-                },
-                success: {
+                  </ProtectedRoute>
+                } />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+              <Toaster 
+                position="top-right" 
+                containerStyle={{ pointerEvents: 'none' }}
+                toastOptions={{
                   duration: 1500,
-                  iconTheme: {
-                    primary: '#10b981',
-                    secondary: '#ffffff',
+                  style: {
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-primary)',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-rgba-05)',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+                    backdropFilter: 'blur(8px)',
+                    pointerEvents: 'none'
                   },
-                },
-                error: {
-                  duration: 2000,
-                  iconTheme: {
-                    primary: '#ef4444',
-                    secondary: '#ffffff',
+                  success: {
+                    duration: 1500,
+                    iconTheme: {
+                      primary: '#10b981',
+                      secondary: '#ffffff',
+                    },
                   },
-                }
-              }}
-            />
-          </Router>
-        </AuthProvider>
-      </ThemeProvider>
+                  error: {
+                    duration: 2000,
+                    iconTheme: {
+                      primary: '#ef4444',
+                      secondary: '#ffffff',
+                    },
+                  }
+                }}
+              />
+            </Router>
+          </AuthProvider>
+        </ThemeProvider>
+      </LanguageProvider>
     </ErrorBoundary>
   );
 }
