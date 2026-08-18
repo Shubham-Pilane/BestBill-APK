@@ -55,6 +55,21 @@ export const translations = {
     "price": "Price",
     "qty": "Qty",
 
+    // Payment Methods & Settlement
+    "payment_method": "Payment Method",
+    "payment_mode": "Payment Mode",
+    "cash": "Cash",
+    "online": "Online",
+    "credit": "Credit",
+    "card": "Card",
+    "upi": "UPI",
+    "customer": "Customer",
+    "vendor": "Vendor",
+    "settle_and_print": "Settle & Print",
+    "settle_without_print": "Settle Without Print",
+    "print_token": "Print Token",
+    "re_print": "Re-Print",
+
     // Menu Management
     "menu_management_title": "Menu Management",
     "menu_groups": "Groups & Categories",
@@ -96,8 +111,6 @@ export const translations = {
     "print": "Print",
     "paid": "Paid",
     "pending": "Pending",
-    "cash": "Cash",
-    "upi": "UPI / Online",
     "close": "Close",
     "success": "Success",
     "error": "Error"
@@ -159,6 +172,21 @@ export const translations = {
     "price": "किंमत",
     "qty": "नग",
 
+    // Payment Methods & Settlement
+    "payment_method": "पेमेंट पद्धत (Payment Method)",
+    "payment_mode": "पेमेंट प्रकार (Payment Mode)",
+    "cash": "रोख (Cash)",
+    "online": "ऑनलाईन (Online)",
+    "credit": "उधारी / खाते (Credit)",
+    "card": "कार्ड (Card)",
+    "upi": "यूपीआय (UPI)",
+    "customer": "ग्राहक (Customer)",
+    "vendor": "विक्रेता (Vendor)",
+    "settle_and_print": "सेटल व प्रिंट करा",
+    "settle_without_print": "प्रिंटशिवाय सेटल करा",
+    "print_token": "टोकन प्रिंट करा",
+    "re_print": "पुन्हा प्रिंट करा",
+
     // Menu Management
     "menu_management_title": "मेनू व्यवस्थापन",
     "menu_groups": "गट आणि कॅटेगरीज",
@@ -197,11 +225,9 @@ export const translations = {
     "table": "टेबल",
     "room": "रूम",
     "date": "तारीख",
-    "print": "प्रिंट",
+    "print": "प्रिंट करा (Print)",
     "paid": "भरले",
     "pending": "प्रलंबित",
-    "cash": "रोख (Cash)",
-    "upi": "यूपीआय / ऑनलाईन",
     "close": "बंद करा",
     "success": "यशस्वी",
     "error": "त्रुटी"

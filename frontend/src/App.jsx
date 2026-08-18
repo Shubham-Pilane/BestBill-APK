@@ -93,6 +93,13 @@ function App() {
                     </Layout>
                   </ProtectedRoute>
                 } />
+                <Route path="/kitchen-kot" element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <KitchenKOT />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
                 <Route path="/history" element={
                   <ProtectedRoute>
                     <Layout>

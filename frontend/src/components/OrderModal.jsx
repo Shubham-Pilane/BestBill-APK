@@ -1230,7 +1230,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                           {/* Payment Method Section */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <label style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                              PAYMENT METHOD
+                              {t('payment_method', 'PAYMENT METHOD')}
                             </label>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button 
@@ -1250,7 +1250,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                   transition: 'all 0.2s'
                                 }}
                               >
-                                Cash
+                                {t('cash', 'Cash')}
                               </button>
                               <button 
                                 type="button"
@@ -1269,7 +1269,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                   transition: 'all 0.2s'
                                 }}
                               >
-                                Online
+                                {t('online', 'Online')}
                               </button>
                               <button 
                                 type="button"
@@ -1288,7 +1288,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                   transition: 'all 0.2s'
                                 }}
                               >
-                                Credit
+                                {t('credit', 'Credit')}
                               </button>
                             </div>
                           </div>
@@ -1402,7 +1402,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                     cursor: 'pointer'
                                   }}
                                 >
-                                  Customer
+                                  {t('customer', 'Customer')}
                                 </button>
                                 <button 
                                   type="button" 
@@ -1420,7 +1420,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                     cursor: 'pointer'
                                   }}
                                 >
-                                  Vendor
+                                  {t('vendor', 'Vendor')}
                                 </button>
                               </div>
   
@@ -1509,7 +1509,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                   marginTop: '4px'
                                 }}
                               >
-                                Settle Without Print
+                                {t('settle_without_print', 'Settle Without Print')}
                               </button>
                             </div>
                           )}
@@ -1532,14 +1532,14 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   {String(table.table_number || table.id || '').toLowerCase().includes('token') ? (
                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                        <button onClick={printToken} style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '900', fontSize: '13px', boxShadow: '0 4px 12px rgba(245,158,11,0.25)' }}>
-                          <Ticket size={16} /> Print Token
+                          <Ticket size={16} /> {t('print_token', 'Print Token')}
                        </button>
                        <div style={{ display: 'flex', gap: '10px' }}>
                          <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '900', fontSize: '12px', boxShadow: '0 4px 12px rgba(59,130,246,0.25)' }}>
-                            <Printer size={16} /> Settle & Print
+                            <Printer size={16} /> {t('settle_and_print', 'Settle & Print')}
                          </button>
                          <button onClick={settleWithoutPrint} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#10b981', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '900', fontSize: '12px', boxShadow: '0 4px 12px rgba(16,185,129,0.25)' }}>
-                            <CheckCircle size={16} /> Settle Without Print
+                            <CheckCircle size={16} /> {t('settle_without_print', 'Settle Without Print')}
                          </button>
                        </div>
                        {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
@@ -1551,7 +1551,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   ) : (
                      <div style={{ display: 'flex', gap: '10px' }}>
                         <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
-                           <Printer size={16} /> {!billData.is_paid ? 'Print' : 'Re-Print'}
+                           <Printer size={16} /> {!billData.is_paid ? t('print', 'Print') : t('re_print', 'Re-Print')}
                         </button>
                         {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
                           <button onClick={shareViaWhatsApp} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#22c55e', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
