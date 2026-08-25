@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
     price REAL NOT NULL,
     description TEXT,
     is_available BOOLEAN DEFAULT 1,
+    lang TEXT DEFAULT 'en',
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
     is_deleted BOOLEAN DEFAULT 0
 );
@@ -439,6 +440,9 @@ export const initDb = async () => {
     db.run(DDL_SCHEMA);
     try {
       db.run("ALTER TABLE orders ADD COLUMN removed_items_json TEXT DEFAULT '[]';");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE menu_items ADD COLUMN lang TEXT DEFAULT 'en';");
     } catch (e) {}
     saveDbFileNow();
     

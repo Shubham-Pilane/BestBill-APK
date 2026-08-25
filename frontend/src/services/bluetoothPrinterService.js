@@ -1,4 +1,11 @@
 import html2canvas from 'html2canvas';
+import {
+  containsDevanagari,
+  renderDevanagariLineToRaster,
+  renderHeaderRowToRaster,
+  renderItemRowToRaster,
+  renderKOTItemRowToRaster
+} from '../utils/devanagariRenderer';
 
 // Helper to pad text left/right for ESC/POS alignment
 const padText = (str, len, align = 'left') => {
@@ -37,10 +44,12 @@ const toTitleCase = (str) => {
   return String(str || '').split(' ').map(word => word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : '').join(' ');
 };
 
-// Helper for formatting currency amounts cleanly
+// Helper for formatting currency amounts cleanly (stripping unnecessary .00)
 const formatAmount = (amt) => {
   const num = Number(amt) || 0;
-  return num.toFixed(2);
+  if (Number.isInteger(num)) return String(num);
+  const str = num.toFixed(2);
+  return str.endsWith('.00') ? str.slice(0, -3) : str;
 };
 
 // ESC/POS Command Builder
@@ -48,6 +57,14 @@ class EscposBuilder {
   constructor(is58mm = true) {
     this.is58mm = is58mm;
     this.bytes = [0x1B, 0x40]; // ESC @ (Initialize printer)
+  }
+
+  appendBytes(bytesArr) {
+    if (!bytesArr || !bytesArr.length) return this;
+    for (let i = 0; i < bytesArr.length; i++) {
+      this.bytes.push(bytesArr[i]);
+    }
+    return this;
   }
 
   alignLeft() {
@@ -231,313 +248,215 @@ export async function generateReceiptBitmapFromHtml(htmlString, is58mm = true) {
   }
 }
 
-// Format KOT with Bitmap HTML Support
+// Format KOT with Hybrid Devanagari (Marathi) Raster + ESC/POS Support
 export async function formatKOT(data, printerSize = '58mm') {
   const is58mm = printerSize === '58mm';
-  const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr' || /[\u0900-\u097F]/.test(JSON.stringify(data));
-
-  if (isMarathi && typeof document !== 'undefined') {
-    const dateStr = new Date().toLocaleString();
-    let tableStr = String(data.table || '');
-    if (!tableStr.toLowerCase().includes('room') && !tableStr.toLowerCase().includes('parcel') && !tableStr.toLowerCase().includes('टेबल')) {
-      tableStr = `टेबल ${tableStr}`;
-    }
-    if (data.floor && !tableStr.toLowerCase().includes('parcel')) {
-      tableStr += ` - ${data.floor}`;
-    }
-
-    const itemsHtml = (data.items || []).map(item => {
-      const qty = item.quantity || item.qty || 1;
-      return `
-        <tr style="font-size:16px; border-bottom:1px dashed #bbb;">
-          <td style="padding:6px 0; text-align:left; font-weight:bold;">${item.name || ''}</td>
-          <td style="padding:6px 0; text-align:right; font-weight:900;">${qty}</td>
-        </tr>
-      `;
-    }).join('');
-
-    const htmlString = `
-      <div style="font-family: 'Noto Sans Devanagari', 'Segoe UI', Arial, sans-serif; color: #000; background: #fff; width: 100%; text-align: center;">
-        <div style="font-size: 24px; font-weight: 900; margin-bottom: 4px;">किचन ऑर्डर (KOT)</div>
-        <div style="border-bottom: 2px solid #000; margin: 8px 0;"></div>
-        
-        <div style="text-align: left;">
-          <div style="font-size: 18px; font-weight: 900;">${tableStr}</div>
-          <div style="font-size: 14px; margin-bottom: 6px;">तारीख: ${dateStr}</div>
-        </div>
-
-        <div style="border-bottom: 1px solid #000; margin: 6px 0;"></div>
-
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead>
-            <tr style="font-size: 16px; font-weight: 900; border-bottom: 1px solid #000;">
-              <th style="text-align: left; padding: 4px 0;">पदार्थ</th>
-              <th style="text-align: right; padding: 4px 0;">नग</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
-
-        <div style="border-bottom: 1px solid #000; margin: 6px 0;"></div>
-
-        ${data.notes ? `<div style="font-size: 15px; font-weight: bold; text-align: left; margin: 6px 0;">टिप (NOTES): ${data.notes}</div>` : ''}
-
-        <div style="font-size: 12px; margin-top: 8px; color: #555; text-align: center;">Powered by BestBill POS</div>
-      </div>
-    `;
-
-    return generateReceiptBitmapFromHtml(htmlString, is58mm);
-  }
-
   const LINE_WIDTH = is58mm ? 32 : 48;
   const builder = new EscposBuilder(is58mm);
   const dateStr = new Date().toLocaleString();
+  const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr' || /[\u0900-\u097F]/.test(JSON.stringify(data));
 
-  let tStr = String(data.table || '');
-  if (!tStr.toLowerCase().includes('room') && !tStr.toLowerCase().includes('parcel')) {
-    tStr = `Table ${tStr}`;
+  builder.alignCenter();
+
+  const titleText = isMarathi ? 'किचन ऑर्डर (KOT)' : 'KITCHEN ORDER';
+  if (containsDevanagari(titleText)) {
+    builder.appendBytes(renderDevanagariLineToRaster(titleText, { paperSize: printerSize, align: 'center', isDouble: true }));
+  } else {
+    builder.setFontDouble().bold().text(titleText).setFontNormal().bold(false);
   }
 
-  builder.alignCenter()
-    .setFontDouble()
-    .bold()
-    .text('KITCHEN ORDER')
-    .setFontNormal()
-    .bold(false)
-    .line('=', LINE_WIDTH)
-    .alignLeft()
-    .bold();
+  builder.line('=', LINE_WIDTH).alignLeft();
 
-  wordWrap(tStr, LINE_WIDTH).forEach(l => builder.text(l));
+  let tStr = String(data.table || '');
+  if (isMarathi && !tStr.toLowerCase().includes('room') && !tStr.toLowerCase().includes('parcel') && !tStr.toLowerCase().includes('टेबल')) {
+    tStr = `टेबल ${tStr}`;
+  } else if (!isMarathi && !tStr.toLowerCase().includes('room') && !tStr.toLowerCase().includes('parcel')) {
+    tStr = `Table ${tStr}`;
+  }
+  if (data.floor && !tStr.toLowerCase().includes('parcel')) {
+    tStr += ` - ${data.floor}`;
+  }
 
-  builder.bold(false)
-    .text(`DATE: ${dateStr}`)
-    .line('-', LINE_WIDTH)
-    .setFontNormal();
+  if (containsDevanagari(tStr)) {
+    builder.appendBytes(renderDevanagariLineToRaster(tStr, { paperSize: printerSize, align: 'left', fontWeight: 'bold' }));
+  } else {
+    builder.bold();
+    wordWrap(tStr, LINE_WIDTH).forEach(l => builder.text(l));
+  }
+
+  const dateLabelStr = isMarathi ? `तारीख: ${dateStr}` : `DATE: ${dateStr}`;
+  if (containsDevanagari(dateLabelStr)) {
+    builder.appendBytes(renderDevanagariLineToRaster(dateLabelStr, { paperSize: printerSize, align: 'left' }));
+  } else {
+    builder.bold(false).text(dateLabelStr);
+  }
+
+  builder.line('-', LINE_WIDTH).setFontNormal();
 
   const qtyLen = is58mm ? 4 : 6;
   const itemLen = LINE_WIDTH - qtyLen - 1;
 
-  builder.bold(true).text(padText('ITEM', itemLen) + ' ' + padText('QTY', qtyLen, 'right')).bold(false);
+  if (isMarathi) {
+    builder.appendBytes(renderDevanagariLineToRaster('पदार्थ                 नग', { paperSize: printerSize, align: 'left', fontWeight: 'bold' }));
+  } else {
+    builder.bold(true).text(padText('ITEM', itemLen) + ' ' + padText('QTY', qtyLen, 'right')).bold(false);
+  }
   builder.line('-', LINE_WIDTH);
 
-  data.items.forEach(item => {
+  (data.items || []).forEach(item => {
     const qty = item.quantity || item.qty || 1;
-    const nameStr = toTitleCase(String(item.name || ''));
-    const wrappedName = wordWrap(nameStr, itemLen);
+    const itemName = String(item.name || '');
 
-    if (wrappedName.length === 0) {
-      builder.text(padText('', itemLen) + ' ' + padText(qty, qtyLen, 'right'));
+    if (containsDevanagari(itemName)) {
+      builder.appendBytes(renderKOTItemRowToRaster({ name: itemName, qty }, { paperSize: printerSize }));
     } else {
-      builder.text(padText(wrappedName[0], itemLen) + ' ' + padText(qty, qtyLen, 'right'));
-      for (let i = 1; i < wrappedName.length; i++) {
-        builder.text(padText(wrappedName[i], itemLen) + ' ' + ' '.repeat(qtyLen));
+      const nameStr = toTitleCase(itemName);
+      const wrappedName = wordWrap(nameStr, itemLen);
+      if (wrappedName.length === 0) {
+        builder.text(padText('', itemLen) + ' ' + padText(qty, qtyLen, 'right'));
+      } else {
+        builder.text(padText(wrappedName[0], itemLen) + ' ' + padText(qty, qtyLen, 'right'));
+        for (let i = 1; i < wrappedName.length; i++) {
+          builder.text(padText(wrappedName[i], itemLen) + ' ' + ' '.repeat(qtyLen));
+        }
       }
     }
   });
 
-  builder.setFontNormal()
-    .bold(false)
-    .line('-', LINE_WIDTH);
+  builder.setFontNormal().bold(false).line('-', LINE_WIDTH);
 
   if (data.notes) {
-    builder.bold().text('NOTES:');
-    wordWrap(String(data.notes), LINE_WIDTH).forEach(l => builder.text(l));
+    const notesStr = isMarathi ? `टिप: ${data.notes}` : `NOTES: ${data.notes}`;
+    if (containsDevanagari(notesStr)) {
+      builder.appendBytes(renderDevanagariLineToRaster(notesStr, { paperSize: printerSize, align: 'left', fontWeight: 'bold' }));
+    } else {
+      builder.bold().text('NOTES:');
+      wordWrap(String(data.notes), LINE_WIDTH).forEach(l => builder.text(l));
+    }
     builder.bold(false).line('-', LINE_WIDTH);
   }
 
-  builder.alignCenter()
-    .bold(true)
-    .text('Powered by BestBill POS')
-    .bold(false);
-
+  builder.appendBytes(renderDevanagariLineToRaster('⚡ Powered by BestBill™', { paperSize: printerSize, align: 'center', fontWeight: 'bold', fontSize: 22 }));
   builder.feed(3).cut();
   return builder.build();
 }
 
-// Format Bill with HTML Bitmap Raster Support
+// Format Bill with Hybrid Devanagari (Marathi) Raster + ESC/POS Support
 export async function formatBill(data, printerSize = '58mm') {
   const is58mm = printerSize === '58mm';
-  const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr' || /[\u0900-\u097F]/.test(JSON.stringify(data));
-
-  if (isMarathi && typeof document !== 'undefined') {
-    const isCancelOrder = data.type === 'CANCEL_ORDER' || data.isCancelOrder;
-    const billNoStr = data.billId || data.orderNumber || data.order_number || data.id || 'N/A';
-    const billLabel = isCancelOrder ? 'रद्द ऑर्डर क्र.:' : 'बिल क्र.:';
-    const dateStr = new Date().toLocaleString();
-
-    let tableStr = '';
-    if (data.table) {
-      let tStr = String(data.table);
-      if (!tStr.toLowerCase().includes('room') && !tStr.toLowerCase().includes('parcel') && !tStr.toLowerCase().includes('टेबल')) {
-        tStr = `टेबल ${tStr}`;
-      }
-      tableStr = `<div style="font-size:16px; font-weight:bold; margin-bottom:4px;">${tStr}</div>`;
-    }
-
-    const itemsHtml = (data.items || []).map(item => {
-      const qty = item.quantity || item.qty || 1;
-      const rate = Number(item.price || 0).toFixed(2);
-      const amt = (Number(item.price || 0) * qty).toFixed(2);
-      return `
-        <tr style="font-size:15px; border-bottom:1px dashed #ccc;">
-          <td style="padding:5px 0; text-align:left; font-weight:bold;">${item.name || ''}</td>
-          <td style="padding:5px 0; text-align:center;">${qty}</td>
-          <td style="padding:5px 0; text-align:right;">${rate}</td>
-          <td style="padding:5px 0; text-align:right; font-weight:bold;">${amt}</td>
-        </tr>
-      `;
-    }).join('');
-
-    const gstPct = Number(data.gst_percentage) || 0;
-    const gstAmt = Number(data.gst) || 0;
-    let gstHtml = '';
-    if (gstPct > 0 || gstAmt > 0) {
-      gstHtml = `<div style="display:flex; justify-content:space-between; font-size:15px; margin-top:4px;"><span>जीएसटी (${gstPct}%):</span><span>₹${gstAmt.toFixed(2)}</span></div>`;
-    }
-
-    let discHtml = '';
-    if (data.discountPercentage > 0) {
-      const preVal = Number(data.subtotal || 0) + Number(data.gst || 0);
-      const discAmt = preVal * (data.discountPercentage / 100);
-      discHtml = `<div style="display:flex; justify-content:space-between; font-size:15px; margin-top:4px;"><span>सवलत (${data.discountPercentage}%):</span><span>-₹${discAmt.toFixed(2)}</span></div>`;
-    }
-
-    const finalAmountToDisplay = data.finalAmount !== undefined && data.finalAmount !== null
-      ? Number(data.finalAmount)
-      : (data.totalAmount !== undefined && data.totalAmount !== null
-          ? Number(data.totalAmount)
-          : Number(data.total_amount || 0));
-
-    const htmlString = `
-      <div style="font-family: 'Noto Sans Devanagari', 'Segoe UI', Arial, sans-serif; color: #000; background: #fff; width: 100%; text-align: center;">
-        <div style="font-size: 24px; font-weight: 900; margin-bottom: 4px;">${data.hotelName || 'BestBill POS'}</div>
-        ${data.hotelLocation ? `<div style="font-size: 14px;">${data.hotelLocation}</div>` : ''}
-        ${data.hotelPhone ? `<div style="font-size: 14px;">Phone: ${data.hotelPhone}</div>` : ''}
-        ${data.hotelFssai ? `<div style="font-size: 14px;">FSSAI: ${data.hotelFssai}</div>` : ''}
-        
-        <div style="border-bottom: 2px solid #000; margin: 8px 0;"></div>
-        
-        <div style="text-align: left;">
-          <div style="font-size: 17px; font-weight: 900;">${billLabel} ${billNoStr}</div>
-          ${tableStr}
-          <div style="font-size: 14px; margin-bottom: 6px;">तारीख: ${dateStr}</div>
-        </div>
-
-        <div style="border-bottom: 1px solid #000; margin: 6px 0;"></div>
-
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead>
-            <tr style="font-size: 15px; font-weight: 900; border-bottom: 1px solid #000;">
-              <th style="text-align: left; padding: 4px 0;">पदार्थ</th>
-              <th style="text-align: center; padding: 4px 0;">नग</th>
-              <th style="text-align: right; padding: 4px 0;">दर</th>
-              <th style="text-align: right; padding: 4px 0;">रक्कम</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
-
-        <div style="border-bottom: 1px solid #000; margin: 6px 0;"></div>
-
-        ${gstHtml}
-        ${discHtml}
-
-        <div style="display: flex; justify-content: space-between; font-size: 22px; font-weight: 900; margin-top: 8px; border-top: 2px solid #000; padding-top: 6px;">
-          <span>एकूण देय:</span>
-          <span>₹${finalAmountToDisplay.toFixed(2)}</span>
-        </div>
-
-        <div style="border-bottom: 1px solid #000; margin: 10px 0;"></div>
-
-        <div style="font-size: 16px; font-weight: 900; margin-top: 8px;">धन्यवाद! पुन्हा भेट द्या.</div>
-        <div style="font-size: 12px; margin-top: 4px; color: #555;">Powered by BestBill POS</div>
-      </div>
-    `;
-
-    return generateReceiptBitmapFromHtml(htmlString, is58mm);
-  }
-
   const LINE_WIDTH = is58mm ? 32 : 48;
   const builder = new EscposBuilder(is58mm);
   const dateStr = new Date().toLocaleString();
+  const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr' || /[\u0900-\u097F]/.test(JSON.stringify(data));
 
   builder.alignCenter();
 
-  builder.setFontDouble().bold();
-  const hotelNameLines = wordWrap(data.hotelName || 'BestBill POS', Math.floor(LINE_WIDTH / 2));
-  hotelNameLines.forEach(l => builder.text(l));
-  builder.setFontNormal().bold(false);
+  const hotelName = data.hotelName || 'BestBill POS';
+  if (containsDevanagari(hotelName)) {
+    builder.appendBytes(renderDevanagariLineToRaster(hotelName, { paperSize: printerSize, align: 'center', isDouble: true }));
+  } else {
+    builder.setFontDouble().bold();
+    const hotelNameLines = wordWrap(hotelName, Math.floor(LINE_WIDTH / 2));
+    hotelNameLines.forEach(l => builder.text(l));
+    builder.setFontNormal().bold(false);
+  }
 
   if (data.hotelLocation) {
-    wordWrap(data.hotelLocation, LINE_WIDTH).forEach(l => builder.text(l));
+    if (containsDevanagari(data.hotelLocation)) {
+      builder.appendBytes(renderDevanagariLineToRaster(data.hotelLocation, { paperSize: printerSize, align: 'center' }));
+    } else {
+      wordWrap(data.hotelLocation, LINE_WIDTH).forEach(l => builder.text(l));
+    }
   }
   if (data.hotelPhone) builder.text(`Phone: ${data.hotelPhone}`);
   if (data.hotelFssai) builder.text(`FSSAI: ${data.hotelFssai}`);
 
   const isCancelOrder = data.type === 'CANCEL_ORDER' || data.isCancelOrder;
   const billNoStr = data.billId || data.orderNumber || data.order_number || data.id || 'N/A';
-  const billLabel = isCancelOrder ? 'CANCEL ORDER NO:' : 'BILL NO:';
+  const billLabel = isMarathi ? (isCancelOrder ? 'रद्द ऑर्डर क्र.:' : 'बिल क्र.:') : (isCancelOrder ? 'CANCEL ORDER NO:' : 'BILL NO:');
+  const fullBillStr = `${billLabel} ${billNoStr}`;
 
-  builder.line('=', LINE_WIDTH)
-    .alignLeft()
-    .bold()
-    .text(`${billLabel} ${billNoStr}`);
+  builder.line('=', LINE_WIDTH).alignLeft();
 
-  if (data.table) {
-    wordWrap(String(data.table), LINE_WIDTH).forEach(l => builder.text(l));
+  if (containsDevanagari(fullBillStr)) {
+    builder.appendBytes(renderDevanagariLineToRaster(fullBillStr, { paperSize: printerSize, align: 'left', fontWeight: 'bold' }));
+  } else {
+    builder.bold().text(fullBillStr);
   }
 
-  builder.bold(false)
-    .text(`Date: ${dateStr}`)
-    .line('-', LINE_WIDTH);
+  if (data.table) {
+    let tStr = String(data.table);
+    if (isMarathi && !tStr.toLowerCase().includes('room') && !tStr.toLowerCase().includes('parcel') && !tStr.toLowerCase().includes('टेबल')) {
+      tStr = `टेबल ${tStr}`;
+    }
+    if (containsDevanagari(tStr)) {
+      builder.appendBytes(renderDevanagariLineToRaster(tStr, { paperSize: printerSize, align: 'left', fontWeight: 'bold' }));
+    } else {
+      wordWrap(tStr, LINE_WIDTH).forEach(l => builder.text(l));
+    }
+  }
+
+  const dateLabelStr = isMarathi ? `तारीख: ${dateStr}` : `Date: ${dateStr}`;
+  if (containsDevanagari(dateLabelStr)) {
+    builder.appendBytes(renderDevanagariLineToRaster(dateLabelStr, { paperSize: printerSize, align: 'left' }));
+  } else {
+    builder.bold(false).text(dateLabelStr);
+  }
+
+  builder.line('-', LINE_WIDTH);
 
   const qtyLen = is58mm ? 3 : 4;
   const rateLen = is58mm ? 6 : 8;
   const amtLen = is58mm ? 6 : 8;
   const itemLen = LINE_WIDTH - qtyLen - rateLen - amtLen - 3;
 
-  builder.bold(true).text(
-    padText('ITEM', itemLen) + ' ' +
-    padText('QTY', qtyLen, 'right') + ' ' +
-    padText('RATE', rateLen, 'right') + ' ' +
-    padText('AMT', amtLen, 'right')
-  ).bold(false);
+  if (isMarathi) {
+    builder.appendBytes(renderHeaderRowToRaster({ paperSize: printerSize }));
+  } else {
+    builder.bold(true).text(
+      padText('ITEM', itemLen) + ' ' +
+      padText('QTY', qtyLen, 'right') + ' ' +
+      padText('RATE', rateLen, 'right') + ' ' +
+      padText('AMT', amtLen, 'right')
+    ).bold(false);
+  }
 
   builder.line('-', LINE_WIDTH);
 
   (data.items || []).forEach(item => {
     const qty = item.quantity || item.qty || 1;
     const rate = formatAmount(item.price);
-    const amt = formatAmount(item.price * qty);
-    const nameStr = toTitleCase(String(item.name || ''));
-    const wrappedName = wordWrap(nameStr, itemLen);
+    const amt = formatAmount((item.price || 0) * qty);
+    const itemName = String(item.name || '');
 
-    if (wrappedName.length === 0) {
-      builder.text(
-        padText('', itemLen) + ' ' +
-        padText(qty, qtyLen, 'right') + ' ' +
-        padText(rate, rateLen, 'right') + ' ' +
-        padText(amt, amtLen, 'right')
-      );
+    if (containsDevanagari(itemName)) {
+      builder.appendBytes(renderItemRowToRaster({ name: itemName, qty, rate, amt }, { paperSize: printerSize }));
     } else {
-      builder.text(
-        padText(wrappedName[0], itemLen) + ' ' +
-        padText(qty, qtyLen, 'right') + ' ' +
-        padText(rate, rateLen, 'right') + ' ' +
-        padText(amt, amtLen, 'right')
-      );
-      for (let i = 1; i < wrappedName.length; i++) {
+      const nameStr = toTitleCase(itemName);
+      const wrappedName = wordWrap(nameStr, itemLen);
+
+      if (wrappedName.length === 0) {
         builder.text(
-          padText(wrappedName[i], itemLen) + ' ' +
-          ' '.repeat(qtyLen) + ' ' +
-          ' '.repeat(rateLen) + ' ' +
-          ' '.repeat(amtLen)
+          padText('', itemLen) + ' ' +
+          padText(qty, qtyLen, 'right') + ' ' +
+          padText(rate, rateLen, 'right') + ' ' +
+          padText(amt, amtLen, 'right')
         );
+      } else {
+        builder.text(
+          padText(wrappedName[0], itemLen) + ' ' +
+          padText(qty, qtyLen, 'right') + ' ' +
+          padText(rate, rateLen, 'right') + ' ' +
+          padText(amt, amtLen, 'right')
+        );
+        for (let i = 1; i < wrappedName.length; i++) {
+          builder.text(
+            padText(wrappedName[i], itemLen) + ' ' +
+            ' '.repeat(qtyLen) + ' ' +
+            ' '.repeat(rateLen) + ' ' +
+            ' '.repeat(amtLen)
+          );
+        }
       }
     }
   });
@@ -547,14 +466,23 @@ export async function formatBill(data, printerSize = '58mm') {
   const labelLen = LINE_WIDTH - amtLen - 1;
   const gstPct = Number(data.gst_percentage) || 0;
   const gstAmt = Number(data.gst) || 0;
+
   if (gstPct > 0 || gstAmt > 0) {
-    builder.text(padText(`GST (${gstPct}%):`, labelLen) + ' ' + padText(formatAmount(gstAmt), amtLen, 'right'));
+    if (isMarathi) {
+      builder.appendBytes(renderDevanagariLineToRaster(`जीएसटी (${gstPct}%): ₹${formatAmount(gstAmt)}`, { paperSize: printerSize, align: 'right' }));
+    } else {
+      builder.text(padText(`GST (${gstPct}%):`, labelLen) + ' ' + padText(formatAmount(gstAmt), amtLen, 'right'));
+    }
   }
 
   if (data.discountPercentage > 0) {
-    const preVal = Number(data.subtotal) + Number(data.gst);
+    const preVal = Number(data.subtotal || 0) + Number(data.gst || 0);
     const discAmt = preVal * (data.discountPercentage / 100);
-    builder.text(padText(`Discount (${data.discountPercentage}%):`, labelLen) + ' ' + padText(`-${formatAmount(discAmt)}`, amtLen, 'right'));
+    if (isMarathi) {
+      builder.appendBytes(renderDevanagariLineToRaster(`सवलत (${data.discountPercentage}%): -₹${formatAmount(discAmt)}`, { paperSize: printerSize, align: 'right' }));
+    } else {
+      builder.text(padText(`Discount (${data.discountPercentage}%):`, labelLen) + ' ' + padText(`-${formatAmount(discAmt)}`, amtLen, 'right'));
+    }
   }
 
   const finalAmountToDisplay = data.finalAmount !== undefined && data.finalAmount !== null
@@ -563,14 +491,20 @@ export async function formatBill(data, printerSize = '58mm') {
         ? Number(data.totalAmount)
         : Number(data.total_amount || 0));
 
-  builder.line('-', LINE_WIDTH)
-    .bold(true)
-    .text(padText('GRAND TOTAL:', labelLen) + ' ' + padText(formatAmount(finalAmountToDisplay), amtLen, 'right'))
-    .bold(false)
-    .line('=', LINE_WIDTH);
+  if (isMarathi) {
+    builder.line('-', LINE_WIDTH);
+    builder.appendBytes(renderDevanagariLineToRaster(`एकूण: ₹${formatAmount(finalAmountToDisplay)}`, { paperSize: printerSize, align: 'right', fontWeight: 'bold', fontSize: 26 }));
+    builder.line('=', LINE_WIDTH);
+  } else {
+    builder.line('-', LINE_WIDTH)
+      .bold(true)
+      .text(padText('GRAND TOTAL:', labelLen) + ' ' + padText(formatAmount(finalAmountToDisplay), amtLen, 'right'))
+      .bold(false)
+      .line('=', LINE_WIDTH);
+  }
 
   if (data.upiId) {
-    const upiLink = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.hotelName || '')}&am=${data.finalAmount}&cu=INR`;
+    const upiLink = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.hotelName || '')}&am=${finalAmountToDisplay}&cu=INR`;
     builder.alignCenter()
       .bold(true)
       .text('SCAN TO PAY WITH ANY UPI APP')
@@ -580,11 +514,14 @@ export async function formatBill(data, printerSize = '58mm') {
       .line('-', LINE_WIDTH);
   }
 
-  builder.alignCenter()
-    .bold(true)
-    .text('THANK YOU! VISIT AGAIN')
-    .bold(false);
+  builder.alignCenter();
+  if (isMarathi) {
+    builder.appendBytes(renderDevanagariLineToRaster('धन्यवाद! पुन्हा भेट द्या.', { paperSize: printerSize, align: 'center', fontWeight: 'bold' }));
+  } else {
+    builder.bold(true).text('THANK YOU! VISIT AGAIN').bold(false);
+  }
 
+  builder.appendBytes(renderDevanagariLineToRaster('⚡ Powered by BestBill™', { paperSize: printerSize, align: 'center', fontWeight: 'bold', fontSize: 22 }));
   builder.feed(3).cut();
   return builder.build();
 }
@@ -638,6 +575,62 @@ export class BluetoothPrinterService {
     return localStorage.getItem('cfg_printer_size') || '58mm';
   }
 
+  static async listPairedDevices() {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !window.bluetoothSerial || typeof window.bluetoothSerial.list !== 'function') {
+        resolve([]);
+        return;
+      }
+      try {
+        window.bluetoothSerial.list(
+          (devices) => {
+            const formatted = (devices || []).map(d => ({
+              name: d.name || 'Thermal Printer',
+              address: d.address || d.id || '',
+              id: d.address || d.id || ''
+            }));
+            resolve(formatted);
+          },
+          (err) => {
+            console.error('[BT LIST ERR]', err);
+            resolve([]);
+          }
+        );
+      } catch (e) {
+        console.error('[BT LIST EXCEPTION]', e);
+        resolve([]);
+      }
+    });
+  }
+
+  static async discoverUnpairedDevices() {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !window.bluetoothSerial || typeof window.bluetoothSerial.discoverUnpaired !== 'function') {
+        this.listPairedDevices().then(devices => resolve(devices));
+        return;
+      }
+      try {
+        window.bluetoothSerial.discoverUnpaired(
+          (devices) => {
+            const formatted = (devices || []).map(d => ({
+              name: d.name || 'Bluetooth Device',
+              address: d.address || d.id || '',
+              id: d.address || d.id || ''
+            }));
+            resolve(formatted);
+          },
+          (err) => {
+            console.error('[BT DISCOVER ERR]', err);
+            this.listPairedDevices().then(devices => resolve(devices));
+          }
+        );
+      } catch (e) {
+        console.error('[BT DISCOVER EXCEPTION]', e);
+        this.listPairedDevices().then(devices => resolve(devices));
+      }
+    });
+  }
+
   static async isBluetoothEnabled() {
     return new Promise((resolve) => {
       if (!window.bluetoothSerial || typeof window.bluetoothSerial.isEnabled !== 'function') {
@@ -679,24 +672,68 @@ export class BluetoothPrinterService {
       const btEnabled = await this.isBluetoothEnabled();
       if (!btEnabled) return false;
 
-      return new Promise((resolve) => {
-        try {
+      const writeBytes = () => {
+        return new Promise((resolve) => {
+          window.bluetoothSerial.write(
+            uint8Array.buffer,
+            () => resolve(true),
+            (err) => {
+              console.error('[BT WRITE ERR]', err);
+              resolve(false);
+            }
+          );
+        });
+      };
+
+      const connectAndWrite = () => {
+        return new Promise((resolve) => {
           window.bluetoothSerial.connect(
             macAddress,
-            () => {
-              window.bluetoothSerial.write(
-                uint8Array.buffer,
-                () => resolve(true),
-                () => resolve(false)
-              );
+            async () => {
+              const res = await writeBytes();
+              resolve(res);
             },
-            () => resolve(false)
+            async (err) => {
+              console.error('[BT CONNECT ERR]', err);
+              try {
+                if (window.bluetoothSerial.disconnect) window.bluetoothSerial.disconnect();
+              } catch (e) {}
+              setTimeout(() => {
+                window.bluetoothSerial.connect(
+                  macAddress,
+                  async () => {
+                    const res = await writeBytes();
+                    resolve(res);
+                  },
+                  () => resolve(false)
+                );
+              }, 500);
+            }
+          );
+        });
+      };
+
+      return new Promise((resolve) => {
+        try {
+          window.bluetoothSerial.isConnected(
+            async () => {
+              let ok = await writeBytes();
+              if (!ok) {
+                ok = await connectAndWrite();
+              }
+              resolve(ok);
+            },
+            async () => {
+              const ok = await connectAndWrite();
+              resolve(ok);
+            }
           );
         } catch (e) {
-          resolve(false);
+          connectAndWrite().then(resolve);
         }
       });
     } catch (err) {
+      console.error('[BT PRINT DATA EXCEPTION]', err);
       return false;
     }
   }

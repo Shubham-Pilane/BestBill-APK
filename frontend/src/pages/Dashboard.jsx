@@ -95,7 +95,7 @@ const Dashboard = () => {
       const [tablesRes, catRes, itemsRes] = await Promise.all([
         api.get('/tables'),
         api.get('/menu/categories'),
-        api.get('/menu/items')
+        api.get(`/menu/items?lang=${localStorage.getItem('app_language') || 'en'}`)
       ]);
       
       setTables(Array.isArray(tablesRes.data) ? tablesRes.data : []);

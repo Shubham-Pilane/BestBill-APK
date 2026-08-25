@@ -25,7 +25,8 @@ import {
   Boxes,
   AlertTriangle,
   Ban,
-  Receipt
+  Receipt,
+  Globe
 } from 'lucide-react';
 
 const playInternalChime = () => {
@@ -54,7 +55,7 @@ const playInternalChime = () => {
 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
-  const { t } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
 
   const location = useLocation();
   const isWaiter = user?.role === 'waiter';
@@ -276,12 +277,12 @@ const Layout = ({ children }) => {
             <h1 style={{ fontSize: '20px', fontWeight: 900, margin: 0 }}>Best<span style={{ color: '#38bdf8' }}>Bill</span></h1>
           </div>
           {user && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-               <Link to="/profile" style={{ display: 'block', textDecoration: 'none', cursor: 'pointer' }}>
-                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155' }}>
-                    <UserCircle size={20} color="var(--text-secondary)" />
-                 </div>
-               </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Link to="/profile" style={{ display: 'block', textDecoration: 'none', cursor: 'pointer' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155' }}>
+                   <UserCircle size={20} color="var(--text-secondary)" />
+                </div>
+              </Link>
             </div>
           )}
         </header>

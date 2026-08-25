@@ -6,7 +6,8 @@ import { Plus, Utensils, Tag, IndianRupee, Layers, ListChecks, Trash2, Edit2, X,
 import { useLanguage } from '../context/LanguageContext';
 
 const MenuManagement = () => {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
+  const [menuLang, setMenuLang] = useState(language || 'en');
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
   const [newCatName, setNewCatName] = useState('');
@@ -39,11 +40,15 @@ const MenuManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
-  const fetchData = async (page = 1, search = '') => {
+  useEffect(() => {
+    setMenuLang(language || 'en');
+  }, [language]);
+
+  const fetchData = async (page = 1, search = '', targetLang = menuLang) => {
     try {
       const [catRes, itemsRes] = await Promise.all([
         api.get('/menu/categories'),
-        api.get(`/menu/items?page=${page}&limit=10&search=${encodeURIComponent(search)}`)
+        api.get(`/menu/items?page=${page}&limit=10&search=${encodeURIComponent(search)}&lang=${targetLang}`)
       ]);
       setCategories(Array.isArray(catRes.data) ? catRes.data : []);
       const itemsData = itemsRes.data;
@@ -66,8 +71,8 @@ const MenuManagement = () => {
   };
 
   useEffect(() => {
-    fetchData(currentPage, searchTerm);
-  }, [currentPage, searchTerm]);
+    fetchData(currentPage, searchTerm, menuLang);
+  }, [currentPage, searchTerm, menuLang]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -108,11 +113,12 @@ const MenuManagement = () => {
         return;
       }
 
-      const loadingToast = toast.loading(`Importing ${importedItems.length} menu items...`);
+      const targetLangName = menuLang === 'mr' ? 'Marathi' : 'English';
+      const loadingToast = toast.loading(`Importing ${importedItems.length} items into ${targetLangName} menu...`);
       try {
-        const res = await api.post('/menu/items/bulk', { items: importedItems });
-        toast.success(res.data.message || `Successfully imported ${importedItems.length} items!`, { id: loadingToast });
-        fetchData(1, '');
+        const res = await api.post('/menu/items/bulk', { items: importedItems, lang: menuLang });
+        toast.success(res.data.message || `Successfully imported ${importedItems.length} ${targetLangName} menu items!`, { id: loadingToast });
+        fetchData(1, '', menuLang);
         setCurrentPage(1);
       } catch (err) {
         toast.error('Failed to import menu CSV', { id: loadingToast });
@@ -168,12 +174,12 @@ const MenuManagement = () => {
     e.preventDefault();
     if (!newItem.category_id) return toast.error('Please assign a category');
     try {
-      await api.post('/menu/items', newItem);
+      await api.post('/menu/items', { ...newItem, lang: menuLang });
       setNewItem({ name: '', price: '', category_id: '', description: '' });
-      fetchData(1, '');
+      fetchData(1, '', menuLang);
       setCurrentPage(1);
       setSearchTerm('');
-      toast.success('Menu item successfully added!');
+      toast.success(`Menu item added to ${menuLang === 'mr' ? 'Marathi' : 'English'} menu!`);
     } catch (err) {
       toast.error('Could not create item');
     }
@@ -187,7 +193,7 @@ const MenuManagement = () => {
       onConfirm: async () => {
         try {
           const res = await api.delete(`/menu/items/${id}`);
-          fetchData(currentPage, searchTerm);
+          fetchData(currentPage, searchTerm, menuLang);
           toast.success(res.data?.message || 'Item deleted');
           setConfirmModal({ ...confirmModal, isOpen: false });
         } catch (err) {
@@ -204,9 +210,9 @@ const MenuManagement = () => {
 
   const saveItemUpdate = async (id) => {
     try {
-      await api.put(`/menu/items/${id}`, editItemData);
+      await api.put(`/menu/items/${id}`, { ...editItemData, lang: menuLang });
       setEditingItemId(null);
-      fetchData(currentPage, searchTerm);
+      fetchData(currentPage, searchTerm, menuLang);
       toast.success('Item details updated');
     } catch (err) {
       toast.error('Update failed');
@@ -214,18 +220,19 @@ const MenuManagement = () => {
   };
 
   const deleteAllMenu = () => {
+    const targetLangName = menuLang === 'mr' ? 'Marathi' : 'English';
     setConfirmModal({
       isOpen: true,
-      title: 'Delete Entire Menu?',
-      message: 'This will permanently delete ALL categories and ALL menu items. Active tables will lose item references. This action is irreversible!',
+      title: `Delete Entire ${targetLangName} Menu?`,
+      message: `This will permanently delete all menu items in the ${targetLangName} menu. Active tables will lose item references. This action is irreversible!`,
       onConfirm: async () => {
-        const loadingToast = toast.loading('Deleting all menu categories and items...');
+        const loadingToast = toast.loading(`Deleting ${targetLangName} menu items...`);
         try {
-          await api.delete('/menu/purge-all');
-          fetchData(1, '');
+          await api.delete(`/menu/purge-all?lang=${menuLang}`);
+          fetchData(1, '', menuLang);
           setCurrentPage(1);
           setSearchTerm('');
-          toast.success('All menu items and categories successfully deleted', { id: loadingToast });
+          toast.success(`${targetLangName} menu items successfully deleted`, { id: loadingToast });
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
         } catch (err) {
           toast.error(err.response?.data?.message || 'Delete failed', { id: loadingToast });
@@ -234,9 +241,7 @@ const MenuManagement = () => {
     });
   };
 
-  // Smart paginator — shows: ‹ Prev  1  2  3  ...  n-1  n  Next ›
-  const SmartPagination = ({ currentPage, totalPages, onPageChange, activeColor = '#6366f1' }) => {
-    if (totalPages <= 1) return null;
+  const renderPagination = (activeColor = '#38bdf8') => {
     const getPages = () => {
       const pages = [];
       if (totalPages <= 7) {
@@ -257,7 +262,7 @@ const MenuManagement = () => {
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '24px', flexWrap: 'wrap' }}>
         <button
           disabled={currentPage === 1}
-          onClick={() => onPageChange(currentPage - 1)}
+          onClick={() => setCurrentPage(currentPage - 1)}
           style={{ ...btnBase, padding: '0 14px', backgroundColor: currentPage === 1 ? 'rgba(255,255,255,0.03)' : 'var(--bg-border)', color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === 1 ? 'default' : 'pointer' }}
         >&#8249; Prev</button>
         {getPages().map((p, i) =>
@@ -266,14 +271,14 @@ const MenuManagement = () => {
           ) : (
             <button
               key={p}
-              onClick={() => onPageChange(p)}
+              onClick={() => setCurrentPage(p)}
               style={{ ...btnBase, backgroundColor: currentPage === p ? activeColor : 'var(--bg-border)', color: currentPage === p ? 'white' : 'var(--text-secondary)', boxShadow: currentPage === p ? `0 4px 12px ${activeColor}55` : 'none' }}
             >{p}</button>
           )
         )}
         <button
           disabled={currentPage === totalPages}
-          onClick={() => onPageChange(currentPage + 1)}
+          onClick={() => setCurrentPage(currentPage + 1)}
           style={{ ...btnBase, padding: '0 14px', backgroundColor: currentPage === totalPages ? 'rgba(255,255,255,0.03)' : 'var(--bg-border)', color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === totalPages ? 'default' : 'pointer' }}
         >Next &#8250;</button>
       </div>
@@ -281,7 +286,54 @@ const MenuManagement = () => {
   };
 
   return (
-    <div className="responsive-grid-12" style={{ width: '100%', maxWidth: '1400px' }}>
+    <div style={{ width: '100%', maxWidth: '1400px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      
+      {/* Dual Language Menu Tabs */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', backgroundColor: 'var(--bg-card)', padding: '12px 18px', borderRadius: '20px', border: '1px solid var(--border-rgba-05)' }}>
+        <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Active Menu Language:</span>
+        <button
+          type="button"
+          onClick={() => setMenuLang('en')}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '12px',
+            border: menuLang === 'en' ? '2px solid #0ea5e9' : '1px solid var(--bg-border)',
+            backgroundColor: menuLang === 'en' ? 'rgba(14, 165, 233, 0.15)' : 'transparent',
+            color: menuLang === 'en' ? '#0ea5e9' : 'var(--text-secondary)',
+            fontWeight: 850,
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.2s'
+          }}
+        >
+          🇬🇧 English Menu
+        </button>
+        <button
+          type="button"
+          onClick={() => setMenuLang('mr')}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '12px',
+            border: menuLang === 'mr' ? '2px solid #10b981' : '1px solid var(--bg-border)',
+            backgroundColor: menuLang === 'mr' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+            color: menuLang === 'mr' ? '#10b981' : 'var(--text-secondary)',
+            fontWeight: 850,
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.2s'
+          }}
+        >
+          🇮🇳 मराठी मेनू (Marathi Menu)
+        </button>
+      </div>
+
+      <div className="responsive-grid-12" style={{ width: '100%' }}>
       
       {/* Category Management Column */}
       <div style={{ gridColumn: 'span 4', display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -334,8 +386,6 @@ const MenuManagement = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <h3 style={{ fontSize: '10px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.2em', borderBottom: '1px solid var(--bg-border)', paddingBottom: '8px', margin: 0 }}>{t('menu_groups', 'Category Groups')}</h3>
                 {(categories || []).map(cat => {
-                  const categoryItems = (items || []).filter(i => String(i.category_id) === String(cat.id) || i.category_name?.toLowerCase() === cat.name?.toLowerCase());
-
                   return (
                     <div key={cat.id} style={{ backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -378,15 +428,15 @@ const MenuManagement = () => {
               <div style={{ width: '44px', height: '44px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                  <Utensils size={22} style={{ color: '#10b981' }} />
               </div>
-              <h2 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{t('add_item', 'Add To Live Menu')}</h2>
+              <h2 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{menuLang === 'mr' ? 'मराठी मेनू तयार करा' : 'Add To Live Menu'}</h2>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-              <label style={{ backgroundColor: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: '160px', justifyContent: 'center', margin: 0 }}>
-                <UploadCloud size={18} /> {t('import_csv', 'Import CSV')}
+              <label style={{ backgroundColor: menuLang === 'mr' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(14, 165, 233, 0.1)', color: menuLang === 'mr' ? '#10b981' : '#0ea5e9', border: menuLang === 'mr' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(14, 165, 233, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: menuLang === 'mr' ? '210px' : '180px', justifyContent: 'center', margin: 0 }}>
+                <UploadCloud size={18} /> {menuLang === 'mr' ? 'मराठी मेनू CSV अपलोड करा' : 'Import English CSV'}
                 <input type="file" accept=".csv, text/csv, application/vnd.ms-excel, text/plain, text/comma-separated-values" style={{ display: 'none' }} onChange={handleFileUpload} />
               </label>
-              <button onClick={deleteAllMenu} type="button" style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: '160px', justifyContent: 'center' }}>
-                <Trash2 size={18} /> {t('purge_all', 'Delete All')}
+              <button onClick={deleteAllMenu} type="button" style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: menuLang === 'mr' ? '210px' : '180px', justifyContent: 'center' }}>
+                <Trash2 size={18} /> {menuLang === 'mr' ? 'मराठी मेनू डिलीट करा' : 'Delete English Menu'}
               </button>
             </div>
           </div>
@@ -548,11 +598,7 @@ const MenuManagement = () => {
           </div>
 
           {/* Pagination Bar */}
-          <SmartPagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={(p) => setCurrentPage(p)}
-          />
+          {renderPagination('#38bdf8')}
         </div>
       </div>
 
@@ -563,6 +609,7 @@ const MenuManagement = () => {
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
       />
+    </div>
     </div>
   );
 };
