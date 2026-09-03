@@ -1,7 +1,26 @@
 import { X } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 const SwapModal = ({ isOpen, onClose, tables, onSwap, currentTable }) => {
+   const { t, language } = useLanguage();
    if (!isOpen) return null;
+
+   const translateFloor = (floorName) => {
+      if (language !== 'mr') return floorName;
+      const floorMap = {
+         'Floor 1': 'मजला १',
+         'Floor 2': 'मजला २',
+         'Floor 3': 'मजला ३',
+         'Floor 4': 'मजला ४',
+         'Main Hall': 'मुख्य हॉल',
+         'Party Hall': 'पार्टी हॉल',
+         'Rooftop': 'रूफटॉप',
+         'Garden': 'गार्डन',
+         'Family Section': 'फॅमिली विभाग',
+         'Counter': 'काउंटर'
+      };
+      return floorMap[floorName] || floorName;
+   };
    
    const availableTables = (tables || []).filter(t => {
       const name = String(t.table_number || '').toLowerCase();
@@ -28,14 +47,14 @@ const SwapModal = ({ isOpen, onClose, tables, onSwap, currentTable }) => {
       <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.9)', backdropFilter: 'blur(16px)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
          <div style={{ width: '100%', maxWidth: '600px', backgroundColor: 'var(--bg-card)', borderRadius: '32px', padding: '40px', border: '1px solid var(--border-rgba-05)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-               <h3 style={{fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Select Migration Destination</h3>
+               <h3 style={{fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{t('select_migration_dest', 'Select Migration Destination')}</h3>
                <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={24} /></button>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
                {orderedFloors.map(floor => (
                   <div key={floor}>
-                     <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.1em', marginBottom: '16px', textTransform: 'uppercase' }}>{floor}</div>
+                     <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.1em', marginBottom: '16px', textTransform: 'uppercase' }}>{translateFloor(floor)}</div>
                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '12px' }}>
                         {grouped[floor].map(t => (
                            <button 
@@ -51,7 +70,7 @@ const SwapModal = ({ isOpen, onClose, tables, onSwap, currentTable }) => {
                      </div>
                   </div>
                ))}
-               {availableTables.length === 0 && <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>No available migration buffers found.</div>}
+               {availableTables.length === 0 && <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>{t('no_available_migration', 'No available migration buffers found.')}</div>}
             </div>
          </div>
       </div>
@@ -59,3 +78,4 @@ const SwapModal = ({ isOpen, onClose, tables, onSwap, currentTable }) => {
 };
 
 export default SwapModal;
+

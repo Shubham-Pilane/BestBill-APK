@@ -45,8 +45,12 @@ const generateMockToken = (userId, role, hotelId) => {
 
 // Decode a mock JWT to get user
 const getAuthenticatedUser = (headers) => {
-  const authHeader = headers?.Authorization || headers?.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!headers) return null;
+  let authHeader = headers.Authorization || headers.authorization;
+  if (!authHeader && typeof headers.get === 'function') {
+    authHeader = headers.get('Authorization') || headers.get('authorization');
+  }
+  if (!authHeader || typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
     return null;
   }
   const token = authHeader.replace('Bearer ', '');
@@ -2070,6 +2074,199 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         await db.query('UPDATE users SET name = $1, email = $2 WHERE id = $3', [name, email, user.id]);
       }
       return { status: 200, data: { success: true } };
+    }
+
+    // ----------------------------------------
+    // INVENTORY MANAGEMENT ROUTES
+    // ----------------------------------------
+    if (path === '/inventory/items' && methodUpper === 'GET') {
+      const itemsRes = await db.query(
+        `SELECT * FROM inventory_items WHERE hotel_id = $1 ORDER BY name ASC`,
+        [user.hotel_id]
+      );
+      const items = itemsRes.rows.map(item => ({
+        ...item,
+        current_stock: Number(item.current_stock || 0),
+        minimum_stock: Number(item.minimum_stock || 0),
+        purchase_rate: Number(item.purchase_rate || 0)
+      }));
+      return { status: 200, data: items };
+    }
+
+    if (path === '/inventory/items' && methodUpper === 'POST') {
+      const { name, category_id, unit, current_stock, minimum_stock, purchase_rate } = body;
+      const res = await db.query(
+        `INSERT INTO inventory_items (hotel_id, category_id, name, unit, current_stock, minimum_stock, purchase_rate)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [
+          user.hotel_id,
+          category_id || null,
+          name,
+          unit || 'KG',
+          parseFloat(current_stock) || 0,
+          parseFloat(minimum_stock) || 0,
+          parseFloat(purchase_rate) || 0
+        ]
+      );
+      const newItem = res.rows[0];
+      if (parseFloat(current_stock) > 0) {
+        await db.query(
+          `INSERT INTO stock_transactions (hotel_id, inventory_item_id, transaction_type, quantity, reference_type, remarks)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [user.hotel_id, newItem.id, 'PURCHASE', parseFloat(current_stock), 'initial_stock', 'Initial stock added']
+        );
+      }
+      return { status: 201, data: newItem };
+    }
+
+    if (path.startsWith('/inventory/items/') && methodUpper === 'PUT') {
+      const id = parseInt(path.split('/')[3]);
+      const { name, category_id, unit, current_stock, minimum_stock, purchase_rate } = body;
+      await db.query(
+        `UPDATE inventory_items 
+         SET name = $1, category_id = $2, unit = $3, current_stock = $4, minimum_stock = $5, purchase_rate = $6, updated_at = (datetime('now', 'localtime'))
+         WHERE id = $7 AND hotel_id = $8`,
+        [
+          name,
+          category_id || null,
+          unit || 'KG',
+          parseFloat(current_stock) || 0,
+          parseFloat(minimum_stock) || 0,
+          parseFloat(purchase_rate) || 0,
+          id,
+          user.hotel_id
+        ]
+      );
+      return { status: 200, data: { success: true } };
+    }
+
+    if (path.startsWith('/inventory/items/') && methodUpper === 'DELETE') {
+      const id = parseInt(path.split('/')[3]);
+      await db.query(`DELETE FROM inventory_items WHERE id = $1 AND hotel_id = $2`, [id, user.hotel_id]);
+      return { status: 200, data: { success: true } };
+    }
+
+    if (path === '/inventory/dashboard' && methodUpper === 'GET') {
+      const itemsRes = await db.query(`SELECT current_stock, minimum_stock, purchase_rate FROM inventory_items WHERE hotel_id = $1`, [user.hotel_id]);
+      const rows = itemsRes.rows;
+      const totalItems = rows.length;
+      let lowStockItems = 0;
+      let inventoryValue = 0;
+
+      rows.forEach(item => {
+        const stock = Number(item.current_stock || 0);
+        const minStock = Number(item.minimum_stock || 0);
+        const rate = Number(item.purchase_rate || 0);
+        if (stock <= minStock) lowStockItems++;
+        inventoryValue += (stock * rate);
+      });
+
+      return {
+        status: 200,
+        data: {
+          totalItems,
+          lowStockItems,
+          inventoryValue
+        }
+      };
+    }
+
+    if (path === '/inventory/adjustments' && methodUpper === 'POST') {
+      const { inventory_item_id, added_quantity, physical_stock, remarks } = body;
+      const itemId = parseInt(inventory_item_id);
+      const addedQty = parseFloat(added_quantity) || 0;
+
+      const itemRes = await db.query(`SELECT current_stock FROM inventory_items WHERE id = $1 AND hotel_id = $2`, [itemId, user.hotel_id]);
+      if (itemRes.rows.length === 0) return { status: 404, data: { message: 'Item not found' } };
+
+      const oldStock = Number(itemRes.rows[0].current_stock || 0);
+      const newStock = physical_stock !== undefined ? parseFloat(physical_stock) : (oldStock + addedQty);
+      const qtyDiff = newStock - oldStock;
+
+      await db.query(`UPDATE inventory_items SET current_stock = $1, updated_at = (datetime('now', 'localtime')) WHERE id = $2 AND hotel_id = $3`, [newStock, itemId, user.hotel_id]);
+
+      await db.query(
+        `INSERT INTO stock_transactions (hotel_id, inventory_item_id, transaction_type, quantity, reference_type, remarks)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [user.hotel_id, itemId, 'ADJUSTMENT', qtyDiff, 'manual_adjustment', remarks || 'Manual stock adjustment']
+      );
+
+      return { status: 200, data: { success: true, new_stock: newStock } };
+    }
+
+    if (path === '/inventory/recipes' && methodUpper === 'GET') {
+      const recipesRes = await db.query(
+        `SELECT r.id as recipe_id, r.product_id, ri.inventory_item_id, ri.quantity_required, ii.name as ingredient_name, ii.unit
+         FROM recipes r
+         JOIN recipe_items ri ON ri.recipe_id = r.id
+         JOIN inventory_items ii ON ri.inventory_item_id = ii.id
+         WHERE r.hotel_id = $1`,
+        [user.hotel_id]
+      );
+      return { status: 200, data: recipesRes.rows };
+    }
+
+    if (path === '/inventory/recipes' && methodUpper === 'POST') {
+      const { product_id, items: recipeItems } = body;
+      const productId = parseInt(product_id);
+
+      let recipeId;
+      const existingRes = await db.query(`SELECT id FROM recipes WHERE hotel_id = $1 AND product_id = $2`, [user.hotel_id, productId]);
+      if (existingRes.rows.length > 0) {
+        recipeId = existingRes.rows[0].id;
+        await db.query(`DELETE FROM recipe_items WHERE recipe_id = $1`, [recipeId]);
+      } else {
+        const insRes = await db.query(`INSERT INTO recipes (hotel_id, product_id) VALUES ($1, $2) RETURNING id`, [user.hotel_id, productId]);
+        recipeId = insRes.rows[0].id;
+      }
+
+      if (Array.isArray(recipeItems)) {
+        for (const item of recipeItems) {
+          if (item.inventory_item_id && item.quantity_required) {
+            await db.query(
+              `INSERT INTO recipe_items (recipe_id, inventory_item_id, quantity_required) VALUES ($1, $2, $3)`,
+              [recipeId, parseInt(item.inventory_item_id), parseFloat(item.quantity_required)]
+            );
+          }
+        }
+      }
+
+      return { status: 200, data: { success: true, recipe_id: recipeId } };
+    }
+
+    if (path === '/inventory/transactions' && methodUpper === 'GET') {
+      const { startDate, endDate, type, inventory_item_id } = queryParams;
+      let whereClauses = ["st.hotel_id = $1"];
+      let params = [user.hotel_id];
+      let pIdx = 2;
+
+      if (startDate) {
+        whereClauses.push(`date(st.created_at) >= date($${pIdx++})`);
+        params.push(startDate);
+      }
+      if (endDate) {
+        whereClauses.push(`date(st.created_at) <= date($${pIdx++})`);
+        params.push(endDate);
+      }
+      if (type && type !== 'ALL') {
+        whereClauses.push(`st.transaction_type = $${pIdx++}`);
+        params.push(type);
+      }
+      if (inventory_item_id && inventory_item_id !== 'ALL') {
+        whereClauses.push(`st.inventory_item_id = $${pIdx++}`);
+        params.push(parseInt(inventory_item_id));
+      }
+
+      const txRes = await db.query(
+        `SELECT st.*, ii.name as item_name, ii.unit
+         FROM stock_transactions st
+         JOIN inventory_items ii ON st.inventory_item_id = ii.id
+         WHERE ${whereClauses.join(' AND ')}
+         ORDER BY st.created_at DESC, st.id DESC`,
+        params
+      );
+
+      return { status: 200, data: txRes.rows };
     }
 
     // Default Fallback

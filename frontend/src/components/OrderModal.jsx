@@ -12,7 +12,7 @@ import { onUpdate } from '../services/socketService';
 const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) => {
   if (!table) return null;
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   const [categories, setCategories] = useState(initialMenu?.categories || []);
   const [allItems, setAllItems] = useState([]);
@@ -31,11 +31,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
         items: orderItems
       });
       setOrderItems([]);
-      toast.success('Order cancelled and table cleared!');
+      toast.success(t('toast_order_cancelled_cleared', 'Order cancelled and table cleared!'));
       setShowCancelConfirmModal(false);
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to cancel order');
+      toast.error(err.response?.data?.message || t('toast_failed_cancel_order', 'Failed to cancel order'));
     }
   };
   const [totalPages, setTotalPages] = useState(1);
@@ -58,6 +58,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [partyType, setPartyType] = useState('customer'); // 'customer' or 'vendor'
   const [customerName, setCustomerName] = useState('');
   const [selectedVendorId, setSelectedVendorId] = useState('');
+  const [customerNameError, setCustomerNameError] = useState('');
+  const [customerPhoneError, setCustomerPhoneError] = useState('');
+  const [vendorError, setVendorError] = useState('');
   const [vendors, setVendors] = useState([]);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [customDeliveryPartners, setCustomDeliveryPartners] = useState(() => {
@@ -72,6 +75,26 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [partnerToDelete, setPartnerToDelete] = useState(null);
   const [partnerToRename, setPartnerToRename] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+
+  const translateFloorName = (floorName) => {
+    if (!floorName) return '';
+    if (language === 'mr') {
+      if (floorName.toLowerCase().startsWith('floor ')) {
+        const num = floorName.replace(/floor\s*/i, '');
+        return `मजला ${num}`;
+      }
+      const floorMap = {
+        'Main Hall': 'मुख्य हॉल',
+        'Party Hall': 'पार्टी हॉल',
+        'Rooftop': 'रूफटॉप',
+        'Garden': 'गार्डन',
+        'Family Section': 'फॅमिली विभाग',
+        'Counter': 'काउंटर'
+      };
+      return floorMap[floorName] || floorName;
+    }
+    return floorName;
+  };
 
   const handleAddDeliveryPartner = (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -284,13 +307,13 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     try {
       const res = await api.delete(`/tables/${table.id}/order/items/${itemId}`);
       if (res.data.order_deleted) {
-         toast.success('Table Cleared', { icon: '✨' });
+         toast.success(t('toast_table_cleared', 'Table Cleared'), { icon: '✨' });
          onClose();
       }
     } catch (err) {
       setOrderItems(originalItems);
       if (err.response?.status !== 404) {
-        toast.error('Removal failed');
+        toast.error(t('toast_removal_failed', 'Removal failed'));
       }
     } finally {
       setSyncingItems(prev => {
@@ -317,11 +340,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
         // Update local orderItems state
         setOrderItems(orderItems.map(i => i.id === orderItemId ? { ...i, price: parseFloat(editPriceValue) } : i));
         
-        toast.success('Price updated in master menu');
+        toast.success(t('toast_price_updated_master', 'Price updated in master menu'));
       }
       setEditingPriceId(null);
     } catch (err) {
-      toast.error('Failed to update price');
+      toast.error(t('toast_failed_update_price', 'Failed to update price'));
       setEditingPriceId(null);
     }
   };
@@ -331,18 +354,18 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       const res = await api.post(`/tables/${table.id}/bill`, { discount_percentage: discount });
       setBillData(res.data);
       setShowBill(true);
-      toast.success('Bill finalized!', {
+      toast.success(t('toast_bill_finalized', 'Bill finalized!'), {
         icon: '🧾',
         style: { borderRadius: '16px', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 900 }
       });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Billing failed');
+      toast.error(err.response?.data?.message || t('toast_billing_failed', 'Billing failed'));
     }
   };
 
   const sendToKitchen = async () => {
-    if (orderItems.length === 0) return toast.error('No items to send');
-    const t = toast.loading('Sending KOT to kitchen...');
+    if (orderItems.length === 0) return toast.error(t('toast_no_items_to_send', 'No items to send'));
+    const tKotLoading = toast.loading(t('toast_sending_kot', 'Sending KOT to kitchen...'));
     try {
       const res = await api.post(`/tables/${table.id}/order/kot`, {
         waiter: user?.role === 'waiter' ? user.name : null,
@@ -350,11 +373,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       });
       
       if (res.data && res.data.success === false) {
-          toast.error(res.data.message || 'No new item added to cart', { id: t });
+          toast.error(res.data.message || 'No new item added to cart', { id: tKotLoading });
           return;
       }
       
-      toast.success('KOT sent to kitchen successfully!', { id: t });
+      toast.success(t('toast_kot_sent_kitchen', 'KOT Sent to Kitchen!'), { id: tKotLoading });
       
       if (table.table_number !== 'Parcel Counter') {
         onClose();
@@ -368,8 +391,35 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       toast.error(errorMsg, { id: t });
     }
   };
+  const validateCreditDetails = () => {
+    let isValid = true;
+    setCustomerNameError('');
+    setCustomerPhoneError('');
+    setVendorError('');
+
+    if (selectedPaymentMethod === 'credit') {
+      if (partyType === 'customer') {
+        if (!customerName.trim()) {
+          setCustomerNameError(t('please_fill_out_this_field', 'Please fill out this field'));
+          isValid = false;
+        }
+        if (!customerPhone.trim()) {
+          setCustomerPhoneError(t('please_fill_out_this_field', 'Please fill out this field'));
+          isValid = false;
+        }
+      } else if (partyType === 'vendor') {
+        if (!selectedVendorId) {
+          setVendorError(t('please_fill_out_this_field', 'Please fill out this field'));
+          isValid = false;
+        }
+      }
+    }
+    return isValid;
+  };
+
   const printToken = async () => {
     if (!billData) return;
+    if (!validateCreditDetails()) return;
     try {
       await api.post(`/bills/${billData.id}/print`, { paymentMethod: selectedPaymentMethod, isToken: true });
       toast.success('Token ticket sent to printer!');
@@ -381,9 +431,10 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
   const printBill = async () => {
     if (!billData) return;
+    if (!validateCreditDetails()) return;
     try {
       await api.post(`/bills/${billData.id}/print`, { paymentMethod: selectedPaymentMethod });
-      toast.success('Bill finalized!');
+      toast.success(t('toast_bill_finalized', 'Bill finalized!'));
       if (!billData.is_paid) {
         await confirmPayment(selectedPaymentMethod);
       }
@@ -393,7 +444,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
         if (!billData.is_paid) {
           await confirmPayment(selectedPaymentMethod);
         } else {
-          toast.success('Bill finalized!');
+          toast.success(t('toast_bill_finalized', 'Bill finalized!'));
         }
       } catch (confirmErr) {
         toast.error(confirmErr.response?.data?.message || 'Settlement failed');
@@ -403,11 +454,12 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
   const settleWithoutPrint = async () => {
     if (!billData) return;
+    if (!validateCreditDetails()) return;
     try {
       if (!billData.is_paid) {
         await confirmPayment(selectedPaymentMethod);
       } else {
-        toast.success('Transaction settled!');
+        toast.success(t('toast_payment_settled_success', 'Transaction settled!'));
       }
     } catch (err) {
       console.error('Settlement failed:', err);
@@ -430,6 +482,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const confirmPayment = async (method = 'upi') => {
     try {
        if (method === 'credit') {
+          if (!validateCreditDetails()) return;
           const payload = {
             bill_id: billData.id,
             party_type: partyType,
@@ -438,16 +491,10 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
             customer_name: partyType === 'customer' ? customerName : null,
             customer_phone: partyType === 'customer' ? customerPhone : null
           };
-          if (partyType === 'customer' && !customerName.trim()) {
-            return toast.error('Customer Name is required');
-          }
-          if (partyType === 'vendor' && !selectedVendorId) {
-            return toast.error('Please select a vendor');
-          }
           await api.post('/credit/save', payload);
           setBillData(prev => ({ ...prev, is_paid: false, payment_method: 'credit' }));
           setIsSuccess(true);
-          toast.success('Credit Bill Recorded!');
+          toast.success(t('toast_payment_settled_success', 'Credit Bill Recorded!'));
           setTimeout(() => {
              onClose();
           }, 1800);
@@ -456,7 +503,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
        await api.put(`/tables/bill/${billData.id}/pay`, { method });
        setBillData(prev => ({ ...prev, is_paid: true }));
        setIsSuccess(true);
-       toast.success('Transaction Completed');
+       toast.success(t('toast_payment_settled_success', 'Transaction Completed'));
        
        setTimeout(() => {
           onClose();
@@ -562,12 +609,14 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
             <div>
               <h2 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {String(table.table_number || '').toLowerCase().includes('parcel') 
-                  ? 'Parcel Counter Summary' 
+                  ? t('parcel_counter_summary', 'Parcel Counter Summary') 
                   : String(table.table_number || '').toLowerCase().includes('token') 
-                    ? 'Token Counter Summary' 
+                    ? t('token_counter_summary', 'Token Counter Summary') 
                     : String(table.table_number || '').toLowerCase().includes('online')
-                      ? (selectedDeliveryPartner ? `${selectedDeliveryPartner.toUpperCase()} Order` : 'Online Order Summary')
-                      : table.floor ? `Table ${table.table_number || table.id} (${table.floor})` : `Table ${table.table_number || table.id}`
+                      ? (selectedDeliveryPartner ? `${selectedDeliveryPartner.toUpperCase()} Order` : t('online_order_summary', 'Online Order Summary'))
+                      : table.floor 
+                        ? `${t('table_title', 'Table')} ${table.table_number || table.id} (${translateFloorName(table.floor)})` 
+                        : `${t('table_title', 'Table')} ${table.table_number || table.id}`
                 }
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
@@ -614,7 +663,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 </div>
                 <input 
                    type="text" 
-                   placeholder="Search Menu..."
+                   placeholder={t('search_menu', 'Search Menu...')}
                    value={searchQuery}
                    onChange={handleSearchChange}
                    style={{
@@ -697,7 +746,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     transition: 'all 0.15s'
                   }}
                 >
-                  ALL ITEMS
+                  {t('all_items', 'ALL ITEMS')}
                 </button>
                 {categories.map(cat => (
                   <button 
@@ -780,7 +829,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                             gap: '4px'
                           }}
                         >
-                          <Plus size={14} /> ADD
+                          <Plus size={14} /> {t('add_btn', 'ADD')}
                         </button>
                       ) : (
                         <div 
@@ -837,7 +886,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '16px', flexWrap: 'wrap' }}>
                     <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}
                       style={{ ...btn, padding: '0 10px', backgroundColor: currentPage === 1 ? 'var(--border-rgba-05)' : 'var(--border-rgba-1)', color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === 1 ? 'default' : 'pointer' }}
-                    >&#8249; Prev</button>
+                    >&#8249; {t('prev', 'Prev')}</button>
                     {getPages().map((p, i) => p === '...' ? (
                       <span key={`e${i}`} style={{ color: 'var(--text-muted)', fontWeight: 800, padding: '0 4px' }}>...</span>
                     ) : (
@@ -847,7 +896,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     ))}
                     <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}
                       style={{ ...btn, padding: '0 10px', backgroundColor: currentPage === totalPages ? 'var(--border-rgba-05)' : 'var(--border-rgba-1)', color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === totalPages ? 'default' : 'pointer' }}
-                    >Next &#8250;</button>
+                    >{t('next', 'Next')} &#8250;</button>
                   </div>
                 );
               })()}
@@ -880,7 +929,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '10px', fontWeight: 800, color: 'rgba(255, 255, 255, 0.8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    {orderItems.reduce((acc, i) => acc + i.quantity, 0)} {orderItems.reduce((acc, i) => acc + i.quantity, 0) === 1 ? 'Item' : 'Items'} Added
+                    {orderItems.reduce((acc, i) => acc + i.quantity, 0)} {t('items_added', 'Items Added')}
                   </span>
                   <span style={{ fontSize: '18px', fontWeight: 1000, color: '#ffffff' }}>
                     ₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}
@@ -889,7 +938,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(255, 255, 255, 0.25)', padding: '8px 14px', borderRadius: '12px', color: '#ffffff', fontWeight: 900, fontSize: '12px' }}>
-                <span>VIEW CART</span>
+                <span>{t('view_cart', 'VIEW CART')}</span>
                 <ChevronUp size={16} />
               </div>
             </div>
@@ -929,7 +978,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#0f172a' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Receipt size={16} color="#0ea5e9" />
-                    <h3 style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff', margin: 0 }}>Active Selection ({orderItems.length})</h3>
+                    <h3 style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff', margin: 0 }}>{t('active_selection', 'Active Selection')} ({orderItems.length})</h3>
                   </div>
                   <button 
                     onClick={() => setIsMobileCartOpen(false)}
@@ -972,7 +1021,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 {/* Drawer Cart Footer - Compact Bottom Section */}
                 <div style={{ padding: '10px 16px', backgroundColor: '#0f172a', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>LOYALTY DISCOUNT (%)</span>
+                    <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>{t('loyalty_discount', 'LOYALTY DISCOUNT (%)')}</span>
                     <input 
                        type="number" 
                        value={discount} 
@@ -981,17 +1030,17 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     />
                   </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>Final Due</span>
+                    <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>{t('final_due', 'Final Due')}</span>
                     <span style={{ color: '#10b981', fontSize: '18px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
                   </div>
 
                   {showKotButton ? (
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button disabled={orderItems.length === 0} onClick={sendToKitchen} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>PRINT KOT</button>
-                      <button disabled={orderItems.length === 0} onClick={generateBill} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>SETTLE BILL</button>
+                      <button disabled={orderItems.length === 0} onClick={sendToKitchen} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>{t('print_kot', 'PRINT KOT')}</button>
+                      <button disabled={orderItems.length === 0} onClick={generateBill} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>{t('settle_bill', 'SETTLE BILL')}</button>
                     </div>
                   ) : (
-                    <button disabled={orderItems.length === 0} onClick={generateBill} style={{ width: '100%', padding: '11px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '13px', cursor: 'pointer' }}>SETTLE TRANSACTION</button>
+                    <button disabled={orderItems.length === 0} onClick={generateBill} style={{ width: '100%', padding: '11px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '13px', cursor: 'pointer' }}>{t('settle_transaction', 'SETTLE TRANSACTION')}</button>
                   )}
 
                   {(cancelOrdersEnabled && (table.active_order_id || orderItems.length > 0)) && (
@@ -1175,7 +1224,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '20px', opacity: billData.is_paid ? 0.3 : 1 }}>
                     <div style={{ backgroundColor: 'rgba(14, 165, 233, 0.15)', border: '1px solid #0ea5e9', color: billData.is_paid ? '#ffffff' : 'var(--text-primary)', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', zIndex: 5 }}>
                       <Receipt size={14} color="#0ea5e9" />
-                      <span>FINALIZED BILL</span>
+                      <span>{t('finalized_bill', 'FINALIZED BILL')}</span>
                     </div>
                     <h1 style={{ margin: 0, fontWeight: 950, fontSize: '24px', color: billData.is_paid ? '#ffffff' : 'var(--text-primary)', textAlign: 'center' }}>{(billData.hotel_name || user?.hotel_name || '').toUpperCase()}</h1>
                     <div style={{ color: billData.is_paid ? 'rgba(255,255,255,0.7)' : 'var(--text-secondary)', fontWeight: 800, fontSize: '13px', textAlign: 'center' }}>{billData.hotel_location}</div>
@@ -1183,15 +1232,15 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 
                 <div style={{ borderTop: '2px dashed var(--border-color)', borderBottom: '2px dashed var(--border-color)', padding: '14px 0', marginBottom: '20px' }}>
                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 900, color: billData.is_paid ? '#ffffff' : 'var(--text-primary)' }}>
-                      <span>TABLE NO: {table.table_numberByFloor || table.table_number}</span>
-                      <span>BILL NO: #{billData.id}</span>
+                      <span>{t('table_no', 'TABLE NO')}: {table.table_numberByFloor || table.table_number}</span>
+                      <span>{t('bill_no', 'BILL NO')}: #{billData.id}</span>
                    </div>
-                   <div style={{ fontSize: '12px', color: billData.is_paid ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)' }}>DATE: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</div>
+                   <div style={{ fontSize: '12px', color: billData.is_paid ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)' }}>{t('date_label', 'DATE')}: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</div>
                 </div>
  
                 <div style={{ marginBottom: '20px' }}>
                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 60px 30px 70px' : '1fr 80px 60px 100px', borderBottom: '1px dashed var(--border-color)', paddingBottom: '6px', marginBottom: '10px', fontSize: '11px', fontWeight: 900, color: billData.is_paid ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)' }}>
-                      <span>Item</span><span style={{ textAlign: 'right' }}>Price</span><span style={{ textAlign: 'right' }}>Qty</span><span style={{ textAlign: 'right' }}>Total</span>
+                      <span>{t('item', 'Item')}</span><span style={{ textAlign: 'right' }}>{t('price', 'Price')}</span><span style={{ textAlign: 'right' }}>{t('qty', 'Qty')}</span><span style={{ textAlign: 'right' }}>{t('total', 'Total')}</span>
                    </div>
                    {billData.items.map((i, idx) => (
                       <div key={idx} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 60px 30px 70px' : '1fr 80px 60px 100px', fontSize: isMobile ? '12px' : '14px', fontWeight: 800, marginBottom: '6px', color: billData.is_paid ? '#ffffff' : 'var(--text-primary)' }}>
@@ -1201,9 +1250,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 </div>
  
                 <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '6px', color: billData.is_paid ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)' }}>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>SUBTOTAL</span><span>₹{parseFloat(billData.subtotal).toFixed(2)}</span></div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>GST</span><span>₹{parseFloat(billData.gst).toFixed(2)}</span></div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '32px', fontWeight: 1000, color: '#10b981', borderTop: '2px double var(--border-color)', marginTop: '10px', paddingTop: '10px' }}><span>TOTAL</span><span>₹{parseFloat(billData.final_amount).toFixed(2)}</span></div>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('subtotal', 'SUBTOTAL')}</span><span>₹{parseFloat(billData.subtotal).toFixed(2)}</span></div>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('gst', 'GST')}</span><span>₹{parseFloat(billData.gst).toFixed(2)}</span></div>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '32px', fontWeight: 1000, color: '#10b981', borderTop: '2px double var(--border-color)', marginTop: '10px', paddingTop: '10px' }}><span>{t('total', 'TOTAL')}</span><span>₹{parseFloat(billData.final_amount).toFixed(2)}</span></div>
                 </div>
 
                  {!billData.is_paid && (
@@ -1214,9 +1263,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
                  <div style={{ marginTop: '16px' }}>
                   {!billData.is_paid ? (
-                    <button onClick={rollbackBill} className="btn-modify-invoice" style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1px solid #475569', backgroundColor: '#334155', color: '#ffffff', fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)', transition: 'background-color 0.2s' }}>MODIFY INVOICE</button>
+                    <button onClick={rollbackBill} className="btn-modify-invoice" style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1px solid #475569', backgroundColor: '#334155', color: '#ffffff', fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)', transition: 'background-color 0.2s' }}>{t('modify_invoice', 'MODIFY INVOICE')}</button>
                   ) : (
-                    <div style={{ textAlign: 'center', padding: '16px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '16px', color: '#10b981', fontWeight: 950, fontSize: '18px' }}>SUCCESSFULLY SETTLED</div>
+                    <div style={{ textAlign: 'center', padding: '16px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '16px', color: '#10b981', fontWeight: 950, fontSize: '18px' }}>{t('successfully_settled', 'SUCCESSFULLY SETTLED')}</div>
                   )}
                 </div>
               </div>
@@ -1426,67 +1475,97 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   
                               {partyType === 'customer' ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                  <input 
-                                    placeholder="Customer Name"
-                                    value={customerName}
-                                    onChange={e => setCustomerName(e.target.value)}
-                                    style={{ 
-                                      padding: '12px 14px', 
-                                      borderRadius: '12px', 
-                                      border: '1px solid var(--border-color)', 
-                                      backgroundColor: 'var(--bg-card)', 
-                                      color: 'var(--text-primary)', 
-                                      fontWeight: 800, 
-                                      fontSize: '13px', 
-                                      outline: 'none', 
-                                      width: '100%', 
-                                      boxSizing: 'border-box'
-                                    }}
-                                  />
-                                  <input 
-                                    placeholder="Mobile Number"
-                                    value={customerPhone}
-                                    onChange={e => setCustomerPhone(e.target.value)}
-                                    style={{ 
-                                      padding: '12px 14px', 
-                                      borderRadius: '12px', 
-                                      border: '1px solid var(--border-color)', 
-                                      backgroundColor: 'var(--bg-card)', 
-                                      color: 'var(--text-primary)', 
-                                      fontWeight: 800, 
-                                      fontSize: '13px', 
-                                      outline: 'none', 
-                                      width: '100%', 
-                                      boxSizing: 'border-box'
-                                    }}
-                                  />
+                                  <div>
+                                    <input 
+                                      placeholder={t('customer_name', 'Customer Name')}
+                                      value={customerName}
+                                      onChange={e => {
+                                        setCustomerName(e.target.value);
+                                        if (e.target.value.trim()) setCustomerNameError('');
+                                      }}
+                                      style={{ 
+                                        padding: '12px 14px', 
+                                        borderRadius: '12px', 
+                                        border: customerNameError ? '1.5px solid #ef4444' : '1px solid var(--border-color)', 
+                                        backgroundColor: 'var(--bg-card)', 
+                                        color: 'var(--text-primary)', 
+                                        fontWeight: 800, 
+                                        fontSize: '13px', 
+                                        outline: 'none', 
+                                        width: '100%', 
+                                        boxSizing: 'border-box'
+                                      }}
+                                    />
+                                    {customerNameError && (
+                                      <span style={{ color: '#ef4444', fontSize: '11px', fontWeight: 800, marginTop: '4px', display: 'block', paddingLeft: '4px' }}>
+                                        {customerNameError}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <input 
+                                      placeholder={t('mobile_number', 'Mobile Number')}
+                                      value={customerPhone}
+                                      onChange={e => {
+                                        setCustomerPhone(e.target.value);
+                                        if (e.target.value.trim()) setCustomerPhoneError('');
+                                      }}
+                                      style={{ 
+                                        padding: '12px 14px', 
+                                        borderRadius: '12px', 
+                                        border: customerPhoneError ? '1.5px solid #ef4444' : '1px solid var(--border-color)', 
+                                        backgroundColor: 'var(--bg-card)', 
+                                        color: 'var(--text-primary)', 
+                                        fontWeight: 800, 
+                                        fontSize: '13px', 
+                                        outline: 'none', 
+                                        width: '100%', 
+                                        boxSizing: 'border-box'
+                                      }}
+                                    />
+                                    {customerPhoneError && (
+                                      <span style={{ color: '#ef4444', fontSize: '11px', fontWeight: 800, marginTop: '4px', display: 'block', paddingLeft: '4px' }}>
+                                        {customerPhoneError}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               ) : (
                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                    {vendors.length === 0 ? (
-                                     <div style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', padding: '12px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>No vendors registered.</div>
+                                     <div style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', padding: '12px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>{t('no_vendors_registered', 'No vendors registered.')}</div>
                                    ) : (
-                                     <select 
-                                       value={selectedVendorId || ''} 
-                                       onChange={(e) => setSelectedVendorId(e.target.value)}
-                                       style={{
-                                         padding: '12px 14px', 
-                                         borderRadius: '12px', 
-                                         border: '1px solid var(--border-color)', 
-                                         backgroundColor: 'var(--bg-card)', 
-                                         color: 'var(--text-primary)', 
-                                         fontWeight: 800, 
-                                         fontSize: '13px', 
-                                         outline: 'none', 
-                                         width: '100%', 
-                                         boxSizing: 'border-box'
-                                       }}
-                                     >
-                                       <option value="" disabled>Select Vendor</option>
-                                       {vendors.map(v => (
-                                         <option key={v.id} value={v.id}>{v.name} {v.phone ? `(${v.phone})` : ''}</option>
-                                       ))}
-                                     </select>
+                                     <div>
+                                       <select 
+                                         value={selectedVendorId || ''} 
+                                         onChange={(e) => {
+                                           setSelectedVendorId(e.target.value);
+                                           if (e.target.value) setVendorError('');
+                                         }}
+                                         style={{
+                                           padding: '12px 14px', 
+                                           borderRadius: '12px', 
+                                           border: vendorError ? '1.5px solid #ef4444' : '1px solid var(--border-color)', 
+                                           backgroundColor: 'var(--bg-card)', 
+                                           color: 'var(--text-primary)', 
+                                           fontWeight: 800, 
+                                           fontSize: '13px', 
+                                           outline: 'none', 
+                                           width: '100%', 
+                                           boxSizing: 'border-box'
+                                         }}
+                                       >
+                                         <option value="" disabled>{t('select_vendor', 'Select Vendor')}</option>
+                                         {vendors.map(v => (
+                                           <option key={v.id} value={v.id}>{v.name} {v.phone ? `(${v.phone})` : ''}</option>
+                                         ))}
+                                       </select>
+                                       {vendorError && (
+                                         <span style={{ color: '#ef4444', fontSize: '11px', fontWeight: 800, marginTop: '4px', display: 'block', paddingLeft: '4px' }}>
+                                           {vendorError}
+                                         </span>
+                                       )}
+                                     </div>
                                    )}
                                  </div>
                               )}
@@ -1521,7 +1600,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                      <div style={{ backgroundColor: 'var(--bg-card)', padding: '14px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid var(--border-color)' }}>
                         <Phone size={16} color="var(--text-muted)" />
                         <input 
-                           placeholder="Enter Mobile No" 
+                           placeholder={t('enter_mobile_no', 'Enter Mobile No')} 
                            value={customerPhone} 
                            onChange={(e) => setCustomerPhone(e.target.value)}
                            style={{ border: 'none', width: '100%', outline: 'none', fontWeight: 800, fontSize: '13px', backgroundColor: 'transparent', color: 'var(--text-primary)', WebkitAppearance: 'none' }}
@@ -1544,7 +1623,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                        </div>
                        {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
                          <button onClick={shareViaWhatsApp} style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: '#059669', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
-                            <MessageCircle size={16} /> WhatsApp
+                            <MessageCircle size={16} /> {t('whatsapp', 'WhatsApp')}
                          </button>
                        )}
                      </div>
@@ -1555,7 +1634,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                         </button>
                         {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
                           <button onClick={shareViaWhatsApp} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#22c55e', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
-                             <MessageCircle size={16} /> WhatsApp
+                             <MessageCircle size={16} /> {t('whatsapp', 'WhatsApp')}
                           </button>
                         )}
                      </div>
@@ -1573,20 +1652,20 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 <Ban size={24} />
               </div>
               <div>
-                <h3 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Cancel Order & Clear Table</h3>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0', fontWeight: 600 }}>Table: {table.table_numberByFloor || table.table_number}</p>
+                <h3 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{t('cancel_order_modal_title', 'Cancel Order & Clear Table')}</h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0', fontWeight: 600 }}>{t('table', 'Table')}: {table.table_numberByFloor || table.table_number}</p>
               </div>
             </div>
 
             <p style={{ color: 'var(--text-primary)', fontSize: '13px', lineHeight: 1.5, margin: 0, fontWeight: 600 }}>
-              Are you sure you want to cancel this order and clear the table? A record will be logged in <b>Cancel Orders</b> audit history.
+              {t('cancel_order_modal_desc', 'Are you sure you want to cancel this order and clear the table? A record will be logged in Cancel Orders audit history.')}
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Cancellation Reason (Optional)</label>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('cancellation_reason_label', 'CANCELLATION REASON (OPTIONAL)')}</label>
               <input 
                 type="text" 
-                placeholder="e.g. Customer left / Wrong order" 
+                placeholder={t('cancellation_reason_placeholder', 'e.g. Customer left / Wrong order')} 
                 value={cancellationReason}
                 onChange={e => setCancellationReason(e.target.value)}
                 style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 600, fontSize: '13px', outline: 'none' }}
@@ -1599,14 +1678,14 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 onClick={() => setShowCancelConfirmModal(false)}
                 style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 800, cursor: 'pointer', fontSize: '13px' }}
               >
-                Keep Order
+                {t('keep_order', 'Keep Order')}
               </button>
               <button 
                 type="button" 
                 onClick={handleConfirmCancelOrder}
                 style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: '#f43f5e', border: 'none', color: '#ffffff', fontWeight: 900, cursor: 'pointer', fontSize: '13px', boxShadow: '0 4px 12px rgba(244, 63, 94, 0.3)' }}
               >
-                Yes, Cancel Order
+                {t('yes_cancel_order', 'Yes, Cancel Order')}
               </button>
             </div>
           </div>

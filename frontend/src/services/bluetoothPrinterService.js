@@ -4,8 +4,10 @@ import {
   renderDevanagariLineToRaster,
   renderHeaderRowToRaster,
   renderItemRowToRaster,
+  renderKOTHeaderRowToRaster,
   renderKOTItemRowToRaster
 } from '../utils/devanagariRenderer';
+import { formatTableStringForBill } from '../utils/pdfBill';
 
 // Helper to pad text left/right for ESC/POS alignment
 const padText = (str, len, align = 'left') => {
@@ -267,14 +269,10 @@ export async function formatKOT(data, printerSize = '58mm') {
 
   builder.line('=', LINE_WIDTH).alignLeft();
 
-  let tStr = String(data.table || '');
-  if (isMarathi && !tStr.toLowerCase().includes('room') && !tStr.toLowerCase().includes('parcel') && !tStr.toLowerCase().includes('टेबल')) {
-    tStr = `टेबल ${tStr}`;
-  } else if (!isMarathi && !tStr.toLowerCase().includes('room') && !tStr.toLowerCase().includes('parcel')) {
-    tStr = `Table ${tStr}`;
-  }
-  if (data.floor && !tStr.toLowerCase().includes('parcel')) {
-    tStr += ` - ${data.floor}`;
+  let tStr = formatTableStringForBill(data.table || '', isMarathi);
+  if (data.floor && !tStr.includes(data.floor) && !tStr.toLowerCase().includes('parcel') && !tStr.toLowerCase().includes('token') && !tStr.toLowerCase().includes('online')) {
+    const translatedFloor = isMarathi ? formatTableStringForBill(data.floor, true).replace(/^टेबल\s*/, '') : data.floor;
+    tStr += ` - ${translatedFloor}`;
   }
 
   if (containsDevanagari(tStr)) {
@@ -297,7 +295,7 @@ export async function formatKOT(data, printerSize = '58mm') {
   const itemLen = LINE_WIDTH - qtyLen - 1;
 
   if (isMarathi) {
-    builder.appendBytes(renderDevanagariLineToRaster('पदार्थ                 नग', { paperSize: printerSize, align: 'left', fontWeight: 'bold' }));
+    builder.appendBytes(renderKOTHeaderRowToRaster({ paperSize: printerSize }));
   } else {
     builder.bold(true).text(padText('ITEM', itemLen) + ' ' + padText('QTY', qtyLen, 'right')).bold(false);
   }
@@ -385,10 +383,7 @@ export async function formatBill(data, printerSize = '58mm') {
   }
 
   if (data.table) {
-    let tStr = String(data.table);
-    if (isMarathi && !tStr.toLowerCase().includes('room') && !tStr.toLowerCase().includes('parcel') && !tStr.toLowerCase().includes('टेबल')) {
-      tStr = `टेबल ${tStr}`;
-    }
+    let tStr = formatTableStringForBill(data.table, isMarathi);
     if (containsDevanagari(tStr)) {
       builder.appendBytes(renderDevanagariLineToRaster(tStr, { paperSize: printerSize, align: 'left', fontWeight: 'bold' }));
     } else {

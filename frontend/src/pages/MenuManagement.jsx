@@ -264,7 +264,7 @@ const MenuManagement = () => {
           disabled={currentPage === 1}
           onClick={() => setCurrentPage(currentPage - 1)}
           style={{ ...btnBase, padding: '0 14px', backgroundColor: currentPage === 1 ? 'rgba(255,255,255,0.03)' : 'var(--bg-border)', color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === 1 ? 'default' : 'pointer' }}
-        >&#8249; Prev</button>
+        >&#8249; {t('prev', 'Prev')}</button>
         {getPages().map((p, i) =>
           p === '...' ? (
             <span key={`ellipsis-${i}`} style={{ color: 'var(--text-muted)', fontWeight: 800, padding: '0 4px' }}>...</span>
@@ -280,7 +280,7 @@ const MenuManagement = () => {
           disabled={currentPage === totalPages}
           onClick={() => setCurrentPage(currentPage + 1)}
           style={{ ...btnBase, padding: '0 14px', backgroundColor: currentPage === totalPages ? 'rgba(255,255,255,0.03)' : 'var(--bg-border)', color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === totalPages ? 'default' : 'pointer' }}
-        >Next &#8250;</button>
+        >{t('next', 'Next')} &#8250;</button>
       </div>
     );
   };
@@ -290,7 +290,7 @@ const MenuManagement = () => {
       
       {/* Dual Language Menu Tabs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', backgroundColor: 'var(--bg-card)', padding: '12px 18px', borderRadius: '20px', border: '1px solid var(--border-rgba-05)' }}>
-        <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Active Menu Language:</span>
+        <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{t('active_menu_lang', 'Active Menu Language:')}</span>
         <button
           type="button"
           onClick={() => setMenuLang('en')}
@@ -309,7 +309,7 @@ const MenuManagement = () => {
             transition: 'all 0.2s'
           }}
         >
-          🇬🇧 English Menu
+          {t('english_menu', 'English Menu')}
         </button>
         <button
           type="button"
@@ -329,7 +329,7 @@ const MenuManagement = () => {
             transition: 'all 0.2s'
           }}
         >
-          🇮🇳 मराठी मेनू (Marathi Menu)
+          {t('marathi_menu', 'Marathi Menu')}
         </button>
       </div>
 
@@ -355,7 +355,7 @@ const MenuManagement = () => {
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: '#818cf8', fontWeight: 800, fontSize: '13px' }}>
-              {isGroupsCardExpanded ? 'Collapse' : 'Expand & Manage'}
+              {isGroupsCardExpanded ? t('collapse', 'Collapse') : t('expand_manage', 'Expand & Manage')}
               {isGroupsCardExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </div>
           </div>
@@ -428,15 +428,15 @@ const MenuManagement = () => {
               <div style={{ width: '44px', height: '44px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                  <Utensils size={22} style={{ color: '#10b981' }} />
               </div>
-              <h2 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{menuLang === 'mr' ? 'मराठी मेनू तयार करा' : 'Add To Live Menu'}</h2>
+              <h2 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{menuLang === 'mr' ? t('create_marathi_menu', 'मराठी मेनू तयार करा') : t('add_to_live_menu', 'Add To Live Menu')}</h2>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
               <label style={{ backgroundColor: menuLang === 'mr' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(14, 165, 233, 0.1)', color: menuLang === 'mr' ? '#10b981' : '#0ea5e9', border: menuLang === 'mr' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(14, 165, 233, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: menuLang === 'mr' ? '210px' : '180px', justifyContent: 'center', margin: 0 }}>
-                <UploadCloud size={18} /> {menuLang === 'mr' ? 'मराठी मेनू CSV अपलोड करा' : 'Import English CSV'}
+                <UploadCloud size={18} /> {menuLang === 'mr' ? t('import_marathi_csv', 'मराठी मेनू CSV अपलोड करा') : t('import_english_csv', 'Import English CSV')}
                 <input type="file" accept=".csv, text/csv, application/vnd.ms-excel, text/plain, text/comma-separated-values" style={{ display: 'none' }} onChange={handleFileUpload} />
               </label>
               <button onClick={deleteAllMenu} type="button" style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: menuLang === 'mr' ? '210px' : '180px', justifyContent: 'center' }}>
-                <Trash2 size={18} /> {menuLang === 'mr' ? 'मराठी मेनू डिलीट करा' : 'Delete English Menu'}
+                <Trash2 size={18} /> {menuLang === 'mr' ? t('delete_marathi_menu', 'मराठी मेनू डिलीट करा') : t('delete_english_menu', 'Delete English Menu')}
               </button>
             </div>
           </div>
@@ -479,7 +479,7 @@ const MenuManagement = () => {
               </select>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 6' }}>
-              <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Description</label>
+              <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('description_label', 'Description')}</label>
               <input
                 type="text"
                 style={{ width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: 'var(--text-secondary)', padding: '14px 16px', borderRadius: '16px', outline: 'none', fontSize: '14px' }}
@@ -540,11 +540,11 @@ const MenuManagement = () => {
                    <div style={{ flex: 1, padding: '0 16px', minWidth: '220px' }}>
                       {editingItemId === item.id ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <label style={{ fontSize: '10px', fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item Description / Details</label>
+                          <label style={{ fontSize: '10px', fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('item_description_details', 'Item Description / Details')}</label>
                           <textarea 
                             value={editItemData.description} 
                             onChange={(e) => setEditItemData({...editItemData, description: e.target.value})} 
-                            placeholder="Enter dish description, ingredients, or notes..."
+                            placeholder={t('enter_dish_description', 'Enter dish description, ingredients, or notes...')}
                             style={{ 
                               width: '100%', 
                               background: 'var(--bg-base)', 
@@ -562,7 +562,7 @@ const MenuManagement = () => {
                           />
                         </div>
                       ) : (
-                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.4' }}>{item.description || 'No description provided'}</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.4' }}>{item.description || t('no_description', 'No description provided')}</p>
                       )}
                    </div>
                 </div>

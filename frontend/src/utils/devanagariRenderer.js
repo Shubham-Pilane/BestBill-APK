@@ -309,6 +309,53 @@ export function renderItemRowToRaster(itemData, options = {}) {
 }
 
 /**
+ * Render Marathi KOT Header Row (पदार्थ + नग) as ESC/POS raster bitmap command.
+ * Aligns पदार्थ on the left and नग right-aligned over the QTY column.
+ * @param {Object} options - Paper size configurations.
+ * @returns {Uint8Array} ESC/POS raster command bytes.
+ */
+export function renderKOTHeaderRowToRaster(options = {}) {
+  if (typeof document === 'undefined') {
+    return new Uint8Array([]);
+  }
+
+  const paperSize = options.paperSize || '58mm';
+  const is58mm = paperSize === '58mm';
+  const totalWidth = is58mm ? 384 : 576;
+  const fontSize = options.fontSize || 24;
+  const lineHeight = Math.ceil(fontSize * 1.4);
+
+  const qtyColWidth = is58mm ? 64 : 80;
+  const itemColWidth = totalWidth - qtyColWidth;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = totalWidth;
+  canvas.height = lineHeight + 6;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, totalWidth, canvas.height);
+
+  const fontStack = `bold ${fontSize}px "Noto Sans Devanagari", "Mukta", "Devanagari", "Segoe UI", Arial, sans-serif`;
+  ctx.fillStyle = '#000000';
+  ctx.font = fontStack;
+  ctx.textBaseline = 'top';
+
+  const primaryY = 3;
+
+  // Item Title (पदार्थ) - Left Aligned
+  ctx.fillText('पदार्थ', 2, primaryY);
+
+  // Qty Title (नग) - Right Aligned in QTY column
+  const qtyStr = 'नग';
+  const qtyMetrics = ctx.measureText(qtyStr);
+  const qtyDrawX = itemColWidth + Math.max(0, qtyColWidth - qtyMetrics.width - 4);
+  ctx.fillText(qtyStr, qtyDrawX, primaryY);
+
+  return canvasToEscposRaster(canvas);
+}
+
+/**
  * Render KOT Item Row (Devanagari Item Name + QTY) as ESC/POS raster bitmap command.
  * @param {Object} itemData - KOT Item details.
  * @param {string} itemData.name - Item name (Marathi or mixed).

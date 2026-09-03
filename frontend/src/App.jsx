@@ -66,7 +66,7 @@ const OwnerRoute = ({ children }) => {
 
 const InventoryRoute = ({ children }) => {
   const { user } = useAuth();
-  if (user?.role !== 'owner' || !user?.inventoryEnabled) return <Navigate to="/" />;
+  if (!user || user?.role !== 'owner') return <Navigate to="/" />;
   return children;
 };
 

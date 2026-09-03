@@ -815,20 +815,20 @@ const Profile = () => {
                     <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-rgba-05)' }}>
                         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>IDENTITY NAME</label>
+                              <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>{t('profile_identity_name', 'IDENTITY NAME')}</label>
                               <input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{width: '100%', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500 }} />
                            </div>
                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>EMAIL PROTOCOL</label>
+                              <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>{t('profile_email', 'EMAIL PROTOCOL')}</label>
                               <input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={{width: '100%', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500 }} />
                            </div>
                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                               <input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="New Passcode" style={{padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500 }} />
-                               <input type="password" value={formData.confirmPassword} onChange={e => setFormData({...formData, confirmPassword: e.target.value})} placeholder="Confirm" style={{padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500 }} />
+                               <input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder={t('profile_passcode', 'New Passcode')} style={{padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500 }} />
+                               <input type="password" value={formData.confirmPassword} onChange={e => setFormData({...formData, confirmPassword: e.target.value})} placeholder={t('profile_confirm', 'Confirm')} style={{padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500 }} />
                            </div>
                            <button type="submit" style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: themeColor, color: 'white', padding: '12px 24px', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', border: 'none', boxShadow: `0 10px 20px ${themeColor}20`, width: 'fit-content' }}>
                                <Save size={18} />
-                               Update Credentials
+                               {t('profile_update_credentials', 'Update Credentials')}
                            </button>
                         </form>
                     </div>
@@ -860,17 +860,17 @@ const Profile = () => {
                             <form onSubmit={handleHotelSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>HOTEL LEGAL NAME</label>
+                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>{t('profile_hotel_legal_name', 'HOTEL LEGAL NAME')}</label>
                                         <input value={hotelData.name} onChange={e => setHotelData({...hotelData, name: e.target.value})} style={{padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500 }} />
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>GST %</label>
+                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>{t('profile_gst_pct', 'GST %')}</label>
                                         <input type="number" value={hotelData.gst_percentage} onChange={e => setHotelData({...hotelData, gst_percentage: e.target.value})} style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: '#10b981', fontWeight: 600 }} />
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>PHYSICAL ADDRESS</label>
+                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>{t('profile_physical_address', 'PHYSICAL ADDRESS')}</label>
                                         <input 
                                             value={hotelData.address} 
                                             onChange={e => setHotelData({ ...hotelData, address: e.target.value })} 
@@ -880,18 +880,18 @@ const Profile = () => {
 
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>MOBILE NUMBER</label>
+                                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>{t('profile_mobile_number', 'MOBILE NUMBER')}</label>
                                             <input 
                                                 type="tel"
                                                 maxLength={10}
                                                 value={hotelData.phone} 
                                                 onChange={e => setHotelData({ ...hotelData, phone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) })} 
-                                                placeholder="10-digit Mobile Number"
+                                                placeholder={t('profile_mobile_placeholder', '10-digit Mobile Number')}
                                                 style={{width: '100%', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500, outline: 'none' }} 
                                             />
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>HOTEL EMAIL</label>
+                                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>{t('profile_hotel_email', 'HOTEL EMAIL')}</label>
                                             <input 
                                                 type="email"
                                                 value={hotelData.email} 
@@ -903,7 +903,7 @@ const Profile = () => {
 
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>UPI ID (MERCHANT)</label>
+                                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>{t('profile_upi_merchant', 'UPI ID (MERCHANT)')}</label>
                                             <input 
                                                 value={hotelData.upi_id} 
                                                 onChange={e => setHotelData({ ...hotelData, upi_id: e.target.value })} 
@@ -911,7 +911,7 @@ const Profile = () => {
                                             />
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>FSSAI NUMBER</label>
+                                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>{t('profile_fssai_number', 'FSSAI NUMBER')}</label>
                                             <input 
                                                 type="text"
                                                 maxLength={14}
@@ -928,10 +928,10 @@ const Profile = () => {
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                 <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     <ImageIcon size={18} style={{ color: '#10b981' }} />
-                                                    Enable Hotel Logo Printing on Bill
+                                                    {t('enable_hotel_logo_printing', 'Enable Hotel Logo Printing on Bill')}
                                                 </h4>
                                                 <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
-                                                    Print your restaurant logo centered at the top of thermal printed bills.
+                                                    {t('hotel_logo_help', 'Print your restaurant logo centered at the top of thermal printed bills.')}
                                                 </p>
                                             </div>
                                             
@@ -944,7 +944,7 @@ const Profile = () => {
                                                         onChange={() => handleToggleLogoPrinting(false)}
                                                         style={{ accentColor: '#f43f5e', width: '16px', height: '16px', cursor: 'pointer' }}
                                                     />
-                                                    Disabled
+                                                    {t('disabled', 'Disabled')}
                                                 </label>
                                                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 600, fontSize: '13px' }}>
                                                     <input 
@@ -954,7 +954,7 @@ const Profile = () => {
                                                         onChange={() => handleToggleLogoPrinting(true)}
                                                         style={{ accentColor: '#10b981', width: '16px', height: '16px', cursor: 'pointer' }}
                                                     />
-                                                    Enabled
+                                                    {t('enabled', 'Enabled')}
                                                 </label>
                                             </div>
                                         </div>
@@ -970,22 +970,22 @@ const Profile = () => {
                                                                 onClick={() => { setLogoUrl(''); localStorage.removeItem('cfg_hotel_logo_url'); toast.success('Logo removed'); }}
                                                                 style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
                                                             >
-                                                                Remove Logo
+                                                                {t('remove_logo', 'Remove Logo')}
                                                             </button>
                                                         </div>
                                                     ) : (
-                                                        <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>No logo uploaded yet.</div>
+                                                        <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{t('no_logo_uploaded', 'No logo uploaded yet.')}</div>
                                                     )}
 
                                                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.3)', padding: '10px 18px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}>
                                                         <Upload size={16} />
-                                                        {logoUrl ? 'Change Logo Image' : 'Upload Hotel Logo'}
+                                                        {logoUrl ? t('change_logo_image', 'Change Logo Image') : t('upload_hotel_logo', 'Upload Hotel Logo')}
                                                         <input type="file" accept="image/*" onChange={handleLogoFileUpload} style={{ display: 'none' }} />
                                                     </label>
                                                 </div>
 
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '10px 16px', borderRadius: '10px', border: '1px solid var(--bg-border)', flexWrap: 'wrap' }}>
-                                                    <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Printed Logo Size:</span>
+                                                    <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('printed_logo_size', 'Printed Logo Size:')}</span>
                                                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px' }}>
                                                         <input 
                                                             type="radio" 
@@ -995,7 +995,7 @@ const Profile = () => {
                                                             onChange={() => handleLogoSizeChange('180')} 
                                                             style={{ accentColor: '#0ea5e9', width: '16px', height: '16px', cursor: 'pointer' }}
                                                         />
-                                                        Small – 180px Width
+                                                        {t('logo_size_small', 'Small – 180px Width')}
                                                     </label>
                                                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px' }}>
                                                         <input 
@@ -1006,7 +1006,7 @@ const Profile = () => {
                                                             onChange={() => handleLogoSizeChange('300')} 
                                                             style={{ accentColor: '#0ea5e9', width: '16px', height: '16px', cursor: 'pointer' }}
                                                         />
-                                                        Large – 300px Width (Default)
+                                                        {t('logo_size_large', 'Large – 300px Width (Default)')}
                                                     </label>
                                                 </div>
                                             </div>
@@ -1016,7 +1016,7 @@ const Profile = () => {
 
                                 <button type="submit" style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#0ea5e9', color: 'white', padding: '12px 24px', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', border: 'none', width: 'fit-content', marginTop: '8px' }}>
                                     <Save size={18} />
-                                    Save Profile Settings
+                                    {t('save_profile_settings', 'Save Profile Settings')}
                                 </button>
                             </form>
                         </div>
@@ -1054,10 +1054,10 @@ const Profile = () => {
                                         <div>
                                             <h3 style={{fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-                                                Find & Pair Bluetooth Printers
+                                                {t('find_pair_bluetooth_printers', 'Find & Pair Bluetooth Printers')}
                                             </h3>
                                             <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '2px 0 0' }}>
-                                                Connect 1 printer for both Billing & KOT, or assign a separate printer for KOT.
+                                                {t('printer_help_text', 'Connect 1 printer for both Billing & KOT, or assign a separate printer for KOT.')}
                                             </p>
                                         </div>
 
@@ -1068,14 +1068,14 @@ const Profile = () => {
                                                 disabled={isScanning}
                                                 style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
                                             >
-                                                {isScanning ? '🔍 Searching Printers...' : '📡 Find Bluetooth Printer'}
+                                                {isScanning ? t('searching_printers', '🔍 Searching Printers...') : t('find_bluetooth_printer', '📡 Find Bluetooth Printer')}
                                             </button>
                                             <button 
                                                 type="button"
                                                 onClick={fetchInstalledPrinters}
                                                 style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', padding: '10px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
                                             >
-                                                🔄 Refresh Device List
+                                                {t('refresh_device_list', '🔄 Refresh Device List')}
                                             </button>
                                         </div>
                                     </div>
@@ -1086,21 +1086,21 @@ const Profile = () => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                                             <h4 style={{ fontSize: '14px', fontWeight: 800, color: '#0ea5e9', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                1. Billing Printer Setup
+                                                {t('billing_printer_setup', '1. Billing Printer Setup')}
                                             </h4>
                                             
                                             {/* Billing Printer Connection Indicator */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 10px', borderRadius: '8px', backgroundColor: printerConfig.billing.printerName ? (billingConnected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)') : 'rgba(148, 163, 184, 0.15)', border: `1px solid ${printerConfig.billing.printerName ? (billingConnected ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)') : 'var(--bg-border)'}` }}>
                                                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: printerConfig.billing.printerName ? (billingConnected ? '#10b981' : '#ef4444') : '#94a3b8', display: 'inline-block', boxShadow: printerConfig.billing.printerName && billingConnected ? '0 0 8px #10b981' : 'none' }}></span>
                                                 <span style={{ fontSize: '11px', fontWeight: 800, color: printerConfig.billing.printerName ? (billingConnected ? '#10b981' : '#f87171') : 'var(--text-muted)' }}>
-                                                    {printerConfig.billing.printerName ? (billingConnected ? '🟢 Paired & Ready' : '🔴 Disconnected') : '⚪ No Device Selected'}
+                                                    {printerConfig.billing.printerName ? (billingConnected ? t('paired_ready', '🟢 Paired & Ready') : t('disconnected', '🔴 Disconnected')) : t('no_device_selected', '⚪ No Device Selected')}
                                                 </span>
                                             </div>
                                         </div>
 
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>SELECT BILLING PRINTER</label>
+                                                <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>{t('select_billing_printer', 'SELECT BILLING PRINTER')}</label>
                                                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                                     <select 
                                                         value={printerConfig.billing.printerName} 
@@ -1110,9 +1110,9 @@ const Profile = () => {
                                                         })}
                                                         style={{width: '100%', padding: '10px 14px', paddingRight: '40px', borderRadius: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 600, appearance: 'none', outline: 'none' }}
                                                     >
-                                                        <option value="">-- Select Billing Printer --</option>
+                                                        <option value="">{t('select_billing_printer_opt', '-- Select Billing Printer --')}</option>
                                                         {printerConfig.billing.printerName && !installedPrinters.some(p => p.id === printerConfig.billing.printerName) && (
-                                                            <option value={printerConfig.billing.printerName}>{printerConfig.billing.printerName} (Saved Device)</option>
+                                                            <option value={printerConfig.billing.printerName}>{printerConfig.billing.printerName} {t('saved_device', '(Saved Device)')}</option>
                                                         )}
                                                         {installedPrinters.map(p => (
                                                             <option key={p.id} value={p.id}>{p.name || 'Thermal Printer'} ({p.id})</option>
@@ -1123,7 +1123,7 @@ const Profile = () => {
                                             </div>
 
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>BILLING RECEIPT ROLL SIZE</label>
+                                                <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>{t('billing_receipt_roll_size', 'BILLING RECEIPT ROLL SIZE')}</label>
                                                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                                     <select 
                                                         value={printerConfig.billing.paperSize || '58mm'} 
@@ -1133,8 +1133,8 @@ const Profile = () => {
                                                         })}
                                                         style={{width: '100%', padding: '10px 14px', paddingRight: '40px', borderRadius: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 600, appearance: 'none', outline: 'none' }}
                                                     >
-                                                        <option value="58mm">Compact Receipt (58mm / 2 inch)</option>
-                                                        <option value="80mm">Standard Receipt (80mm / 3 inch)</option>
+                                                        <option value="58mm">{t('compact_receipt', 'Compact Receipt (58mm / 2 inch)')}</option>
+                                                        <option value="80mm">{t('standard_receipt', 'Standard Receipt (80mm / 3 inch)')}</option>
                                                     </select>
                                                     <ChevronDown size={18} style={{ position: 'absolute', right: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                                                 </div>
@@ -1148,21 +1148,21 @@ const Profile = () => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                                             <h4 style={{ fontSize: '14px', fontWeight: 800, color: '#f59e0b', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                2. KOT Printer Setup
+                                                {t('kot_printer_setup', '2. KOT Printer Setup')}
                                             </h4>
                                             
                                             {/* KOT Printer Connection Indicator */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 10px', borderRadius: '8px', backgroundColor: (printerConfig.kot.printerName || printerConfig.billing.printerName) ? ((kotConnected || billingConnected) ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)') : 'rgba(148, 163, 184, 0.15)', border: `1px solid ${(printerConfig.kot.printerName || printerConfig.billing.printerName) ? ((kotConnected || billingConnected) ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)') : 'var(--bg-border)'}` }}>
                                                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: (printerConfig.kot.printerName || printerConfig.billing.printerName) ? ((kotConnected || billingConnected) ? '#10b981' : '#ef4444') : '#94a3b8', display: 'inline-block', boxShadow: (printerConfig.kot.printerName || printerConfig.billing.printerName) && (kotConnected || billingConnected) ? '0 0 8px #10b981' : 'none' }}></span>
                                                 <span style={{ fontSize: '11px', fontWeight: 800, color: (printerConfig.kot.printerName || printerConfig.billing.printerName) ? ((kotConnected || billingConnected) ? '#10b981' : '#f87171') : 'var(--text-muted)' }}>
-                                                    {(printerConfig.kot.printerName || printerConfig.billing.printerName) ? ((kotConnected || billingConnected) ? '🟢 Paired & Ready' : '🔴 Disconnected') : '⚪ No Device Selected'}
+                                                    {(printerConfig.kot.printerName || printerConfig.billing.printerName) ? ((kotConnected || billingConnected) ? t('paired_ready', '🟢 Paired & Ready') : t('disconnected', '🔴 Disconnected')) : t('no_device_selected', '⚪ No Device Selected')}
                                                 </span>
                                             </div>
                                         </div>
 
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>SELECT KOT PRINTER</label>
+                                                <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>{t('select_kot_printer', 'SELECT KOT PRINTER')}</label>
                                                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                                     <select 
                                                         value={printerConfig.kot.printerName} 
@@ -1172,9 +1172,9 @@ const Profile = () => {
                                                         })}
                                                         style={{width: '100%', padding: '10px 14px', paddingRight: '40px', borderRadius: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 600, appearance: 'none', outline: 'none' }}
                                                     >
-                                                        <option value="">Same as Billing Printer (Default)</option>
+                                                        <option value="">{t('same_as_billing_printer', 'Same as Billing Printer (Default)')}</option>
                                                         {printerConfig.kot.printerName && !installedPrinters.some(p => p.id === printerConfig.kot.printerName) && (
-                                                            <option value={printerConfig.kot.printerName}>{printerConfig.kot.printerName} (Saved Device)</option>
+                                                            <option value={printerConfig.kot.printerName}>{printerConfig.kot.printerName} {t('saved_device', '(Saved Device)')}</option>
                                                         )}
                                                         {installedPrinters.map(p => (
                                                             <option key={p.id} value={p.id}>{p.name || 'Thermal Printer'} ({p.id})</option>
@@ -1185,7 +1185,7 @@ const Profile = () => {
                                             </div>
 
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>KOT TICKET ROLL SIZE</label>
+                                                <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>{t('kot_ticket_roll_size', 'KOT TICKET ROLL SIZE')}</label>
                                                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                                     <select 
                                                         value={printerConfig.kot.paperSize || printerConfig.billing.paperSize || '58mm'} 
@@ -1195,8 +1195,8 @@ const Profile = () => {
                                                         })}
                                                         style={{width: '100%', padding: '10px 14px', paddingRight: '40px', borderRadius: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 600, appearance: 'none', outline: 'none' }}
                                                     >
-                                                        <option value="58mm">Compact Ticket (58mm / 2 inch)</option>
-                                                        <option value="80mm">Standard Ticket (80mm / 3 inch)</option>
+                                                        <option value="58mm">{t('compact_ticket', 'Compact Ticket (58mm / 2 inch)')}</option>
+                                                        <option value="80mm">{t('standard_ticket', 'Standard Ticket (80mm / 3 inch)')}</option>
                                                     </select>
                                                     <ChevronDown size={18} style={{ position: 'absolute', right: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                                                 </div>
@@ -1211,7 +1211,7 @@ const Profile = () => {
                                             onClick={handleTestPrintBilling}
                                             style={{ backgroundColor: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 800, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
                                         >
-                                            🖨️ Test Print Billing Receipt
+                                            {t('test_print_billing', '🖨️ Test Print Billing Receipt')}
                                         </button>
 
                                         <button 
@@ -1219,14 +1219,14 @@ const Profile = () => {
                                             onClick={handleTestPrintKot}
                                             style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 800, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
                                         >
-                                            👨‍🍳 Test Print KOT Ticket
+                                            {t('test_print_kot', '👨‍🍳 Test Print KOT Ticket')}
                                         </button>
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '8px' }}>
                                     <button type="submit" style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#10b981', color: 'white', padding: '12px 24px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', border: 'none', width: 'fit-content' }}>
                                         <Save size={18} />
-                                        Save Printer Settings
+                                        {t('save_printer_settings', 'Save Printer Settings')}
                                     </button>
                                 </div>
                             </form>
@@ -1267,7 +1267,7 @@ const Profile = () => {
                                         </div>
                                         <div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <h3 style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Active Subscription License</h3>
+                                                <h3 style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{t('active_subscription_license', 'Active Subscription License')}</h3>
                                                 <span style={{ 
                                                     padding: '4px 12px', 
                                                     borderRadius: '20px', 
@@ -1278,16 +1278,16 @@ const Profile = () => {
                                                     textTransform: 'uppercase',
                                                     letterSpacing: '0.03em'
                                                 }}>
-                                                    {licenseDetails?.type === 'trial' ? 'Free Trial (30 Days)' : 
-                                                     licenseDetails?.type === 'monthly' ? 'Monthly Subscription' : 
-                                                     licenseDetails?.type === 'yearly' ? 'Yearly Subscription' : 
-                                                     licenseDetails?.type === 'permanent' ? 'Lifetime Access' : 'Active Plan'}
+                                                    {licenseDetails?.type === 'trial' ? t('free_trial', 'Free Trial (30 Days)') : 
+                                                     licenseDetails?.type === 'monthly' ? t('monthly_subscription', 'Monthly Subscription') : 
+                                                     licenseDetails?.type === 'yearly' ? t('yearly_subscription', 'Yearly Subscription') : 
+                                                     licenseDetails?.type === 'permanent' ? t('lifetime_access', 'Lifetime Access') : t('active_plan', 'Active Plan')}
                                                 </span>
                                             </div>
                                             <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '4px 0 0 0', fontWeight: 500 }}>
                                                 {licenseDetails?.type === 'permanent' 
-                                                    ? 'Unlimited Lifetime Access — Permanent license active.'
-                                                    : `Status: Active (${licenseDetails?.daysRemaining || 0} Days Remaining). Expiry: ${licenseDetails?.expiresAt ? new Date(licenseDetails.expiresAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}`}
+                                                    ? t('lifetime_help', 'Unlimited Lifetime Access — Permanent license active.')
+                                                    : `${t('status', 'Status')}: ${t('active', 'Active')} (${licenseDetails?.daysRemaining || 0} ${t('days_remaining', 'Days Remaining')}). ${t('expiry', 'Expiry')}: ${licenseDetails?.expiresAt ? new Date(licenseDetails.expiresAt).toLocaleDateString(language === 'mr' ? 'mr-IN' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}`}
                                             </p>
                                         </div>
                                     </div>
@@ -1310,7 +1310,7 @@ const Profile = () => {
                                             transition: 'transform 0.15s ease'
                                         }}
                                     >
-                                        <Key size={16} /> Update / Renew License Key
+                                        <Key size={16} /> {t('update_renew_license_key', 'Update / Renew License Key')}
                                     </button>
                                 </div>
                             </div>
@@ -1322,10 +1322,10 @@ const Profile = () => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
                                         <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <Globe size={18} style={{ color: '#0ea5e9' }} />
-                                            Online Cloud Sync & Analytics
+                                            {t('online_cloud_sync', 'Online Cloud Sync & Analytics')}
                                         </h3>
                                         <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>
-                                            Automatically sync sales analytics, cash collections, and item reports to your Supabase cloud server.
+                                            {t('cloud_sync_desc', 'Automatically sync sales analytics, cash collections, and item reports to your Supabase cloud server.')}
                                         </p>
                                     </div>
 
@@ -1342,7 +1342,7 @@ const Profile = () => {
                                                 }}
                                                 style={{ accentColor: '#f43f5e', width: '16px', height: '16px', cursor: 'pointer' }}
                                             />
-                                            Disabled
+                                            {t('disabled', 'Disabled')}
                                         </label>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px' }}>
                                             <input 
@@ -1357,7 +1357,7 @@ const Profile = () => {
                                                 }}
                                                 style={{ accentColor: '#10b981', width: '16px', height: '16px', cursor: 'pointer' }}
                                             />
-                                            Enabled
+                                            {t('enabled', 'Enabled')}
                                         </label>
                                     </div>
                                 </div>
@@ -1366,7 +1366,7 @@ const Profile = () => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '12px', borderTop: '1px solid var(--bg-border)' }}>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
                                             <div>
-                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>OWNER ACCOUNT EMAIL</label>
+                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>{t('owner_account_email', 'OWNER ACCOUNT EMAIL')}</label>
                                                 <input 
                                                     type="email" 
                                                     placeholder="owner@hotel.com"
@@ -1379,7 +1379,7 @@ const Profile = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>OWNER PASSWORD</label>
+                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '4px' }}>{t('owner_password', 'OWNER PASSWORD')}</label>
                                                 <input 
                                                     type="password" 
                                                     placeholder="••••••••"
@@ -1409,7 +1409,7 @@ const Profile = () => {
 
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '6px' }}>
                                             <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                                                {lastSyncTime ? `Last Synced: ${new Date(lastSyncTime).toLocaleString()}` : 'Not synced yet.'}
+                                                {lastSyncTime ? `${t('last_synced', 'Last Synced:')} ${new Date(lastSyncTime).toLocaleString()}` : t('not_synced_yet', 'Not synced yet.')}
                                             </div>
 
                                             <button 
@@ -1435,7 +1435,7 @@ const Profile = () => {
                                                 }}
                                                 style={{ padding: '10px 18px', borderRadius: '8px', border: 'none', backgroundColor: '#0ea5e9', color: 'white', fontWeight: 800, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: isManualSyncing ? 0.6 : 1 }}
                                             >
-                                                <RotateCw size={14} /> {isManualSyncing ? 'Syncing...' : 'Sync Now'}
+                                                <RotateCw size={14} /> {isManualSyncing ? t('syncing', 'Syncing...') : t('sync_now', 'Sync Now')}
                                             </button>
                                         </div>
                                     </div>
@@ -1444,10 +1444,9 @@ const Profile = () => {
                             {/* Simple KOT Module */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
-                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Simple KOT</h3>
+                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{t('simple_kot', 'Simple KOT')}</h3>
                                     <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
-                                        Enable kitchen order tickets and live kitchen display routing.
-                                        This module requires a passcode to unlock.
+                                        {t('simple_kot_desc', 'Enable kitchen order tickets and live kitchen display routing. This module requires a passcode to unlock.')}
                                     </p>
                                 </div>
                                 
@@ -1461,7 +1460,7 @@ const Profile = () => {
                                             onChange={() => handleToggleSimpleKot(false)}
                                             style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
                                         />
-                                        Disabled
+                                        {t('disabled', 'Disabled')}
                                     </label>
                                     <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
                                         <input 
@@ -1471,7 +1470,7 @@ const Profile = () => {
                                             onChange={() => handleToggleSimpleKot(true)}
                                             style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
                                         />
-                                        Enabled
+                                        {t('enabled', 'Enabled')}
                                     </label>
                                 </div>
                             </div>
@@ -1480,10 +1479,9 @@ const Profile = () => {
                             {/* WhatsApp Billing Module */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
-                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>WhatsApp Billing</h3>
+                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{t('whatsapp_billing', 'WhatsApp Billing')}</h3>
                                     <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
-                                        Enable customer mobile entry and direct bill sharing via WhatsApp.
-                                        This module requires a passcode to unlock.
+                                        {t('whatsapp_billing_desc', 'Enable customer mobile entry and direct bill sharing via WhatsApp. This module requires a passcode to unlock.')}
                                     </p>
                                 </div>
                                 
@@ -1497,7 +1495,7 @@ const Profile = () => {
                                             onChange={() => handleToggleWhatsAppBilling(false)}
                                             style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
                                         />
-                                        Disabled
+                                        {t('disabled', 'Disabled')}
                                     </label>
                                     <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
                                         <input 
@@ -1507,7 +1505,7 @@ const Profile = () => {
                                             onChange={() => handleToggleWhatsAppBilling(true)}
                                             style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
                                         />
-                                        Enabled
+                                        {t('enabled', 'Enabled')}
                                     </label>
                                 </div>
                             </div>
@@ -1516,9 +1514,9 @@ const Profile = () => {
                             <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
-                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Cancel Order Management</h3>
+                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{t('cancel_order_mgmt', 'Cancel Order Management')}</h3>
                                     <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
-                                        Enable tracking, auditing, and printing slips for cancelled table orders and unbilled kitchen tickets.
+                                        {t('cancel_order_mgmt_desc', 'Enable tracking, auditing, and printing slips for cancelled table orders and unbilled kitchen tickets.')}
                                     </p>
                                 </div>
                                 
@@ -1532,7 +1530,7 @@ const Profile = () => {
                                             onChange={() => handleToggleCancelOrders(false)}
                                             style={{ accentColor: '#f43f5e', width: '18px', height: '18px', cursor: 'pointer' }}
                                         />
-                                        Disabled
+                                        {t('disabled', 'Disabled')}
                                     </label>
                                     <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
                                         <input 
@@ -1542,7 +1540,7 @@ const Profile = () => {
                                             onChange={() => handleToggleCancelOrders(true)}
                                             style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
                                         />
-                                        Enabled
+                                        {t('enabled', 'Enabled')}
                                     </label>
                                 </div>
                             </div>
@@ -1552,7 +1550,7 @@ const Profile = () => {
         )}
 
             <div style={{ textAlign: 'center', marginTop: '24px' }}>
-                 <p style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 500 }}>BestBill Identity Protection — Secure Role-Based Access Control Active</p>
+                 <p style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 500 }}>{t('identity_protection_footer', 'BestBill Identity Protection — Secure Role-Based Access Control Active')}</p>
             </div>
 
             {/* License Passcode Modal */}
@@ -1561,13 +1559,13 @@ const Profile = () => {
                     <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '24px', padding: '32px', border: '1px solid var(--bg-border)', width: '100%', maxWidth: '420px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <Lock size={26} style={{ color: '#0ea5e9' }} />
-                            <h3 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Security Passcode Required</h3>
+                            <h3 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{t('security_passcode_required', 'Security Passcode Required')}</h3>
                         </div>
                         <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: 1.5, fontWeight: 500 }}>
-                            Enter the system security passcode to unlock license key modification and plan upgrade.
+                            {t('security_passcode_desc', 'Enter the system security passcode to unlock license key modification and plan upgrade.')}
                         </p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 900 }}>SECURITY PASSCODE</label>
+                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 900 }}>{t('security_passcode', 'SECURITY PASSCODE')}</label>
                             <input
                                 type="password"
                                 value={licensePasscode}
@@ -1579,8 +1577,8 @@ const Profile = () => {
                             />
                         </div>
                         <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
-                            <button onClick={() => setShowLicensePasscodeModal(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
-                            <button onClick={handleVerifyLicensePasscode} style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)' }}>Verify Passcode</button>
+                            <button onClick={() => setShowLicensePasscodeModal(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '14px' }}>{t('cancel', 'Cancel')}</button>
+                            <button onClick={handleVerifyLicensePasscode} style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)' }}>{t('verify_passcode', 'Verify Passcode')}</button>
                         </div>
                     </div>
                 </div>
@@ -1593,13 +1591,13 @@ const Profile = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <Key size={26} style={{ color: '#10b981' }} />
                             <div>
-                                <h3 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Update / Renew License Key</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>Upgrade your subscription from Free Trial to Monthly, Yearly, or Lifetime.</p>
+                                <h3 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{t('update_renew_license_key', 'Update / Renew License Key')}</h3>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>{t('license_key_desc', 'Upgrade your subscription from Free Trial to Monthly, Yearly, or Lifetime.')}</p>
                             </div>
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 900 }}>ENTER LICENSE KEY</label>
+                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 900 }}>{t('enter_license_key', 'ENTER LICENSE KEY')}</label>
                             <input
                                 type="text"
                                 value={newLicenseKey}
@@ -1612,8 +1610,8 @@ const Profile = () => {
                         </div>
 
                         <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                            <button onClick={() => setShowLicenseKeyModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '12px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
-                            <button onClick={handleActivateNewLicenseKey} style={{ flex: 1, padding: '14px', borderRadius: '12px', backgroundColor: '#10b981', color: '#ffffff', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)' }}>Activate Plan</button>
+                            <button onClick={() => setShowLicenseKeyModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '12px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '14px' }}>{t('cancel', 'Cancel')}</button>
+                            <button onClick={handleActivateNewLicenseKey} style={{ flex: 1, padding: '14px', borderRadius: '12px', backgroundColor: '#10b981', color: '#ffffff', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)' }}>{t('activate_plan', 'Activate Plan')}</button>
                         </div>
                     </div>
                 </div>
@@ -1626,8 +1624,8 @@ const Profile = () => {
                         <div style={{ width: '64px', height: '64px', backgroundColor: 'rgba(14, 165, 233, 0.1)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', border: '1px solid rgba(14, 165, 233, 0.2)' }}>
                            <Key size={32} color="#0ea5e9" />
                         </div>
-                        <h3 style={{fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 12px 0' }}>Admin Authentication</h3>
-                        <p style={{ fontSize: '15px', color: 'var(--text-muted)', fontWeight: 600, margin: '0 0 24px 0' }}>Enter your admin PIN to setup Cloud Sync:</p>
+                        <h3 style={{fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 12px 0' }}>{t('admin_auth', 'Admin Authentication')}</h3>
+                        <p style={{ fontSize: '15px', color: 'var(--text-muted)', fontWeight: 600, margin: '0 0 24px 0' }}>{t('enter_admin_pin_cloud', 'Enter your admin PIN to setup Cloud Sync:')}</p>
                         
                         <input
                             type="password"
@@ -1650,7 +1648,7 @@ const Profile = () => {
                         />
                         
                         <div style={{ display: 'flex', gap: '12px' }}>
-                            <button onClick={() => { setShowCloudSyncPassModal(false); setCloudSyncModulePassword(''); }} style={{ flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '15px' }}>Cancel</button>
+                            <button onClick={() => { setShowCloudSyncPassModal(false); setCloudSyncModulePassword(''); }} style={{ flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '15px' }}>{t('cancel', 'Cancel')}</button>
                             <button onClick={() => {
                                 if (cloudSyncModulePassword === '462187') {
                                     setShowCloudSyncPassModal(false);
@@ -1659,7 +1657,7 @@ const Profile = () => {
                                 } else {
                                     toast.error('Incorrect PIN');
                                 }
-                            }} style={{ flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: '#0ea5e9', color: '#ffffff', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '15px', boxShadow: '0 8px 16px rgba(14, 165, 233, 0.2)' }}>Verify</button>
+                            }} style={{ flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: '#0ea5e9', color: '#ffffff', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '15px', boxShadow: '0 8px 16px rgba(14, 165, 233, 0.2)' }}>{t('verify', 'Verify')}</button>
                         </div>
                     </div>
                 </div>
@@ -1672,20 +1670,20 @@ const Profile = () => {
                         <div style={{ width: '64px', height: '64px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                            <Globe size={32} color="#10b981" />
                         </div>
-                        <h3 style={{fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 12px 0' }}>Cloud Sync Setup</h3>
-                        <p style={{ fontSize: '15px', color: 'var(--text-muted)', fontWeight: 600, margin: '0 0 24px 0' }}>Enter Owner Credentials to enable sync:</p>
+                        <h3 style={{fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 12px 0' }}>{t('cloud_sync_setup', 'Cloud Sync Setup')}</h3>
+                        <p style={{ fontSize: '15px', color: 'var(--text-muted)', fontWeight: 600, margin: '0 0 24px 0' }}>{t('enter_owner_credentials', 'Enter Owner Credentials to enable sync:')}</p>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
                             <input
                                 type="email"
-                                placeholder="Owner Email"
+                                placeholder={t('owner_email_placeholder', 'Owner Email')}
                                 value={cloudSyncEmail}
                                 onChange={e => setCloudSyncEmail(e.target.value)}
                                 style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '2px solid var(--bg-border)', background: 'var(--bg-base)', color: 'var(--text-primary)', fontSize: '15px', outline: 'none' }}
                             />
                             <input
                                 type="password"
-                                placeholder="Owner Password"
+                                placeholder={t('owner_password_placeholder', 'Owner Password')}
                                 value={cloudSyncPassword}
                                 onChange={e => setCloudSyncPassword(e.target.value)}
                                 style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '2px solid var(--bg-border)', background: 'var(--bg-base)', color: 'var(--text-primary)', fontSize: '15px', outline: 'none' }}
@@ -1693,7 +1691,7 @@ const Profile = () => {
                         </div>
                         
                         <div style={{ display: 'flex', gap: '12px' }}>
-                            <button onClick={() => setShowCloudSyncSetupModal(false)} style={{ flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '15px' }}>Cancel</button>
+                            <button onClick={() => setShowCloudSyncSetupModal(false)} style={{ flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '15px' }}>{t('cancel', 'Cancel')}</button>
                             <button onClick={() => {
                                 if (!cloudSyncEmail || !cloudSyncPassword) {
                                     return toast.error('Please enter Owner Email and Password');
@@ -1704,7 +1702,7 @@ const Profile = () => {
                                 setCloudSyncEnabled(true);
                                 setShowCloudSyncSetupModal(false);
                                 toast.success('Online Cloud Sync Enabled');
-                            }} style={{ flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: '#10b981', color: '#ffffff', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '15px', boxShadow: '0 8px 16px rgba(16, 185, 129, 0.2)' }}>Enable Sync</button>
+                            }} style={{ flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: '#10b981', color: '#ffffff', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '15px', boxShadow: '0 8px 16px rgba(16, 185, 129, 0.2)' }}>{t('enable_sync', 'Enable Sync')}</button>
                         </div>
                     </div>
                 </div>

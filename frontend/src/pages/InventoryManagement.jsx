@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { 
@@ -34,6 +35,7 @@ const getVfs = () => {
 
 const InventoryManagement = () => {
     const { user } = useAuth();
+    const { t } = useLanguage();
     const [tab, setTab] = useState('overview');
     
     // Core data states
@@ -499,55 +501,17 @@ const InventoryManagement = () => {
         return q;
     };
 
-    const handleSaveRecipe = async () => {
-        if (recipeIngredients.some(row => !row.inventory_item_id)) {
-            return toast.error('Please select ingredients for all mapped rows');
-        }
-
-        try {
-            const mappedItems = recipeIngredients.map(row => {
-                const selectedItem = items.find(item => String(item.id) === String(row.inventory_item_id));
-                if (!selectedItem) {
-                    throw new Error(`Ingredient for ID ${row.inventory_item_id} not found in catalog.`);
-                }
-                const convertedQty = convertToItemDisplayUnit(
-                    row.quantity_required,
-                    row.unit || selectedItem.unit,
-                    selectedItem.unit
-                );
-                return {
-                    inventory_item_id: Number(row.inventory_item_id),
-                    quantity_required: convertedQty
-                };
-            });
-
-            await api.post('/inventory/recipes', {
-                product_id: selectedMenuItem.id,
-                items: mappedItems
-            });
-
-            toast.success(`Recipe saved for ${selectedMenuItem.name}!`);
-            setShowRecipeModal(false);
-            setSelectedMenuItem(null);
-            setRecipeIngredients([]);
-            fetchData();
-        } catch (err) {
-            const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to map recipe';
-            toast.error(errorMsg);
-        }
-    };
-
     // --- FILTERED & PAGINATED LISTS ---
     const filteredItems = items.filter(item => 
         item.name.toLowerCase().includes(itemSearchQuery.toLowerCase())
     );
-    const itemsTotalPages = Math.ceil(filteredItems.length / itemsPerPage);
+    const itemsTotalPages = Math.ceil(filteredItems.length / itemsPerPage) || 1;
     const paginatedItems = filteredItems.slice((itemCurrentPage - 1) * itemsPerPage, itemCurrentPage * itemsPerPage);
 
     const filteredMenuItems = menuItems.filter(menuItem => 
         menuItem.name.toLowerCase().includes(menuSearchQuery.toLowerCase())
     );
-    const menuTotalPages = Math.ceil(filteredMenuItems.length / menuItemsPerPage);
+    const menuTotalPages = Math.ceil(filteredMenuItems.length / menuItemsPerPage) || 1;
     const paginatedMenuItems = filteredMenuItems.slice((menuCurrentPage - 1) * menuItemsPerPage, menuCurrentPage * menuItemsPerPage);
 
     return (
@@ -570,10 +534,10 @@ const InventoryManagement = () => {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <h1 style={{ fontSize: '32px', fontWeight: 950, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
-                            Inventory Management
+                            {t('inventory_mgmt_title', 'Inventory Management')}
                         </h1>
                         <span style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 700 }}>
-                            Add raw materials, customize recipe mappings, and audit current physical stock.
+                            {t('inventory_mgmt_sub', 'Add raw materials, customize recipe mappings, and audit current physical stock.')}
                         </span>
                     </div>
                 </div>
@@ -583,7 +547,7 @@ const InventoryManagement = () => {
                         onClick={() => { resetItemForm(); setShowItemModal(true); }}
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', borderRadius: '12px', border: 'none', backgroundColor: '#0ea5e9', color: 'white', fontWeight: 800, fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)' }}
                     >
-                        <PlusCircle size={18} /> Add Raw Ingredient
+                        <PlusCircle size={18} /> {t('add_raw_ingredient', 'Add Raw Ingredient')}
                     </button>
                 </div>
             </div>
@@ -595,7 +559,7 @@ const InventoryManagement = () => {
                         <Package color="#0ea5e9" size={24} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Total Ingredients</span>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('total_ingredients', 'Total Ingredients')}</span>
                         <span style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', marginTop: '4px' }}>{totalIngredientsCount}</span>
                     </div>
                 </div>
@@ -605,7 +569,7 @@ const InventoryManagement = () => {
                         <AlertCircle color="#ef4444" size={24} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Low Stock Items</span>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('low_stock_items', 'Low Stock Items')}</span>
                         <span style={{ fontSize: '24px', fontWeight: 900, color: '#ef4444', marginTop: '4px' }}>{lowStockItemsCount}</span>
                     </div>
                 </div>
@@ -616,7 +580,7 @@ const InventoryManagement = () => {
                             <DollarSign color="#10b981" size={24} />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Total Inventory Value</span>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('total_inventory_value', 'Total Inventory Value')}</span>
                             <span style={{ fontSize: '24px', fontWeight: 900, color: '#10b981', marginTop: '4px' }}>
                                 ₹{(items.reduce((sum, item) => sum + ((parseFloat(item.current_stock) || 0) * (parseFloat(item.purchase_rate) || 0)), 0) || Number(metrics.inventoryValue || 0)).toFixed(2)}
                             </span>
@@ -639,7 +603,7 @@ const InventoryManagement = () => {
                         onMouseOver={e => { e.currentTarget.style.backgroundColor = 'rgba(16,185,129,0.1)'; }}
                         onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
-                        View Details
+                        {t('view_details', 'View Details')}
                     </button>
                 </div>
             </div>
@@ -659,7 +623,7 @@ const InventoryManagement = () => {
                         fontSize: '15px'
                     }}
                 >
-                    Overview & Stock
+                    {t('overview_stock', 'Overview & Stock')}
                 </button>
                 <button 
                     onClick={() => setTab('recipes')} 
@@ -674,7 +638,7 @@ const InventoryManagement = () => {
                         fontSize: '15px'
                     }}
                 >
-                    Recipes & BOM Mappings
+                    {t('recipes_bom_mappings', 'Recipes & BOM Mappings')}
                 </button>
                 <button 
                     onClick={() => setTab('reports')} 
@@ -689,7 +653,7 @@ const InventoryManagement = () => {
                         fontSize: '15px'
                     }}
                 >
-                    Inventory Reports
+                    {t('inventory_reports', 'Inventory Reports')}
                 </button>
             </div>
 
@@ -704,11 +668,11 @@ const InventoryManagement = () => {
                 /* TAB 1: OVERVIEW & STOCK */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>Raw Ingredients Catalog</h3>
+                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>{t('raw_ingredients_catalog', 'Raw Ingredients Catalog')}</h3>
                         <div style={{ position: 'relative', width: '300px' }}>
                             <Search style={{ position: 'absolute', top: '12px', left: '16px', color: 'var(--text-muted)' }} size={16} />
                             <input 
-                                placeholder="Search Raw Ingredient..."
+                                placeholder={t('search_raw_ingredient', 'Search Raw Ingredient...')}
                                 value={itemSearchQuery}
                                 onChange={(e) => { setItemSearchQuery(e.target.value); setItemCurrentPage(1); }}
                                 style={{ width: '100%', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', padding: '10px 16px 10px 44px', borderRadius: '8px', outline: 'none', fontWeight: 600, fontSize: '14px', boxSizing: 'border-box' }}
@@ -720,19 +684,19 @@ const InventoryManagement = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
                             <thead>
                                 <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>Ingredient Name</th>
-                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>Current Stock</th>
-                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>Min Safety Stock</th>
-                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>Est. Purchase Rate</th>
-                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>Status</th>
-                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'right' }}>Actions</th>
+                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>{t('ingredient_name', 'Ingredient Name')}</th>
+                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>{t('current_stock', 'Current Stock')}</th>
+                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>{t('min_safety_stock', 'Min Safety Stock')}</th>
+                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>{t('est_purchase_rate', 'Est. Purchase Rate')}</th>
+                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>{t('status', 'Status')}</th>
+                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'right' }}>{t('actions', 'Actions')}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {paginatedItems.length === 0 ? (
                                     <tr>
                                         <td colSpan="6" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>
-                                            No matching ingredients found.
+                                            {t('no_ingredients_found', 'No matching ingredients found.')}
                                         </td>
                                     </tr>
                                 ) : (
@@ -756,7 +720,7 @@ const InventoryManagement = () => {
                                                         backgroundColor: isLow ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', 
                                                         color: isLow ? '#ef4444' : '#10b981' 
                                                     }}>
-                                                        {isLow ? 'Low Stock' : 'Healthy'}
+                                                        {isLow ? t('low_stock', 'Low Stock') : t('healthy', 'Healthy')}
                                                     </span>
                                                 </td>
                                                 <td style={{ padding: '16px', textAlign: 'right' }}>
@@ -765,19 +729,19 @@ const InventoryManagement = () => {
                                                             onClick={() => openEditItem(item)}
                                                             style={{ padding: '6px 12px', border: 'none', borderRadius: '6px', backgroundColor: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', cursor: 'pointer', fontWeight: 700 }}
                                                         >
-                                                            Edit
+                                                            {t('edit', 'Edit')}
                                                         </button>
                                                         <button 
                                                             onClick={() => openAddStockModal(item)}
                                                             style={{ padding: '6px 12px', border: 'none', borderRadius: '6px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', cursor: 'pointer', fontWeight: 700 }}
                                                         >
-                                                            Add Stock
+                                                            {t('add_stock', 'Add Stock')}
                                                         </button>
                                                         <button 
                                                             onClick={() => handleDeleteItem(item.id)}
                                                             style={{ padding: '6px 12px', border: 'none', borderRadius: '6px', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer', fontWeight: 700 }}
                                                         >
-                                                            Delete
+                                                            {t('delete', 'Delete')}
                                                         </button>
                                                     </div>
                                                 </td>
@@ -801,11 +765,11 @@ const InventoryManagement = () => {
             ) : tab === 'recipes' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>Menu Recipes (BOM)</h3>
+                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>{t('menu_recipes_bom', 'Menu Recipes (BOM)')}</h3>
                         <div style={{ position: 'relative', width: '300px' }}>
                             <Search style={{ position: 'absolute', top: '12px', left: '16px', color: 'var(--text-muted)' }} size={16} />
                             <input 
-                                placeholder="Search Menu Product..."
+                                placeholder={t('search_menu_product', 'Search Menu Product...')}
                                 value={menuSearchQuery}
                                 onChange={(e) => { setMenuSearchQuery(e.target.value); setMenuCurrentPage(1); }}
                                 style={{ width: '100%', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', padding: '10px 16px 10px 44px', borderRadius: '8px', outline: 'none', fontWeight: 600, fontSize: '14px', boxSizing: 'border-box' }}
@@ -817,18 +781,18 @@ const InventoryManagement = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
                             <thead>
                                 <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>Menu Product</th>
-                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>Base Selling Price</th>
-                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>Recipe Mapped Ingredients</th>
-                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>Status</th>
-                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'right' }}>Actions</th>
+                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>{t('menu_product', 'Menu Product')}</th>
+                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>{t('base_selling_price', 'Base Selling Price')}</th>
+                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>{t('recipe_mapped_ingredients', 'Recipe Mapped Ingredients')}</th>
+                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800 }}>{t('status', 'Status')}</th>
+                                    <th style={{ padding: '16px', borderBottom: '2px solid var(--bg-border)', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'right' }}>{t('actions', 'Actions')}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {paginatedMenuItems.length === 0 ? (
                                     <tr>
                                         <td colSpan="5" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>
-                                            No matching menu products found.
+                                            {t('no_matching_menu_products', 'No matching menu products found.')}
                                         </td>
                                     </tr>
                                 ) : (
@@ -858,7 +822,7 @@ const InventoryManagement = () => {
                                                         backgroundColor: linkedRecipe ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', 
                                                         color: linkedRecipe ? '#10b981' : '#f59e0b' 
                                                     }}>
-                                                        {linkedRecipe ? 'Active BOM' : 'Needs Setup'}
+                                                        {linkedRecipe ? t('active_bom', 'Active BOM') : t('needs_setup', 'Needs Setup')}
                                                     </span>
                                                 </td>
                                                 <td style={{ padding: '16px', textAlign: 'right' }}>
@@ -866,7 +830,7 @@ const InventoryManagement = () => {
                                                         onClick={() => openRecipeModal(menuItem)}
                                                         style={{ padding: '8px 16px', border: 'none', borderRadius: '8px', backgroundColor: linkedRecipe ? 'var(--bg-border)' : '#0ea5e9', color: linkedRecipe ? 'var(--text-primary)' : 'white', cursor: 'pointer', fontWeight: 800, fontSize: '13px' }}
                                                     >
-                                                        {linkedRecipe ? 'Edit Recipe / BOM' : 'Configure Recipe'}
+                                                        {linkedRecipe ? t('edit_recipe_bom', 'Edit Recipe / BOM') : t('configure_recipe', 'Configure Recipe')}
                                                     </button>
                                                 </td>
                                             </tr>
@@ -1125,19 +1089,19 @@ const InventoryManagement = () => {
                     <div style={{ backgroundColor: 'var(--bg-card)', padding: '36px', borderRadius: '32px', width: '90%', maxWidth: '460px', display: 'flex', flexDirection: 'column', gap: '24px', border: '1px solid var(--bg-border)', boxShadow: '0 30px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: 'var(--text-primary)' }}>
-                                {editingItem ? 'Edit Raw Ingredient' : 'Add Raw Material'}
+                                {editingItem ? t('edit_raw_ingredient', 'Edit Raw Ingredient') : t('add_raw_material', 'Add Raw Material')}
                             </h3>
                             <button onClick={() => setShowItemModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20}/></button>
                         </div>
 
                         <form onSubmit={handleSaveItem} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ingredient Name</label>
+                                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('ingredient_name', 'Ingredient Name')}</label>
                                 <input 
                                     type="text" 
                                     value={itemName} 
                                     onChange={e => setItemName(e.target.value)} 
-                                    placeholder="e.g. Rice, Chicken, Cooking Oil"
+                                    placeholder={t('ingredient_placeholder', 'e.g. Rice, Chicken, Cooking Oil')}
                                     required
                                     style={{ width: '100%', boxSizing: 'border-box', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none' }}
                                 />
@@ -1145,7 +1109,7 @@ const InventoryManagement = () => {
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Measurement Unit</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('measurement_unit', 'Measurement Unit')}</label>
                                     <select 
                                         value={itemUnit} 
                                         onChange={e => setItemUnit(e.target.value)} 
@@ -1161,7 +1125,7 @@ const InventoryManagement = () => {
                                     </select>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Initial Stock Level</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('initial_stock_level', 'Initial Stock Level')}</label>
                                     <input 
                                         type="number" 
                                         step="any"
@@ -1175,7 +1139,7 @@ const InventoryManagement = () => {
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Safety Alert Min</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('safety_alert_min', 'Safety Alert Min')}</label>
                                     <input 
                                         type="number" 
                                         step="any"
@@ -1185,7 +1149,7 @@ const InventoryManagement = () => {
                                     />
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Purchase Rate (₹)</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('purchase_rate_label', 'Purchase Rate (₹)')}</label>
                                     <input 
                                         type="number" 
                                         step="any"
@@ -1202,13 +1166,13 @@ const InventoryManagement = () => {
                                     onClick={() => setShowItemModal(false)}
                                     style={{ padding: '12px 20px', borderRadius: '12px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800 }}
                                 >
-                                    Cancel
+                                    {t('cancel', 'Cancel')}
                                 </button>
                                 <button 
                                     type="submit"
                                     style={{ padding: '12px 24px', borderRadius: '12px', border: 'none', cursor: 'pointer', backgroundColor: '#0ea5e9', color: 'white', fontWeight: 800, boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)' }}
                                 >
-                                    Save Ingredient
+                                    {t('save_ingredient', 'Save Ingredient')}
                                 </button>
                             </div>
                         </form>
@@ -1405,8 +1369,8 @@ const InventoryManagement = () => {
                     <div style={{ backgroundColor: 'var(--bg-card)', padding: '36px', borderRadius: '32px', width: '90%', maxWidth: '600px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', gap: '20px', border: '1px solid var(--bg-border)', boxShadow: '0 30px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
-                                <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: 'var(--text-primary)' }}>Inventory Valuation Breakdown</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, margin: '4px 0 0 0' }}>Itemized list of current stock value</p>
+                                <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: 'var(--text-primary)' }}>{t('inventory_valuation_breakdown', 'Inventory Valuation Breakdown')}</h3>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, margin: '4px 0 0 0' }}>{t('itemized_list_stock_value', 'Itemized list of current stock value')}</p>
                             </div>
                             <button onClick={() => setShowValuationModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20}/></button>
                         </div>
@@ -1415,16 +1379,16 @@ const InventoryManagement = () => {
                             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                                 <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-card)', zIndex: 1 }}>
                                     <tr style={{ borderBottom: '2px solid var(--bg-border)' }}>
-                                        <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800 }}>Ingredient</th>
-                                        <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'right' }}>Current Stock</th>
-                                        <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'right' }}>Purchase Rate</th>
-                                        <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'right' }}>Total Value</th>
+                                        <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800 }}>{t('ingredient', 'Ingredient')}</th>
+                                        <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'right' }}>{t('current_stock', 'Current Stock')}</th>
+                                        <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'right' }}>{t('purchase_rate', 'Purchase Rate')}</th>
+                                        <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'right' }}>{t('total_value', 'Total Value')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {items.length === 0 ? (
                                         <tr>
-                                            <td colSpan="4" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>No ingredients cataloged.</td>
+                                            <td colSpan="4" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>{t('no_ingredients_cataloged', 'No ingredients cataloged.')}</td>
                                         </tr>
                                     ) : (
                                         items.map(item => {
@@ -1444,7 +1408,7 @@ const InventoryManagement = () => {
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px solid var(--bg-border)', paddingTop: '16px' }}>
-                            <span style={{ fontSize: '14px', fontWeight: 900, color: 'var(--text-muted)' }}>GRAND TOTAL</span>
+                            <span style={{ fontSize: '14px', fontWeight: 900, color: 'var(--text-muted)' }}>{t('grand_total', 'GRAND TOTAL')}</span>
                             <span style={{ fontSize: '20px', fontWeight: 950, color: '#10b981' }}>
                                 ₹{(items.reduce((sum, item) => sum + ((parseFloat(item.current_stock) || 0) * (parseFloat(item.purchase_rate) || 0)), 0) || Number(metrics.inventoryValue || 0)).toFixed(2)}
                             </span>
@@ -1455,7 +1419,7 @@ const InventoryManagement = () => {
                                 onClick={() => setShowValuationModal(false)}
                                 style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--bg-border)', color: 'var(--text-primary)', fontWeight: 800 }}
                             >
-                                Close Breakdown
+                                {t('close_breakdown', 'Close Breakdown')}
                             </button>
                         </div>
                     </div>

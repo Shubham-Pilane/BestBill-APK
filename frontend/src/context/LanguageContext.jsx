@@ -24,6 +24,34 @@ export const LanguageProvider = ({ children }) => {
         return fallbackText !== undefined ? fallbackText : key;
     };
 
+    React.useEffect(() => {
+        const handleInvalid = (e) => {
+            if (!e.target || typeof e.target.setCustomValidity !== 'function') return;
+            if (language === 'mr') {
+                const message = t('please_fill_field', 'कृपया हे क्षेत्र भरा.');
+                e.target.setCustomValidity(message);
+            } else {
+                e.target.setCustomValidity('');
+            }
+        };
+
+        const handleInput = (e) => {
+            if (e.target && typeof e.target.setCustomValidity === 'function') {
+                e.target.setCustomValidity('');
+            }
+        };
+
+        document.addEventListener('invalid', handleInvalid, true);
+        document.addEventListener('input', handleInput, true);
+        document.addEventListener('change', handleInput, true);
+
+        return () => {
+            document.removeEventListener('invalid', handleInvalid, true);
+            document.removeEventListener('input', handleInput, true);
+            document.removeEventListener('change', handleInput, true);
+        };
+    }, [language]);
+
     return (
         <LanguageContext.Provider value={{ language, setLanguage, t }}>
             {children}

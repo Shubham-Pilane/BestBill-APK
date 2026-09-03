@@ -8,9 +8,11 @@ import {
     X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const CancelOrders = () => {
     const { user } = useAuth();
+    const { t } = useLanguage();
 
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -56,12 +58,12 @@ const CancelOrders = () => {
 
     const handlePrintCancelOrder = async (id) => {
         setPrintingId(id);
-        const t = toast.loading('Sending Cancel Order slip to printer...');
+        const tToast = toast.loading('Sending Cancel Order slip to printer...');
         try {
             await api.post(`/cancel-orders/${id}/print`);
-            toast.success('Cancel Order slip sent to printer!', { id: t, icon: '🖨️' });
+            toast.success('Cancel Order slip sent to printer!', { id: tToast, icon: '🖨️' });
         } catch (err) {
-            toast.error('Failed to print Cancel Order slip', { id: t });
+            toast.error('Failed to print Cancel Order slip', { id: tToast });
         } finally {
             setPrintingId(null);
         }
@@ -77,10 +79,10 @@ const CancelOrders = () => {
                 <div>
                     <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
                         <Ban style={{ color: '#0ea5e9' }} size={32} />
-                        Cancel Order Management
+                        {t('cancel_order_mgmt', 'Cancel Order Management')}
                     </h2>
                     <p style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '15px', marginTop: '8px' }}>
-                        Track and audit all cancelled kitchen tickets and un-billed table orders.
+                        {t('cancel_order_sub', 'Track and audit all cancelled kitchen tickets and un-billed table orders.')}
                     </p>
                 </div>
             </div>
@@ -88,7 +90,7 @@ const CancelOrders = () => {
             <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '20px', padding: '28px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
-                        Cancelled Orders Log ({totalCount})
+                        {t('cancelled_orders_log', 'Cancelled Orders Log')} ({totalCount})
                     </h3>
                 </div>
 
@@ -96,24 +98,24 @@ const CancelOrders = () => {
                     <table style={tableStyle}>
                         <thead>
                             <tr>
-                                <th style={thStyle}>Order No.</th>
-                                <th style={thStyle}>Table</th>
-                                <th style={thStyle}>Date & Time</th>
-                                <th style={thStyle}>Total Amount</th>
-                                <th style={thStyle}>KOT Status</th>
-                                <th style={thStyle}>Billing Status</th>
-                                <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
+                                <th style={thStyle}>{t('order_no', 'Order No.')}</th>
+                                <th style={thStyle}>{t('table', 'Table')}</th>
+                                <th style={thStyle}>{t('date_time', 'Date & Time')}</th>
+                                <th style={thStyle}>{t('total_amount', 'Total Amount')}</th>
+                                <th style={thStyle}>{t('kot_status', 'KOT Status')}</th>
+                                <th style={thStyle}>{t('billing_status', 'Billing Status')}</th>
+                                <th style={{ ...thStyle, textAlign: 'right' }}>{t('actions', 'Actions')}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="7" style={{ ...tdStyle, textAlign: 'center', padding: '40px' }}>Loading cancelled orders...</td>
+                                    <td colSpan="7" style={{ ...tdStyle, textAlign: 'center', padding: '40px' }}>{t('loading_cancelled_orders', 'Loading cancelled orders...')}</td>
                                 </tr>
                             ) : cancelledOrders.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" style={{ ...tdStyle, textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                                        No cancelled orders recorded yet.
+                                        {t('no_cancelled_orders', 'No cancelled orders recorded yet.')}
                                     </td>
                                 </tr>
                             ) : (
@@ -143,7 +145,7 @@ const CancelOrders = () => {
                                                 fontSize: '12px',
                                                 fontWeight: 800
                                             }}>
-                                                {order.kot_status || 'Not Printed'}
+                                                {order.kot_status === 'Printed' ? t('printed', 'Printed') : t('not_printed', 'Not Printed')}
                                             </span>
                                         </td>
                                         <td style={tdStyle}>
@@ -155,7 +157,7 @@ const CancelOrders = () => {
                                                 fontSize: '12px',
                                                 fontWeight: 800
                                             }}>
-                                                {order.billing_status || 'Not Settled'}
+                                                {order.billing_status === 'Settled' ? t('settled', 'Settled') : t('not_settled', 'Not Settled')}
                                             </span>
                                         </td>
                                         <td style={{ ...tdStyle, textAlign: 'right' }}>
@@ -176,7 +178,7 @@ const CancelOrders = () => {
                                                         cursor: 'pointer'
                                                     }}
                                                 >
-                                                    <Eye size={14} /> View Details
+                                                    <Eye size={14} /> {t('view_details', 'View Details')}
                                                 </button>
 
                                                 <button 
@@ -189,15 +191,15 @@ const CancelOrders = () => {
                                                         padding: '8px 12px',
                                                         borderRadius: '8px',
                                                         border: 'none',
-                                                        backgroundColor: '#3b82f6',
-                                                        color: 'white',
+                                                        backgroundColor: '#0ea5e9',
+                                                        color: '#ffffff',
                                                         fontWeight: 800,
                                                         fontSize: '13px',
-                                                        cursor: 'pointer',
-                                                        opacity: printingId === order.id ? 0.6 : 1
+                                                        cursor: printingId === order.id ? 'default' : 'pointer',
+                                                        opacity: printingId === order.id ? 0.7 : 1
                                                     }}
                                                 >
-                                                    <Printer size={14} /> Print
+                                                    <Printer size={14} /> {t('print', 'Print')}
                                                 </button>
                                             </div>
                                         </td>
@@ -211,7 +213,7 @@ const CancelOrders = () => {
                 {totalPages > 1 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap', gap: '12px' }}>
                         <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700 }}>
-                            Page {currentPage} of {totalPages} ({totalCount} records)
+                            {t('page', 'Page')} {currentPage} {t('of', 'of')} {totalPages} ({totalCount} {t('records', 'records')})
                         </span>
 
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -228,7 +230,7 @@ const CancelOrders = () => {
                                     cursor: currentPage === 1 ? 'default' : 'pointer'
                                 }}
                             >
-                                Prev
+                                {t('prev', 'Prev')}
                             </button>
 
                             {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
@@ -262,7 +264,7 @@ const CancelOrders = () => {
                                     cursor: currentPage === totalPages ? 'default' : 'pointer'
                                 }}
                             >
-                                Next
+                                {t('next', 'Next')}
                             </button>
                         </div>
                     </div>
@@ -275,7 +277,7 @@ const CancelOrders = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--bg-border)' }}>
                             <h3 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <Ban style={{ color: '#0ea5e9' }} size={24} />
-                                Cancelled Order Details #{selectedOrder.order_number}
+                                {t('cancelled_order_details', 'Cancelled Order Details')} #{selectedOrder.order_number}
                             </h3>
                             <button 
                                 onClick={() => setShowDetailModal(false)}
@@ -288,21 +290,21 @@ const CancelOrders = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', paddingRight: '6px', flex: 1 }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px', backgroundColor: 'var(--bg-base)', padding: '16px', borderRadius: '16px', border: '1px solid var(--bg-border)' }}>
                                 <div>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Table / Floor</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('table_floor', 'Table / Floor')}</span>
                                     <div style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', marginTop: '2px' }}>
                                         {selectedOrder.table_number} ({selectedOrder.floor || 'Floor 1'})
                                     </div>
                                 </div>
 
                                 <div>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Cancelled By</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('cancelled_by', 'Cancelled By')}</span>
                                     <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>
                                         {selectedOrder.cancelled_by || 'Staff'}
                                     </div>
                                 </div>
 
                                 <div>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Cancel Time</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('cancel_time', 'Cancel Time')}</span>
                                     <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px' }}>
                                         {new Date(selectedOrder.cancel_date).toLocaleString()}
                                     </div>
@@ -311,7 +313,7 @@ const CancelOrders = () => {
 
                             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                                 <div style={{ flex: 1, padding: '12px 16px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)' }}>KOT Status:</span>
+                                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)' }}>{t('kot_status', 'KOT Status')}:</span>
                                     <span style={{
                                         backgroundColor: selectedOrder.kot_status === 'Printed' ? 'rgba(14, 165, 233, 0.1)' : 'rgba(100, 116, 139, 0.1)',
                                         color: selectedOrder.kot_status === 'Printed' ? '#0ea5e9' : 'var(--text-muted)',
@@ -320,12 +322,12 @@ const CancelOrders = () => {
                                         fontSize: '12px',
                                         fontWeight: 900
                                     }}>
-                                        {selectedOrder.kot_status || 'Not Printed'}
+                                        {selectedOrder.kot_status === 'Printed' ? t('printed', 'Printed') : t('not_printed', 'Not Printed')}
                                     </span>
                                 </div>
 
                                 <div style={{ flex: 1, padding: '12px 16px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)' }}>Billing Status:</span>
+                                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)' }}>{t('billing_status', 'Billing Status')}:</span>
                                     <span style={{
                                         backgroundColor: selectedOrder.billing_status === 'Settled' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
                                         color: selectedOrder.billing_status === 'Settled' ? '#10b981' : '#f59e0b',
@@ -334,24 +336,24 @@ const CancelOrders = () => {
                                         fontSize: '12px',
                                         fontWeight: 900
                                     }}>
-                                        {selectedOrder.billing_status || 'Not Settled'}
+                                        {selectedOrder.billing_status === 'Settled' ? t('settled', 'Settled') : t('not_settled', 'Not Settled')}
                                     </span>
                                 </div>
                             </div>
 
                             <div>
                                 <h4 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>
-                                    Items in Order ({selectedOrder.parsedItems?.length || 0})
+                                    {t('items_in_order', 'Items in Order')} ({selectedOrder.parsedItems?.length || 0})
                                 </h4>
                                 <div style={{ backgroundColor: 'var(--bg-base)', borderRadius: '16px', border: '1px solid var(--bg-border)', overflow: 'hidden' }}>
                                     <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
                                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                                             <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-base)', zIndex: 1 }}>
                                                 <tr style={{ borderBottom: '1px solid var(--bg-border)' }}>
-                                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)' }}>Item</th>
-                                                    <th style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>Qty</th>
-                                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)' }}>Unit Price</th>
-                                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)' }}>Total</th>
+                                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-muted)' }}>{t('item', 'Item')}</th>
+                                                    <th style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>{t('qty', 'Qty')}</th>
+                                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)' }}>{t('unit_price', 'Unit Price')}</th>
+                                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)' }}>{t('total', 'Total')}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -371,7 +373,7 @@ const CancelOrders = () => {
                                         </table>
                                     </div>
                                     <div style={{ padding: '16px', borderTop: '2px dashed var(--bg-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)' }}>
-                                        <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)' }}>Order Value / Total:</span>
+                                        <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)' }}>{t('order_value_total', 'Order Value / Total:')}</span>
                                         <span style={{ fontSize: '20px', fontWeight: 900, color: '#10b981' }}>
                                             ₹{parseFloat(selectedOrder.total_amount || 0).toFixed(2)}
                                         </span>
@@ -385,14 +387,14 @@ const CancelOrders = () => {
                                 onClick={() => handlePrintCancelOrder(selectedOrder.id)}
                                 style={{ padding: '14px 20px', borderRadius: '14px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
-                                <Printer size={18} /> Print Cancel Order
+                                <Printer size={18} /> {t('print_cancel_order', 'Print Cancel Order')}
                             </button>
 
                             <button 
                                 onClick={() => setShowDetailModal(false)}
                                 style={{ flex: 1, padding: '14px', borderRadius: '14px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 900, cursor: 'pointer', textAlign: 'center', fontSize: '14px' }}
                             >
-                                Close
+                                {t('close', 'Close')}
                             </button>
                         </div>
                     </div>

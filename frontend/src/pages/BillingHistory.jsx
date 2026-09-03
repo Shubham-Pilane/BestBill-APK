@@ -6,6 +6,7 @@ import { exportAnalyticsPdf } from '../utils/pdfExporter';
 import { Receipt, History, IndianRupee, Calendar, Search, Ban, CheckCircle, Phone, Printer, MessageCircle, BarChart2, Download, ArrowLeft, ArrowUp, ArrowDown } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import { Capacitor } from '@capacitor/core';
@@ -27,6 +28,7 @@ const safeDate = (dateString) => {
 
 const BillingHistory = () => {
     const { user } = useAuth();
+    const { t } = useLanguage();
     const [bills, setBills] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -233,11 +235,11 @@ const BillingHistory = () => {
         return years;
     }, [bills]);
 
-    const monthsList = [
-        { value: '0', label: 'January' }, { value: '1', label: 'February' }, { value: '2', label: 'March' }, { value: '3', label: 'April' },
-        { value: '4', label: 'May' }, { value: '5', label: 'June' }, { value: '6', label: 'July' }, { value: '7', label: 'August' },
-        { value: '8', label: 'September' }, { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', label: 'December' }
-    ];
+    const monthsList = useMemo(() => [
+        { value: '0', label: t('january', 'January') }, { value: '1', label: t('february', 'February') }, { value: '2', label: t('march', 'March') }, { value: '3', label: t('april', 'April') },
+        { value: '4', label: t('may', 'May') }, { value: '5', label: t('june', 'June') }, { value: '6', label: t('july', 'July') }, { value: '7', label: t('august', 'August') },
+        { value: '8', label: t('september', 'September') }, { value: '9', label: t('october', 'October') }, { value: '10', label: t('november', 'November') }, { value: '11', label: t('december', 'December') }
+    ], [t]);
 
     const handleBillClick = async (billOrId) => {
         const targetId = typeof billOrId === 'object' ? billOrId.id : billOrId;
@@ -362,20 +364,20 @@ const BillingHistory = () => {
                 <div>
                    <h2 style={{fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
                       <History style={{ color: '#0ea5e9' }} size={32} />
-                      Billing History
+                      {t('billing_history_title', 'Billing History')}
                    </h2>
-                   <p style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '15px', marginTop: '8px' }}>Manage past transactions and analyze sales.</p>
+                   <p style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '15px', marginTop: '8px' }}>{t('billing_history_sub', 'Manage past transactions and analyze sales.')}</p>
                 </div>
             </div>
 
             {/* Summary Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
                 <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '16px', padding: '24px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Today's Revenue</span>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('todays_revenue', "Today's Revenue")}</span>
                     <h3 style={{ fontSize: '32px', fontWeight: 900, color: '#10b981', margin: 0 }}>₹{todayRevenue.toFixed(2)}</h3>
                 </div>
                 <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '16px', padding: '24px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Invoices Today</span>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('total_invoices_today', 'Total Invoices Today')}</span>
                     <h3 style={{ fontSize: '32px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{todayBills.length}</h3>
                 </div>
                 <div 
@@ -387,12 +389,12 @@ const BillingHistory = () => {
                     {activeView === 'history' ? (
                         <>
                             <BarChart2 size={28} color="white" />
-                            <span style={{ fontSize: '20px', fontWeight: 900, color: 'white' }}>Sales Analytics</span>
+                            <span style={{ fontSize: '20px', fontWeight: 900, color: 'white' }}>{t('sales_analytics', 'Sales Analytics')}</span>
                         </>
                     ) : (
                         <>
                             <ArrowLeft size={28} color="white" />
-                            <span style={{ fontSize: '20px', fontWeight: 900, color: 'white' }}>Back to History</span>
+                            <span style={{ fontSize: '20px', fontWeight: 900, color: 'white' }}>{t('back_to_history', 'Back to History')}</span>
                         </>
                     )}
                 </div>
@@ -403,11 +405,11 @@ const BillingHistory = () => {
                 // HISTORY VIEW (Table)
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>Transaction History</h3>
+                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>{t('transaction_history', 'Transaction History')}</h3>
                         <div style={{ position: 'relative', width: '300px' }}>
                             <Search style={{ position: 'absolute', top: '12px', left: '16px', color: 'var(--text-muted)' }} size={16} />
                             <input 
-                                placeholder="Search Invoice No or Table..."
+                                placeholder={t('search_invoice_or_table', 'Search Invoice No or Table...')}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 style={{width: '100%', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', padding: '10px 16px 10px 44px', borderRadius: '8px', outline: 'none', fontWeight: 600, fontSize: '14px' }}
@@ -419,13 +421,13 @@ const BillingHistory = () => {
                         <table style={tableStyle}>
                             <thead>
                                 <tr>
-                                    <th style={thStyle}>Invoice No</th>
-                                    <th style={thStyle}>Date & Time</th>
-                                    <th style={thStyle}>Customer Type</th>
-                                    <th style={thStyle}>Table / Info</th>
-                                    <th style={thStyle}>Total Amount</th>
-                                    <th style={thStyle}>Status</th>
-                                    <th style={thStyle}>Actions</th>
+                                    <th style={thStyle}>{t('invoice_no', 'Invoice No')}</th>
+                                    <th style={thStyle}>{t('date_time', 'Date & Time')}</th>
+                                    <th style={thStyle}>{t('customer_type', 'Customer Type')}</th>
+                                    <th style={thStyle}>{t('table_info', 'Table / Info')}</th>
+                                    <th style={thStyle}>{t('total_amount', 'Total Amount')}</th>
+                                    <th style={thStyle}>{t('status', 'Status')}</th>
+                                    <th style={thStyle}>{t('actions', 'Actions')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -433,7 +435,7 @@ const BillingHistory = () => {
                                     <tr>
                                         <td colSpan="7" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                                             <Ban size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-                                            <p style={{ margin: 0, fontWeight: 600 }}>No transactions found.</p>
+                                            <p style={{ margin: 0, fontWeight: 600 }}>{t('no_transactions_found', 'No transactions found.')}</p>
                                         </td>
                                     </tr>
                                 ) : (
@@ -443,7 +445,7 @@ const BillingHistory = () => {
                                             <td style={tdStyle}>{safeDate(bill.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td>
                                             <td style={tdStyle}>
                                                 <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 800, backgroundColor: isParcel(bill.table_number) ? 'rgba(245, 158, 11, 0.1)' : 'rgba(14, 165, 233, 0.1)', color: isParcel(bill.table_number) ? '#f59e0b' : '#0ea5e9' }}>
-                                                    {isParcel(bill.table_number) ? 'PARCEL' : 'DINE-IN'}
+                                                    {isParcel(bill.table_number) ? t('parcel', 'PARCEL') : t('dine_in', 'DINE-IN')}
                                                 </span>
                                             </td>
                                             <td style={tdStyle}>{bill.table_number}</td>
@@ -451,17 +453,17 @@ const BillingHistory = () => {
                                             <td style={tdStyle}>
                                                 {bill.is_paid ? (
                                                     <span style={{ fontSize: '11px', color: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '4px 8px', borderRadius: '4px', fontWeight: 800 }}>
-                                                        PAID
+                                                        {t('paid', 'PAID')}
                                                     </span>
                                                 ) : (
                                                     <span style={{ fontSize: '11px', color: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.1)', padding: '4px 8px', borderRadius: '4px', fontWeight: 800 }}>
-                                                        UNPAID
+                                                        {t('pending', 'UNPAID')}
                                                     </span>
                                                 )}
                                             </td>
                                             <td style={tdStyle}>
                                                 <button onClick={() => handleBillClick(bill)} style={{ padding: '6px 12px', backgroundColor: 'var(--bg-border)', border: 'none', borderRadius: '6px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}>
-                                                    View Details
+                                                    {t('view_details', 'View Details')}
                                                 </button>
                                             </td>
                                         </tr>
@@ -474,9 +476,9 @@ const BillingHistory = () => {
                     {/* Pagination */}
                     {totalPages > 1 && (
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
-                            <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', cursor: currentPage === 1 ? 'default' : 'pointer' }}>Prev</button>
+                            <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', cursor: currentPage === 1 ? 'default' : 'pointer' }}>{t('prev', 'Prev')}</button>
                             <span style={{ padding: '8px 16px', fontWeight: 800, color: 'var(--text-primary)' }}>{currentPage} / {totalPages}</span>
-                            <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', cursor: currentPage === totalPages ? 'default' : 'pointer' }}>Next</button>
+                            <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', cursor: currentPage === totalPages ? 'default' : 'pointer' }}>{t('next', 'Next')}</button>
                         </div>
                     )}
                 </div>
@@ -487,16 +489,16 @@ const BillingHistory = () => {
                     {/* Header & Filters */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                         <div>
-                            <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: 'var(--text-primary)' }}>Sales & Performance Analytics</h3>
-                            <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600 }}>Detailed breakdown of revenue, orders, and item popularity.</p>
+                            <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: 'var(--text-primary)' }}>{t('sales_performance_analytics', 'Sales & Performance Analytics')}</h3>
+                            <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600 }}>{t('sales_analytics_sub', 'Detailed breakdown of revenue, orders, and item popularity.')}</p>
                         </div>
                         
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <select value={analyticsFilter} onChange={e => setAnalyticsFilter(e.target.value)} style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', cursor: 'pointer' }}>
-                                <option value="Today">Today</option>
-                                <option value="Month">Monthly</option>
-                                <option value="Year">Yearly</option>
-                                <option value="Custom">Custom Range</option>
+                                <option value="Today">{t('today', 'Today')}</option>
+                                <option value="Month">{t('monthly', 'Monthly')}</option>
+                                <option value="Year">{t('yearly', 'Yearly')}</option>
+                                <option value="Custom">{t('custom_range', 'Custom Range')}</option>
                             </select>
 
                             {analyticsFilter === 'Month' && (
@@ -524,7 +526,7 @@ const BillingHistory = () => {
                                         onChange={e => setStartDate(e.target.value)} 
                                         style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', cursor: 'pointer' }}
                                     />
-                                    <span style={{ color: 'var(--text-muted)', fontWeight: 800 }}>to</span>
+                                    <span style={{ color: 'var(--text-muted)', fontWeight: 800 }}>{t('to', 'to')}</span>
                                     <input 
                                         type="date" 
                                         value={endDate} 
@@ -535,7 +537,7 @@ const BillingHistory = () => {
                             )}
 
                             <button onClick={exportPDF} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', backgroundColor: '#f43f5e', color: 'white', fontWeight: 800, cursor: 'pointer' }}>
-                                <Download size={16} /> Export PDF
+                                <Download size={16} /> {t('export_pdf', 'Export PDF')}
                             </button>
                         </div>
                     </div>
@@ -547,27 +549,27 @@ const BillingHistory = () => {
                         
                         {/* Collection Summary */}
                         <div style={{ backgroundColor: 'var(--bg-base)', padding: '24px', borderRadius: '12px', border: '1px solid var(--bg-border)' }}>
-                            <h4 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Collection Summary</h4>
+                            <h4 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('collection_summary', 'Collection Summary')}</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                    <span>Restaurant Collection (Dine-In)</span>
+                                    <span>{t('dine_in_collection', 'Restaurant Collection (Dine-In)')}</span>
                                     <span>₹{totalDineInRevenue.toFixed(2)}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                    <span>Parcel Collection</span>
+                                    <span>{t('parcel_collection', 'Parcel Collection')}</span>
                                     <span>₹{totalParcelRevenue.toFixed(2)}</span>
                                 </div>
                                 <div style={{ height: '1px', borderTop: '1px dashed var(--bg-border)', margin: '4px 0' }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                    <span>Cash Collection</span>
+                                    <span>{t('cash_collection', 'Cash Collection')}</span>
                                     <span>₹{totalCashRevenue.toFixed(2)}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                    <span>Online Collection</span>
+                                    <span>{t('online_collection', 'Online Collection')}</span>
                                     <span>₹{totalOnlineRevenue.toFixed(2)}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, color: '#10b981', fontSize: '18px', paddingTop: '12px', borderTop: '1px dashed var(--bg-border)' }}>
-                                    <span>Total Collection</span>
+                                    <span>{t('total_collection', 'Total Collection')}</span>
                                     <span>₹{grandTotalRevenue.toFixed(2)}</span>
                                 </div>
                             </div>
@@ -575,18 +577,18 @@ const BillingHistory = () => {
 
                         {/* Customer Summary */}
                         <div style={{ backgroundColor: 'var(--bg-base)', padding: '24px', borderRadius: '12px', border: '1px solid var(--bg-border)' }}>
-                            <h4 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer Summary</h4>
+                            <h4 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('customer_summary', 'Customer Summary')}</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                    <span>Total Dine-In Orders</span>
+                                    <span>{t('total_dine_in_orders', 'Total Dine-In Orders')}</span>
                                     <span>{dineInBills.length}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                    <span>Total Parcel Orders</span>
+                                    <span>{t('total_parcel_orders', 'Total Parcel Orders')}</span>
                                     <span>{parcelBills.length}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, color: '#0ea5e9', fontSize: '18px', paddingTop: '12px', borderTop: '1px dashed var(--bg-border)' }}>
-                                    <span>Total Orders Served</span>
+                                    <span>{t('total_orders_served', 'Total Orders Served')}</span>
                                     <span>{analyticsBills.length}</span>
                                 </div>
                             </div>
@@ -595,19 +597,19 @@ const BillingHistory = () => {
                         {/* Expense & Net Profit Summary */}
                         <div style={{ backgroundColor: 'var(--bg-base)', padding: '24px', borderRadius: '12px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                             <div>
-                                <h4 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expense & Net Profit</h4>
+                                <h4 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('expense_net_profit', 'Expense & Net Profit')}</h4>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                        <span>Gross Collection</span>
+                                        <span>{t('gross_collection', 'Gross Collection')}</span>
                                         <span>₹{grandTotalRevenue.toFixed(2)}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: '#f43f5e' }}>
-                                        <span>Total Expenses</span>
+                                        <span>{t('total_expenses', 'Total Expenses')}</span>
                                         <span>− ₹{totalExpenses.toFixed(2)}</span>
                                     </div>
                                     <div style={{ height: '1px', borderTop: '1px dashed var(--bg-border)', margin: '4px 0' }} />
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, color: (grandTotalRevenue - totalExpenses) >= 0 ? '#10b981' : '#f43f5e', fontSize: '18px', paddingTop: '8px' }}>
-                                        <span>Net Revenue (Profit)</span>
+                                        <span>{t('net_revenue_profit', 'Net Revenue (Profit)')}</span>
                                         <span>₹{(grandTotalRevenue - totalExpenses).toFixed(2)}</span>
                                     </div>
                                 </div>
@@ -619,23 +621,23 @@ const BillingHistory = () => {
                     {/* Item Sales / Yearly Tables */}
                     {analyticsFilter === 'Year' && (
                         <div style={{ marginTop: '16px' }}>
-                            <h4 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Yearly Revenue Breakdown</h4>
+                            <h4 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('yearly_revenue_breakdown', 'Yearly Revenue Breakdown')}</h4>
                             <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--bg-border)' }}>
                                 <table style={tableStyle}>
                                     <thead>
                                         <tr>
-                                            <th style={thStyle}>Month</th>
-                                            <th style={thStyle}>Cash Collection</th>
-                                            <th style={thStyle}>Online Collection</th>
-                                            <th style={thStyle}>Parcel Revenue</th>
-                                            <th style={thStyle}>Dine-In Revenue</th>
-                                            <th style={thStyle}>Total Revenue</th>
+                                            <th style={thStyle}>{t('month', 'Month')}</th>
+                                            <th style={thStyle}>{t('cash_collection', 'Cash Collection')}</th>
+                                            <th style={thStyle}>{t('online_collection', 'Online Collection')}</th>
+                                            <th style={thStyle}>{t('parcel_revenue', 'Parcel Revenue')}</th>
+                                            <th style={thStyle}>{t('dine_in_revenue', 'Dine-In Revenue')}</th>
+                                            <th style={thStyle}>{t('total_revenue', 'Total Revenue')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {yearlyData.map((row, i) => (
                                             <tr key={i}>
-                                                <td style={tdStyle}>{row.month}</td>
+                                                <td style={tdStyle}>{t(row.month.toLowerCase(), row.month)}</td>
                                                 <td style={tdStyle}>₹{row.cashRev.toFixed(2)}</td>
                                                 <td style={tdStyle}>₹{row.onlineRev.toFixed(2)}</td>
                                                 <td style={tdStyle}>₹{row.parcelRev.toFixed(2)}</td>
@@ -648,14 +650,14 @@ const BillingHistory = () => {
                             </div>
                         </div>
                     )}
-                    {(analyticsFilter === 'Today' || analyticsFilter === 'Custom') && (
+                    {(analyticsFilter === 'Today' || analyticsFilter === 'Custom' || analyticsFilter === 'Month') && (
                         <div style={{ marginTop: '16px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item Sales Summary</h4>
+                                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('item_sales_summary', 'Item Sales Summary')}</h4>
                                 <div style={{ position: 'relative', width: '250px' }}>
                                     <Search style={{ position: 'absolute', top: '10px', left: '12px', color: 'var(--text-muted)' }} size={14} />
                                     <input 
-                                        placeholder="Search Items..."
+                                        placeholder={t('search_items', 'Search Items...')}
                                         value={itemSearchTerm}
                                         onChange={(e) => setItemSearchTerm(e.target.value)}
                                         style={{width: '100%', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', padding: '8px 12px 8px 36px', borderRadius: '6px', outline: 'none', fontWeight: 600, fontSize: '13px' }}
@@ -667,20 +669,20 @@ const BillingHistory = () => {
                                     <thead>
                                         <tr>
                                             <th style={{...thStyle, cursor: 'pointer'}} onClick={() => handleSort('name')}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Item Name {itemSortConfig.key === 'name' && (itemSortConfig.direction === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('item_name', 'Item Name')} {itemSortConfig.key === 'name' && (itemSortConfig.direction === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}</div>
                                             </th>
                                             <th style={{...thStyle, cursor: 'pointer'}} onClick={() => handleSort('quantity')}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Quantity Sold {itemSortConfig.key === 'quantity' && (itemSortConfig.direction === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('quantity_sold', 'Quantity Sold')} {itemSortConfig.key === 'quantity' && (itemSortConfig.direction === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}</div>
                                             </th>
                                             <th style={{...thStyle, cursor: 'pointer'}} onClick={() => handleSort('revenue')}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>Revenue Generated {itemSortConfig.key === 'revenue' && (itemSortConfig.direction === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{t('revenue_generated', 'Revenue Generated')} {itemSortConfig.key === 'revenue' && (itemSortConfig.direction === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}</div>
                                             </th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {itemSales.length === 0 ? (
                                             <tr>
-                                                <td colSpan="3" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>No items sold in this period.</td>
+                                                <td colSpan="3" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>{t('no_items_sold', 'No items sold in this period.')}</td>
                                             </tr>
                                         ) : (
                                             itemSales.map((item, i) => (
@@ -726,7 +728,7 @@ const BillingHistory = () => {
 
                         <div style={{ marginBottom: '20px' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 40px 75px', borderBottom: '1px dashed var(--text-muted)', paddingBottom: '6px', marginBottom: '10px', fontSize: '11px', fontWeight: 900, color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
-                            <span>Item</span><span style={{ textAlign: 'right' }}>Price</span><span style={{ textAlign: 'right' }}>Qty</span><span style={{ textAlign: 'right' }}>Total</span>
+                            <span>{t('item', 'Item')}</span><span style={{ textAlign: 'right' }}>{t('price', 'Price')}</span><span style={{ textAlign: 'right' }}>{t('qty', 'Qty')}</span><span style={{ textAlign: 'right' }}>{t('total', 'Total')}</span>
                         </div>
                         {(selectedBill.items || []).length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '16px 0', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)', fontWeight: 800, fontSize: '13px', fontStyle: 'italic' }}>
@@ -742,13 +744,13 @@ const BillingHistory = () => {
                         </div>
 
                         <div style={{ borderTop: '1px dashed var(--text-muted)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>SUBTOTAL</span><span>₹{parseFloat(selectedBill.subtotal || 0).toFixed(2)}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>GST</span><span>₹{parseFloat(selectedBill.gst || 0).toFixed(2)}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: isMobile ? '24px' : '42px', fontWeight: 1000, color: selectedBill.is_paid ? 'white' : '#10b981', borderTop: '4px double var(--text-muted)', marginTop: '8px', paddingTop: '8px' }}><span>TOTAL</span><span>₹{parseFloat(selectedBill.final_amount).toFixed(2)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('subtotal', 'SUBTOTAL')}</span><span>₹{parseFloat(selectedBill.subtotal || 0).toFixed(2)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('gst', 'GST')}</span><span>₹{parseFloat(selectedBill.gst || 0).toFixed(2)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: isMobile ? '24px' : '42px', fontWeight: 1000, color: selectedBill.is_paid ? 'white' : '#10b981', borderTop: '4px double var(--text-muted)', marginTop: '8px', paddingTop: '8px' }}><span>{t('grand_total', 'TOTAL')}</span><span>₹{parseFloat(selectedBill.final_amount).toFixed(2)}</span></div>
                         </div>
 
                         {selectedBill.is_paid && (
-                        <div style={{ marginTop: '24px', textAlign: 'center', padding: '16px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '16px', color: 'white', fontWeight: 950, fontSize: '16px' }}>SUCCESSFULLY SETTLED</div>
+                        <div style={{ marginTop: '24px', textAlign: 'center', padding: '16px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '16px', color: 'white', fontWeight: 950, fontSize: '16px' }}>{t('successfully_settled', 'SUCCESSFULLY SETTLED')}</div>
                         )}
                     </div>
 
@@ -759,7 +761,7 @@ const BillingHistory = () => {
                         <div style={{ backgroundColor: 'var(--bg-base)', padding: '14px 16px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid var(--bg-border)' }}>
                             <Phone size={18} color="var(--text-muted)" />
                             <input 
-                            placeholder="Customer Mobile No" 
+                            placeholder={t('customer_mobile', 'Customer Mobile No')} 
                             value={customerPhone} 
                             onChange={(e) => setCustomerPhone(e.target.value)}
                             style={{ border: 'none', width: '100%', outline: 'none', fontWeight: 800, fontSize: '14px', background: 'transparent', color: 'var(--text-primary)' }}
@@ -768,13 +770,13 @@ const BillingHistory = () => {
 
                         <div style={{ display: 'flex', gap: '10px' }}>
                             <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '800', fontSize: '13px' }}>
-                                <Printer size={16} /> Print
+                                <Printer size={16} /> {t('print', 'Print')}
                             </button>
                             <button onClick={shareViaWhatsApp} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#10b981', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '800', fontSize: '13px' }}>
                                 <MessageCircle size={16} /> WhatsApp
                             </button>
                         </div>
-                        <button onClick={() => setSelectedBill(null)} style={{ width: '100%', padding: '16px', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', fontSize: '14px' }}>CLOSE</button>
+                        <button onClick={() => setSelectedBill(null)} style={{ width: '100%', padding: '16px', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', fontSize: '14px' }}>{t('close', 'CLOSE')}</button>
                     </div>
                 </div>
                 </div>

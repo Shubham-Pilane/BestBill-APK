@@ -109,7 +109,7 @@ const Layout = ({ children }) => {
     }
   };
 
-  const inventoryEnabled = user?.inventoryEnabled || false;
+  const inventoryEnabled = user?.inventoryEnabled !== false;
 
   const baseNavItems = isWaiter 
       ? [
@@ -236,18 +236,18 @@ const Layout = ({ children }) => {
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 20px', borderRadius: '14px', backgroundColor: showSupport ? 'rgba(14, 165, 233, 0.1)' : 'transparent', border: 'none', cursor: 'pointer', color: showSupport ? '#0ea5e9' : 'var(--text-secondary)', fontWeight: 700, fontSize: '16px', textAlign: 'left' }}
           >
             <Headset size={20} />
-            <span style={{ flex: 1 }}>Customer Care</span>
+            <span style={{ flex: 1 }}>{t('customer_care', 'Customer Care')}</span>
           </button>
           {showSupport && (
             <div style={{ backgroundColor: 'rgba(14, 165, 233, 0.05)', borderRadius: '14px', padding: '16px', border: '1px solid rgba(14, 165, 233, 0.1)', marginTop: '6px', animation: 'fadeIn 0.2s ease' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 700, margin: '0 0 8px 0', lineHeight: '1.5' }}>Founder — <span style={{ color: 'var(--text-primary)' }}>Shubham Pilane</span></p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 700, margin: '0 0 8px 0', lineHeight: '1.5' }}>{t('founder_label', 'Founder')} — <span style={{ color: 'var(--text-primary)' }}>{t('shubham_pilane', 'Shubham Pilane')}</span></p>
               <a href="tel:+919822401802" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700, textDecoration: 'none', marginBottom: '4px' }}>
                 <Phone size={12} style={{ color: '#10b981' }} /> +91 9822401802
               </a>
               <a href="mailto:bestbillsolutions@gmail.com" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700, textDecoration: 'none' }}>
                 <Mail size={12} style={{ color: '#f59e0b' }} /> bestbillsolutions@gmail.com
               </a>
-              <p style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 600, margin: '10px 0 0 0', lineHeight: '1.5' }}>For any support, queries, or technical assistance, please contact us.</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 600, margin: '10px 0 0 0', lineHeight: '1.5' }}>{t('customer_care_desc', 'For any support, queries, or technical assistance, please contact us.')}</p>
             </div>
           )}
         </div>

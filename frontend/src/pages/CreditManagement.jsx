@@ -18,9 +18,11 @@ import {
   FileText
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const CreditManagement = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' or 'vendors'
   
   // Dashboard & Transactions states
@@ -252,22 +254,22 @@ const CreditManagement = () => {
         <div>
            <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
               <Wallet style={{ color: '#f59e0b' }} size={32} />
-              Credit Management
+              {t('credit_mgmt_title', 'Credit Management')}
            </h2>
-           <p style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '15px', marginTop: '8px' }}>Monitor outstanding balances, track transactions, and settle customer/vendor bills.</p>
+           <p style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '15px', marginTop: '8px' }}>{t('credit_mgmt_sub', 'Monitor outstanding balances, track transactions, and settle customer/vendor bills.')}</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button 
             onClick={() => setActiveTab('transactions')}
             style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: '14px', backgroundColor: activeTab === 'transactions' ? '#f59e0b' : 'var(--bg-border)', color: activeTab === 'transactions' ? 'white' : 'var(--text-secondary)' }}
           >
-            Credit Transactions
+            {t('credit_transactions', 'Credit Transactions')}
           </button>
           <button 
             onClick={() => setActiveTab('vendors')}
             style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: '14px', backgroundColor: activeTab === 'vendors' ? '#f59e0b' : 'var(--bg-border)', color: activeTab === 'vendors' ? 'white' : 'var(--text-secondary)' }}
           >
-            Manage Vendors
+            {t('manage_vendors', 'Manage Vendors')}
           </button>
         </div>
       </div>
@@ -277,24 +279,24 @@ const CreditManagement = () => {
           {/* Summary Stats cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px' }}>
             <div style={cardStyle}>
-              <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Outstanding</span>
+              <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('total_outstanding', 'Total Outstanding')}</span>
               <h3 style={{ fontSize: '32px', fontWeight: 900, color: '#f43f5e', margin: 0 }}>₹{summary.totalOutstandingAmount.toFixed(2)}</h3>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Active balances pending settlement</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>{t('active_balances_pending', 'Active balances pending settlement')}</span>
             </div>
             <div style={cardStyle}>
-              <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Customer Outstanding</span>
+              <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('customer_outstanding', 'Customer Outstanding')}</span>
               <h3 style={{ fontSize: '32px', fontWeight: 900, color: '#38bdf8', margin: 0 }}>₹{summary.customerOutstandingAmount.toFixed(2)}</h3>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Pending from dining & parcels</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>{t('pending_dining_parcels', 'Pending from dining & parcels')}</span>
             </div>
             <div style={cardStyle}>
-              <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Vendor Outstanding</span>
+              <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('vendor_outstanding', 'Vendor Outstanding')}</span>
               <h3 style={{ fontSize: '32px', fontWeight: 900, color: '#f59e0b', margin: 0 }}>₹{summary.vendorOutstandingAmount.toFixed(2)}</h3>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Pending supply adjustments</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>{t('pending_supply_adj', 'Pending supply adjustments')}</span>
             </div>
             <div style={cardStyle}>
-              <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Settled</span>
+              <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('total_settled', 'Total Settled')}</span>
               <h3 style={{ fontSize: '32px', fontWeight: 900, color: '#10b981', margin: 0 }}>₹{summary.totalSettledAmount.toFixed(2)}</h3>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>All-time cleared credit invoices</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>{t('alltime_cleared_invoices', 'All-time cleared credit invoices')}</span>
             </div>
           </div>
 
@@ -305,33 +307,33 @@ const CreditManagement = () => {
                 
                 {/* Party Type Filter */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Party Type</label>
+                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('party_type', 'Party Type')}</label>
                   <select value={partyType} onChange={e => setPartyType(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700 }}>
-                    <option value="all">All Parties</option>
-                    <option value="customer">Customers</option>
-                    <option value="vendor">Vendors</option>
+                    <option value="all">{t('all_parties', 'All Parties')}</option>
+                    <option value="customer">{t('customers', 'Customers')}</option>
+                    <option value="vendor">{t('vendors', 'Vendors')}</option>
                   </select>
                 </div>
 
                 {/* Status Filter */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Status</label>
+                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('status', 'Status')}</label>
                   <select value={status} onChange={e => setStatus(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700 }}>
-                    <option value="all">All Records</option>
-                    <option value="pending">Pending</option>
-                    <option value="settled">Settled</option>
+                    <option value="all">{t('all_records', 'All Records')}</option>
+                    <option value="pending">{t('pending', 'Pending')}</option>
+                    <option value="settled">{t('settled', 'Settled')}</option>
                   </select>
                 </div>
 
                 {/* Date Filter */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Date Range</label>
+                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('date_range', 'Date Range')}</label>
                   <select value={dateFilter} onChange={e => setDateFilter(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700 }}>
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                    <option value="custom">Custom Range</option>
+                    <option value="all">{t('all_time', 'All Time')}</option>
+                    <option value="today">{t('today', 'Today')}</option>
+                    <option value="week">{t('this_week', 'This Week')}</option>
+                    <option value="month">{t('this_month', 'This Month')}</option>
+                    <option value="custom">{t('custom_date_range', 'Custom Range')}</option>
                   </select>
                 </div>
 
@@ -339,11 +341,11 @@ const CreditManagement = () => {
                 {dateFilter === 'custom' && (
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Start Date</label>
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('start_date', 'Start Date')}</label>
                       <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700 }} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>End Date</label>
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('end_date', 'End Date')}</label>
                       <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700 }} />
                     </div>
                   </div>
@@ -354,7 +356,7 @@ const CreditManagement = () => {
               <form onSubmit={handleSearchSubmit} style={{ position: 'relative', width: '300px', marginTop: '16px' }}>
                 <Search style={{ position: 'absolute', top: '12px', left: '16px', color: 'var(--text-muted)' }} size={16} />
                 <input 
-                  placeholder="Search Name, Phone or Bill No..."
+                  placeholder={t('search_name_phone_bill', 'Search Name, Phone or Bill No...')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{ width: '100%', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', padding: '10px 16px 10px 44px', borderRadius: '8px', outline: 'none', fontWeight: 600, fontSize: '14px', boxSizing: 'border-box' }}
@@ -368,14 +370,14 @@ const CreditManagement = () => {
             <table style={tableStyle}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Date</th>
-                  <th style={thStyle}>Type</th>
-                  <th style={thStyle}>Party Name</th>
-                  <th style={thStyle}>Mobile</th>
-                  <th style={thStyle}>Bill No</th>
-                  <th style={thStyle}>Amount</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Action</th>
+                  <th style={thStyle}>{t('date', 'Date')}</th>
+                  <th style={thStyle}>{t('type', 'TYPE')}</th>
+                  <th style={thStyle}>{t('party_name', 'PARTY NAME')}</th>
+                  <th style={thStyle}>{t('mobile', 'MOBILE')}</th>
+                  <th style={thStyle}>{t('bill_no', 'BILL NO')}</th>
+                  <th style={thStyle}>{t('amount', 'AMOUNT')}</th>
+                  <th style={thStyle}>{t('status', 'Status')}</th>
+                  <th style={thStyle}>{t('action', 'Action')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -383,14 +385,14 @@ const CreditManagement = () => {
                   <tr>
                     <td colSpan="8" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                       <div style={{ display: 'inline-block', width: '24px', height: '24px', borderRadius: '50%', border: '3px solid var(--bg-border)', borderTopColor: '#f59e0b', animation: 'spin 1s linear infinite' }}></div>
-                      <p style={{ margin: '8px 0 0', fontWeight: 600 }}>Loading transactions...</p>
+                      <p style={{ margin: '8px 0 0', fontWeight: 600 }}>{t('loading_transactions', 'Loading transactions...')}</p>
                     </td>
                   </tr>
                 ) : transactions.length === 0 ? (
                   <tr>
                     <td colSpan="8" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                       <AlertCircle size={32} style={{ margin: '0 auto 12px', opacity: 0.5, color: 'var(--text-muted)' }} />
-                      <p style={{ margin: 0, fontWeight: 600 }}>No outstanding credit records found.</p>
+                      <p style={{ margin: 0, fontWeight: 600 }}>{t('no_credit_records', 'No outstanding credit records found.')}</p>
                     </td>
                   </tr>
                 ) : (
@@ -399,7 +401,7 @@ const CreditManagement = () => {
                       <td style={tdStyle}>{new Date(tx.created_at).toLocaleDateString([], { dateStyle: 'medium' })}</td>
                       <td style={tdStyle}>
                         <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', backgroundColor: tx.party_type === 'vendor' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(56, 189, 248, 0.1)', color: tx.party_type === 'vendor' ? '#f59e0b' : '#38bdf8' }}>
-                          {tx.party_type}
+                          {tx.party_type === 'vendor' ? t('vendor', 'Vendor') : t('customer', 'Customer')}
                         </span>
                       </td>
                       <td style={tdStyle}>{tx.party_type === 'vendor' ? tx.vendor_name : tx.customer_name}</td>
@@ -408,7 +410,7 @@ const CreditManagement = () => {
                       <td style={{ ...tdStyle, color: tx.status === 'settled' ? '#10b981' : '#f43f5e', fontWeight: 900 }}>₹{parseFloat(tx.amount).toFixed(2)}</td>
                       <td style={tdStyle}>
                         <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', backgroundColor: tx.status === 'settled' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)', color: tx.status === 'settled' ? '#10b981' : '#f43f5e' }}>
-                          {tx.status}
+                          {tx.status === 'settled' ? t('settled', 'Settled') : t('pending', 'Pending')}
                         </span>
                       </td>
                       <td style={tdStyle}>
@@ -416,7 +418,7 @@ const CreditManagement = () => {
                           onClick={() => handleViewDetails(tx)}
                           style={{ padding: '6px 12px', backgroundColor: 'var(--bg-border)', border: 'none', borderRadius: '6px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}
                         >
-                          View Details
+                          {t('view_details', 'View Details')}
                         </button>
                       </td>
                     </tr>
@@ -430,12 +432,12 @@ const CreditManagement = () => {
         /* Vendor Management tab */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>Suppliers & Vendors Database</h3>
+            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>{t('suppliers_vendors_database', 'Suppliers & Vendors Database')}</h3>
             <button 
               onClick={openNewVendorModal}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: '#10b981', color: 'white', fontWeight: 800, cursor: 'pointer' }}
             >
-              <Plus size={16} /> Add Vendor
+              <Plus size={16} /> {t('add_vendor', 'Add Vendor')}
             </button>
           </div>
 
@@ -443,18 +445,18 @@ const CreditManagement = () => {
             <table style={tableStyle}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Vendor Name</th>
-                  <th style={thStyle}>Mobile / Phone</th>
-                  <th style={thStyle}>GSTIN</th>
-                  <th style={thStyle}>Email</th>
-                  <th style={thStyle}>Address</th>
-                  <th style={thStyle}>Actions</th>
+                  <th style={thStyle}>{t('party_name', 'Vendor Name')}</th>
+                  <th style={thStyle}>{t('mobile', 'Mobile / Phone')}</th>
+                  <th style={thStyle}>{t('gstin', 'GSTIN')}</th>
+                  <th style={thStyle}>{t('email', 'Email')}</th>
+                  <th style={thStyle}>{t('address', 'Address')}</th>
+                  <th style={thStyle}>{t('actions', 'Actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {vendors.length === 0 ? (
                   <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>No vendors registered. Add new vendors to record purchase/vendor credits.</td>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>{t('no_vendors_registered', 'No vendors registered. Add new vendors to record purchase/vendor credits.')}</td>
                   </tr>
                 ) : (
                   vendors.map(v => (
@@ -568,7 +570,7 @@ const CreditManagement = () => {
                 {/* Right Side: Credit / Settlement Info */}
                 <div style={{ width: isMobile ? '100%' : '360px', padding: isMobile ? '20px 16px' : '40px', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)' }}>Account Details</h3>
+                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)' }}>{t('account_details', 'Account Details')}</h3>
                     <button 
                       onClick={() => setSelectedTx(null)} 
                       style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
@@ -579,20 +581,20 @@ const CreditManagement = () => {
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px', backgroundColor: 'var(--bg-base)', borderRadius: '20px', border: '1px solid var(--bg-border)' }}>
                     <div>
-                      <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Party Type</label>
-                      <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px', textTransform: 'capitalize' }}>{txDetails.credit.party_type}</div>
+                      <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('party_type', 'Party Type')}</label>
+                      <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px', textTransform: 'capitalize' }}>{txDetails.credit.party_type === 'vendor' ? t('vendor', 'Vendor') : t('customer', 'Customer')}</div>
                     </div>
                     <div>
-                      <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Name</label>
+                      <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('party_name', 'Name')}</label>
                       <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>{txDetails.credit.party_type === 'vendor' ? txDetails.credit.vendor_name : txDetails.credit.customer_name}</div>
                     </div>
                     <div>
-                      <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Mobile / Phone</label>
+                      <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('mobile', 'Mobile / Phone')}</label>
                       <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>{(txDetails.credit.party_type === 'vendor' ? txDetails.credit.vendor_phone : txDetails.credit.customer_phone) || 'N/A'}</div>
                     </div>
                     {txDetails.credit.party_type === 'vendor' && txDetails.credit.vendor_gst && (
                       <div>
-                        <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>GST Number</label>
+                        <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('gstin', 'GST Number')}</label>
                         <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>{txDetails.credit.vendor_gst}</div>
                       </div>
                     )}
@@ -602,24 +604,24 @@ const CreditManagement = () => {
                   <div style={{ flex: 1 }}>
                     {txDetails.credit.status === 'settled' ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px', backgroundColor: 'rgba(16, 185, 129, 0.05)', borderRadius: '20px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                        <h4 style={{ margin: 0, color: '#10b981', fontSize: '14px', fontWeight: 900, textTransform: 'uppercase' }}>Settlement Log</h4>
+                        <h4 style={{ margin: 0, color: '#10b981', fontSize: '14px', fontWeight: 900, textTransform: 'uppercase' }}>{t('settlement_log', 'Settlement Log')}</h4>
                         <div>
-                          <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Settle Date</label>
+                          <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('settle_date', 'Settle Date')}</label>
                           <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{new Date(txDetails.credit.settled_at).toLocaleString()}</div>
                         </div>
                         <div>
-                          <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Payment Mode</label>
-                          <div style={{ fontSize: '13px', fontWeight: 900, color: '#10b981', marginTop: '2px', textTransform: 'uppercase' }}>{txDetails.credit.settlement_payment_method}</div>
+                          <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('payment_mode', 'Payment Mode')}</label>
+                          <div style={{ fontSize: '13px', fontWeight: 900, color: '#10b981', marginTop: '2px', textTransform: 'uppercase' }}>{txDetails.credit.settlement_payment_method === 'cash' ? t('cash', 'Cash') : (txDetails.credit.settlement_payment_method === 'online' ? t('online', 'Online') : txDetails.credit.settlement_payment_method)}</div>
                         </div>
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <div style={{ padding: '16px', backgroundColor: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '16px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                          This balance is currently active. Settle this credit transaction if payment has been received in Cash or Online.
+                          {t('active_balance_notice', 'This balance is currently active. Settle this credit transaction if payment has been received in Cash or Online.')}
                         </div>
                         {showSettleModal ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select Settle Payment Mode</label>
+                            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('select_settle_mode', 'Select Settle Payment Mode')}</label>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button 
                                 type="button"
@@ -638,7 +640,7 @@ const CreditManagement = () => {
                                   transition: 'all 0.2s'
                                 }}
                               >
-                                Cash
+                                {t('cash', 'Cash')}
                               </button>
                               <button 
                                 type="button"
@@ -657,7 +659,7 @@ const CreditManagement = () => {
                                   transition: 'all 0.2s'
                                 }}
                               >
-                                Online (UPI)
+                                {t('online', 'Online (UPI)')}
                               </button>
                             </div>
                             
@@ -666,7 +668,7 @@ const CreditManagement = () => {
                                 onClick={() => handleSettleTransaction(settlePaymentMethod)}
                                 style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid var(--border-rgba-1)', backgroundColor: '#111827', color: 'white', fontWeight: 900, fontSize: '12px', cursor: 'pointer', textTransform: 'uppercase', boxShadow: '0 4px 12px rgba(17, 24, 39, 0.2)' }}
                               >
-                                SETTLE & NO PRINT
+                                {t('settle_without_print', 'SETTLE & NO PRINT')}
                               </button>
                               <button 
                                 onClick={async () => {
@@ -692,7 +694,7 @@ const CreditManagement = () => {
                                 }}
                                 style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid var(--border-rgba-1)', backgroundColor: '#111827', color: 'white', fontWeight: 900, fontSize: '12px', cursor: 'pointer', textTransform: 'uppercase', boxShadow: '0 4px 12px rgba(17, 24, 39, 0.2)' }}
                               >
-                                SETTLE & PRINT
+                                {t('settle_and_print', 'SETTLE & PRINT')}
                               </button>
                             </div>
 
@@ -700,7 +702,7 @@ const CreditManagement = () => {
                               onClick={() => setShowSettleModal(false)}
                               style={{ width: '100%', padding: '10px', borderRadius: '10px', border: 'none', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, fontSize: '12px', cursor: 'pointer', marginTop: '4px' }}
                             >
-                              Cancel
+                              {t('cancel', 'Cancel')}
                             </button>
                           </div>
                         ) : (
@@ -708,7 +710,7 @@ const CreditManagement = () => {
                             onClick={() => setShowSettleModal(true)}
                             style={{ width: '100%', padding: '16px', borderRadius: '16px', border: 'none', backgroundColor: '#f59e0b', color: 'white', fontWeight: 1000, fontSize: '14px', cursor: 'pointer', textTransform: 'uppercase', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)' }}
                           >
-                            Settle Credit Balance
+                            {t('settle_credit_balance', 'Settle Credit Balance')}
                           </button>
                         )}
                       </div>
@@ -732,13 +734,13 @@ const CreditManagement = () => {
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', backdropFilter: 'blur(8px)' }}>
           <div style={{ backgroundColor: 'var(--bg-card)', padding: '36px', borderRadius: '32px', width: '90%', maxWidth: '500px', display: 'flex', flexDirection: 'column', gap: '20px', border: '1px solid var(--bg-border)', boxShadow: '0 30px 60px rgba(0,0,0,0.5)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: 'var(--text-primary)' }}>{editingVendor ? 'Edit Vendor Details' : 'Register New Vendor'}</h3>
+              <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: 'var(--text-primary)' }}>{editingVendor ? t('edit_vendor_details', 'Edit Vendor Details') : t('register_new_vendor', 'Register New Vendor')}</h3>
               <button onClick={() => setShowVendorModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20}/></button>
             </div>
 
             <form onSubmit={handleSaveVendor} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Vendor / Supplier Name *</label>
+                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('vendor_supplier_name', 'Vendor / Supplier Name')} *</label>
                 <input 
                   type="text" 
                   value={vendorName} 
@@ -750,7 +752,7 @@ const CreditManagement = () => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Mobile / Phone Number</label>
+                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('mobile', 'Mobile / Phone Number')}</label>
                 <input 
                   type="text" 
                   value={vendorPhone} 
@@ -761,7 +763,7 @@ const CreditManagement = () => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>GST Number (GSTIN)</label>
+                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('gstin', 'GST Number (GSTIN)')}</label>
                 <input 
                   type="text" 
                   value={vendorGst} 
@@ -772,7 +774,7 @@ const CreditManagement = () => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Email Address</label>
+                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('email', 'Email Address')}</label>
                 <input 
                   type="email" 
                   value={vendorEmail} 
@@ -783,7 +785,7 @@ const CreditManagement = () => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Postal Address</label>
+                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('address', 'Postal Address')}</label>
                 <textarea 
                   value={vendorAddress} 
                   onChange={e => setVendorAddress(e.target.value)} 
@@ -799,13 +801,13 @@ const CreditManagement = () => {
                   onClick={() => setShowVendorModal(false)}
                   style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800 }}
                 >
-                  Cancel
+                  {t('cancel', 'Cancel')}
                 </button>
                 <button 
                   type="submit"
                   style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#f59e0b', color: 'white', fontWeight: 800, boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)' }}
                 >
-                  Save
+                  {t('save', 'Save')}
                 </button>
               </div>
             </form>

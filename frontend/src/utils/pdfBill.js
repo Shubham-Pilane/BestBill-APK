@@ -10,6 +10,53 @@ const formatAmount = (val) => {
   return Number.isInteger(num) ? num.toString() : num.toFixed(2);
 };
 
+export const formatTableStringForBill = (rawTableStr, isMarathi = false) => {
+  if (!rawTableStr) return '';
+  let str = String(rawTableStr).trim();
+
+  if (!isMarathi) {
+    str = str.replace(/^टेबल\s*/i, '');
+    if (!str.toLowerCase().startsWith('table ') && !str.toLowerCase().includes('parcel') && !str.toLowerCase().includes('token') && !str.toLowerCase().includes('room') && !str.toLowerCase().includes('online')) {
+      str = `Table ${str}`;
+    }
+    return str;
+  }
+
+  str = str.replace(/^table\s*/i, '').replace(/^टेबल\s*/i, '');
+
+  if (str.toLowerCase().includes('parcel')) {
+    return 'पार्सल काउंटर';
+  }
+  if (str.toLowerCase().includes('token')) {
+    return 'टोकन काउंटर';
+  }
+  if (str.toLowerCase().includes('online')) {
+    return 'ऑनलाईन ऑर्डर';
+  }
+
+  const floorTranslations = {
+    'main hall': 'मुख्य हॉल',
+    'party hall': 'पार्टी हॉल',
+    'rooftop': 'रूफटॉप',
+    'garden': 'गार्डन',
+    'family section': 'फॅमिली विभाग',
+    'counter': 'काउंटर'
+  };
+
+  str = str.replace(/floor\s*(\d+)/gi, 'मजला $1');
+  
+  Object.keys(floorTranslations).forEach(key => {
+    const regex = new RegExp(key, 'gi');
+    str = str.replace(regex, floorTranslations[key]);
+  });
+
+  if (!str.toLowerCase().startsWith('room') && !str.toLowerCase().startsWith('रूम')) {
+    str = `टेबल ${str}`;
+  }
+
+  return str;
+};
+
 /**
  * Generates a professionally formatted PDF bill document definition using pdfMake.
  */
@@ -24,7 +71,8 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
   const logoUrl = hotelInfo.logo_url || '';
 
   const billId = billData.id || billData.bill_id || 'N/A';
-  const tableOrRoom = billData.table || billData.table_number || (billData.room_number ? (isMarathi ? `रूम ${billData.room_number}` : `Room ${billData.room_number}`) : (isMarathi ? 'काउंटर' : 'Counter'));
+  const rawTableOrRoom = billData.table || billData.table_number || (billData.room_number ? (isMarathi ? `रूम ${billData.room_number}` : `Room ${billData.room_number}`) : (isMarathi ? 'काउंटर' : 'Counter'));
+  const tableOrRoom = formatTableStringForBill(rawTableOrRoom, isMarathi);
   const dateStr = billData.created_at ? new Date(billData.created_at).toLocaleDateString() : new Date().toLocaleDateString();
   const timeStr = billData.created_at ? new Date(billData.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const paymentMethod = (billData.payment_method || 'Cash').toUpperCase();
@@ -144,7 +192,7 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
               {
                 stack: [
                   { text: isMarathi ? `बिल क्रमांक: #${billId}` : `INVOICE / BILL NO: #${billId}`, bold: true, fontSize: 11, color: '#0f172a' },
-                  { text: isMarathi ? `टेबल / माहिती: ${tableOrRoom}` : `Table / Details: ${tableOrRoom}`, fontSize: 10, color: '#334155', margin: [0, 2, 0, 0] }
+                  { text: isMarathi ? (tableOrRoom.startsWith('टेबल') || tableOrRoom.includes('काउंटर') || tableOrRoom.includes('ऑर्डर') ? tableOrRoom : `टेबल: ${tableOrRoom}`) : `Table / Details: ${tableOrRoom}`, fontSize: 10, color: '#334155', margin: [0, 2, 0, 0] }
                 ]
               },
               {

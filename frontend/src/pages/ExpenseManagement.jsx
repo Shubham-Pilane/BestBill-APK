@@ -13,9 +13,11 @@ import {
     Trash2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const ExpenseManagement = () => {
     const { user } = useAuth();
+    const { t } = useLanguage();
     const isOwner = user?.role === 'owner';
 
     const [filter, setFilter] = useState('Today');
@@ -121,8 +123,8 @@ const ExpenseManagement = () => {
     const handleAddExpenseSubmit = async (e) => {
         e.preventDefault();
 
-        if (!formData.title.trim()) return toast.error('Please enter Expense Title');
-        if (!formData.amount || parseFloat(formData.amount) <= 0) return toast.error('Please enter a valid amount');
+        if (!formData.title.trim()) return toast.error(t('please_enter_expense_title', 'Please enter Expense Title'));
+        if (!formData.amount || parseFloat(formData.amount) <= 0) return toast.error(t('please_enter_valid_amount', 'Please enter a valid amount'));
 
         setSubmitting(true);
         try {
@@ -178,10 +180,10 @@ const ExpenseManagement = () => {
                 <div>
                     <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
                         <Receipt style={{ color: '#0ea5e9' }} size={32} />
-                        Expense Management
+                        {t('expense_mgmt_title', 'Expense Management')}
                     </h2>
                     <p style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '15px', marginTop: '8px' }}>
-                        Track daily hotel expenses, manage reports, and compute net revenue.
+                        {t('expense_mgmt_sub', 'Track daily hotel expenses, manage reports, and compute net revenue.')}
                     </p>
                 </div>
 
@@ -204,14 +206,14 @@ const ExpenseManagement = () => {
                     }}
                 >
                     <Plus size={20} strokeWidth={3} />
-                    Add Expense
+                    {t('add_expense', 'Add Expense')}
                 </button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
                 <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '16px', padding: '24px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Revenue</span>
+                        <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('total_revenue', 'Total Revenue')}</span>
                         <div style={{ padding: '8px', borderRadius: '10px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
                             <TrendingUp size={20} />
                         </div>
@@ -219,12 +221,12 @@ const ExpenseManagement = () => {
                     <h3 style={{ fontSize: '32px', fontWeight: 900, color: '#10b981', margin: 0 }}>
                         ₹{totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h3>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Sales collected for selected filter</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{t('sales_collected', 'Sales collected for selected filter')}</span>
                 </div>
 
                 <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '16px', padding: '24px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Expenses</span>
+                        <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('total_expenses', 'Total Expenses')}</span>
                         <div style={{ padding: '8px', borderRadius: '10px', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
                             <TrendingDown size={20} />
                         </div>
@@ -232,12 +234,12 @@ const ExpenseManagement = () => {
                     <h3 style={{ fontSize: '32px', fontWeight: 900, color: '#f59e0b', margin: 0 }}>
                         ₹{totalExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h3>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Expenses incurred for selected filter</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{t('expenses_incurred', 'Expenses incurred for selected filter')}</span>
                 </div>
 
                 <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '16px', padding: '24px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Net Revenue</span>
+                        <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('net_revenue', 'Net Revenue')}</span>
                         <div style={{ padding: '8px', borderRadius: '10px', backgroundColor: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9' }}>
                             <IndianRupee size={20} />
                         </div>
@@ -246,8 +248,7 @@ const ExpenseManagement = () => {
                         ₹{netRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h3>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#0ea5e9', fontWeight: 800 }}>
-                        <span>Formula:</span>
-                        <span style={{ backgroundColor: 'rgba(14, 165, 233, 0.1)', padding: '2px 8px', borderRadius: '6px' }}>Net Revenue = Revenue − Expenses</span>
+                        <span>{t('formula_net_revenue', 'Formula: Net Revenue = Revenue − Expenses')}</span>
                     </div>
                 </div>
             </div>
@@ -255,9 +256,9 @@ const ExpenseManagement = () => {
             <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '20px', padding: '28px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                     <div>
-                        <h3 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Expense Reports</h3>
+                        <h3 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{t('expense_reports', 'Expense Reports')}</h3>
                         <p style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600, margin: '4px 0 0' }}>
-                            Filter and analyze expenses for different periods (Showing {expenses.length} of {totalCount} records).
+                            {t('filter_analyze_expenses', 'Filter and analyze expenses for different periods')} (Showing {expenses.length} of {totalCount} records).
                         </p>
                     </div>
 
@@ -269,12 +270,12 @@ const ExpenseManagement = () => {
                                 onChange={e => setFilter(e.target.value)} 
                                 style={{ background: 'none', border: 'none', color: 'var(--text-primary)', fontWeight: 800, fontSize: '14px', outline: 'none', cursor: 'pointer' }}
                             >
-                                <option value="Today" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>Today</option>
-                                <option value="Yesterday" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>Yesterday</option>
-                                <option value="Last 15 Days" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>Last 15 Days</option>
-                                <option value="Current Month" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>Current Month</option>
-                                <option value="Last Month" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>Last Month</option>
-                                <option value="Custom" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>Custom Date Range</option>
+                                <option value="Today" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>{t('today', 'Today')}</option>
+                                <option value="Yesterday" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>{t('yesterday', 'Yesterday')}</option>
+                                <option value="Last 15 Days" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>{t('last_15_days', 'Last 15 Days')}</option>
+                                <option value="Current Month" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>{t('this_month', 'Current Month')}</option>
+                                <option value="Last Month" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>{t('last_month', 'Last Month')}</option>
+                                <option value="Custom" style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>{t('custom_date_range', 'Custom Date Range')}</option>
                             </select>
                         </div>
 
@@ -302,11 +303,11 @@ const ExpenseManagement = () => {
                     <table style={tableStyle}>
                         <thead>
                             <tr>
-                                <th style={thStyle}>Date</th>
-                                <th style={thStyle}>Expense Title</th>
-                                <th style={thStyle}>Payment Method</th>
-                                <th style={thStyle}>Amount</th>
-                                <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
+                                <th style={thStyle}>{t('date', 'Date')}</th>
+                                <th style={thStyle}>{t('expense_title', 'Expense Title')}</th>
+                                <th style={thStyle}>{t('payment_method', 'Payment Method')}</th>
+                                <th style={thStyle}>{t('amount', 'Amount')}</th>
+                                <th style={{ ...thStyle, textAlign: 'right' }}>{t('actions', 'Actions')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -317,7 +318,7 @@ const ExpenseManagement = () => {
                             ) : expenses.length === 0 ? (
                                 <tr>
                                     <td colSpan="5" style={{ ...tdStyle, textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                                        No expenses found for the selected period. Click "+ Add Expense" to record one.
+                                        {t('no_expenses_found', 'No expenses found for the selected period. Click "+ Add Expense" to record one.')}
                                     </td>
                                 </tr>
                             ) : (
@@ -338,7 +339,7 @@ const ExpenseManagement = () => {
                                                 fontSize: '12px',
                                                 fontWeight: 800
                                             }}>
-                                                {exp.payment_method}
+                                                {exp.payment_method === 'Cash' ? t('cash', 'Cash') : (exp.payment_method === 'Online' ? t('online', 'Online') : exp.payment_method)}
                                             </span>
                                         </td>
                                         <td style={{ ...tdStyle, color: 'var(--text-primary)', fontWeight: 900, fontSize: '15px' }}>
@@ -346,7 +347,7 @@ const ExpenseManagement = () => {
                                         </td>
                                         <td style={{ ...tdStyle, textAlign: 'right' }}>
                                             <button 
-                                                onClick={() => { setSelectedExpense(exp); setShowDetailModal(true); }}
+                                                onClick={() => { setSelectedExpense(exp); setShowDetailModal(false); setShowDetailModal(true); }}
                                                 style={{
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
@@ -361,7 +362,7 @@ const ExpenseManagement = () => {
                                                     cursor: 'pointer'
                                                 }}
                                             >
-                                                <Eye size={14} /> View Details
+                                                <Eye size={14} /> {t('view_details', 'View Details')}
                                             </button>
                                         </td>
                                     </tr>
@@ -374,7 +375,7 @@ const ExpenseManagement = () => {
                 {totalPages > 1 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap', gap: '12px' }}>
                         <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700 }}>
-                            Page {currentPage} of {totalPages} ({totalCount} expenses)
+                            {t('page', 'Page')} {currentPage} {t('of', 'of')} {totalPages} ({totalCount} {t('records', 'records')})
                         </span>
 
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -391,7 +392,7 @@ const ExpenseManagement = () => {
                                     cursor: currentPage === 1 ? 'default' : 'pointer'
                                 }}
                             >
-                                Prev
+                                {t('prev', 'Prev')}
                             </button>
 
                             {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
@@ -425,7 +426,7 @@ const ExpenseManagement = () => {
                                     cursor: currentPage === totalPages ? 'default' : 'pointer'
                                 }}
                             >
-                                Next
+                                {t('next', 'Next')}
                             </button>
                         </div>
                     </div>
@@ -438,7 +439,7 @@ const ExpenseManagement = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h3 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <Plus style={{ color: '#f43f5e' }} size={24} />
-                                Record New Expense
+                                {t('record_new_expense', 'Record New Expense')}
                             </h3>
                             <button 
                                 onClick={() => setShowAddModal(false)}
@@ -451,21 +452,23 @@ const ExpenseManagement = () => {
                         <form onSubmit={handleAddExpenseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                                    Expense Title *
+                                    {t('expense_title', 'Expense Title')} *
                                 </label>
                                 <input 
                                     type="text" 
-                                    placeholder="e.g. Water Bottles, Staff Salary, Vegetables"
+                                    placeholder={t('expense_title_placeholder', 'e.g. Water Bottles, Staff Salary, Vegetables')}
                                     value={formData.title}
                                     onChange={e => setFormData({ ...formData, title: e.target.value })}
                                     required
+                                    onInvalid={e => e.target.setCustomValidity(t('please_fill_field', 'Please fill out this field.'))}
+                                    onInput={e => e.target.setCustomValidity('')}
                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', boxSizing: 'border-box' }}
                                 />
                             </div>
 
                             <div>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                                    Amount (₹) *
+                                    {t('amount', 'Amount')} (₹) *
                                 </label>
                                 <input 
                                     type="number" 
@@ -474,6 +477,8 @@ const ExpenseManagement = () => {
                                     value={formData.amount}
                                     onChange={e => setFormData({ ...formData, amount: e.target.value })}
                                     required
+                                    onInvalid={e => e.target.setCustomValidity(t('please_fill_field', 'Please fill out this field.'))}
+                                    onInput={e => e.target.setCustomValidity('')}
                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', boxSizing: 'border-box' }}
                                 />
                             </div>
@@ -481,39 +486,41 @@ const ExpenseManagement = () => {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                                        Expense Date *
+                                        {t('expense_date', 'Expense Date')} *
                                     </label>
                                     <input 
                                         type="date" 
                                         value={formData.expense_date}
                                         onChange={e => setFormData({ ...formData, expense_date: e.target.value })}
                                         required
+                                        onInvalid={e => e.target.setCustomValidity(t('please_fill_field', 'Please fill out this field.'))}
+                                        onInput={e => e.target.setCustomValidity('')}
                                         style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', boxSizing: 'border-box' }}
                                     />
                                 </div>
 
                                 <div>
                                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                                        Payment Method *
+                                        {t('payment_method', 'Payment Method')} *
                                     </label>
                                     <select
                                         value={formData.payment_method}
                                         onChange={e => setFormData({ ...formData, payment_method: e.target.value })}
                                         style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }}
                                     >
-                                        <option value="Cash">Cash</option>
-                                        <option value="Online">Online</option>
+                                        <option value="Cash">{t('cash', 'Cash')}</option>
+                                        <option value="Online">{t('online', 'Online')}</option>
                                     </select>
                                 </div>
                             </div>
 
                             <div>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                                    Description (Optional)
+                                    {t('description_optional', 'Description (Optional)')}
                                 </label>
                                 <textarea 
                                     rows="3"
-                                    placeholder="Add any specific details or notes..."
+                                    placeholder={t('description_placeholder', 'Add any specific details or notes...')}
                                     value={formData.description}
                                     onChange={e => setFormData({ ...formData, description: e.target.value })}
                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', resize: 'none', boxSizing: 'border-box' }}
@@ -526,14 +533,14 @@ const ExpenseManagement = () => {
                                     onClick={() => setShowAddModal(false)}
                                     style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 800, cursor: 'pointer' }}
                                 >
-                                    Cancel
+                                    {t('cancel', 'Cancel')}
                                 </button>
                                 <button 
                                     type="submit" 
                                     disabled={submitting}
                                     style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', backgroundColor: '#f43f5e', color: 'white', fontWeight: 900, cursor: 'pointer', opacity: submitting ? 0.7 : 1 }}
                                 >
-                                    {submitting ? 'Saving...' : 'Save Expense'}
+                                    {submitting ? t('saving', 'Saving...') : t('save_expense', 'Save Expense')}
                                 </button>
                             </div>
                         </form>
@@ -547,7 +554,7 @@ const ExpenseManagement = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h3 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <Eye style={{ color: '#0ea5e9' }} size={24} />
-                                Expense Details
+                                {t('expense_details', 'Expense Details')}
                             </h3>
                             <button 
                                 onClick={() => setShowDetailModal(false)}
@@ -559,12 +566,12 @@ const ExpenseManagement = () => {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: 'var(--bg-base)', padding: '20px', borderRadius: '16px', border: '1px solid var(--bg-border)' }}>
                             <div>
-                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Title</span>
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('expense_title', 'Expense Title')}</span>
                                 <h4 style={{ margin: '4px 0 0', fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)' }}>{selectedExpense.title}</h4>
                             </div>
 
                             <div>
-                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Amount</span>
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('amount', 'Amount')}</span>
                                 <div style={{ fontSize: '22px', fontWeight: 900, color: 'var(--text-primary)', marginTop: '2px' }}>
                                     ₹{parseFloat(selectedExpense.amount).toFixed(2)}
                                 </div>
@@ -572,14 +579,14 @@ const ExpenseManagement = () => {
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                 <div>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Expense Date</span>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('expense_date', 'Expense Date')}</span>
                                     <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
                                         {new Date(selectedExpense.expense_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                     </div>
                                 </div>
 
                                 <div>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Payment Method</span>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('payment_method', 'Payment Method')}</span>
                                     <div style={{ marginTop: '4px' }}>
                                         <span style={{
                                             backgroundColor: selectedExpense.payment_method === 'Cash' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(14, 165, 233, 0.1)',
@@ -589,7 +596,7 @@ const ExpenseManagement = () => {
                                             fontSize: '13px',
                                             fontWeight: 800
                                         }}>
-                                            {selectedExpense.payment_method}
+                                            {selectedExpense.payment_method === 'Cash' ? t('cash', 'Cash') : (selectedExpense.payment_method === 'Online' ? t('online', 'Online') : selectedExpense.payment_method)}
                                         </span>
                                     </div>
                                 </div>
@@ -597,14 +604,14 @@ const ExpenseManagement = () => {
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                 <div>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Created By</span>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('created_by', 'Created By')}</span>
                                     <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
                                         {selectedExpense.created_by || 'Owner'}
                                     </div>
                                 </div>
 
                                 <div>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Created Date & Time</span>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('created_date_time', 'Created Date & Time')}</span>
                                     <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px' }}>
                                         {new Date(selectedExpense.created_at).toLocaleString()}
                                     </div>
@@ -613,7 +620,7 @@ const ExpenseManagement = () => {
 
                             {selectedExpense.description && (
                                 <div>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>Description</span>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>{t('description_optional', 'Description')}</span>
                                     <p style={{ margin: '4px 0 0', fontSize: '14px', color: 'var(--text-primary)', fontWeight: 600, lineHeight: '1.5' }}>
                                         {selectedExpense.description}
                                     </p>
@@ -627,7 +634,7 @@ const ExpenseManagement = () => {
                                     onClick={() => handleDeleteExpense(selectedExpense.id)}
                                     style={{ padding: '12px 18px', borderRadius: '12px', border: '1px solid #ef4444', backgroundColor: 'transparent', color: '#ef4444', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                                 >
-                                    <Trash2 size={16} /> Delete Entry
+                                    <Trash2 size={16} /> {t('delete_entry', 'Delete Entry')}
                                 </button>
                             )}
 
@@ -635,7 +642,7 @@ const ExpenseManagement = () => {
                                 onClick={() => setShowDetailModal(false)}
                                 style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: '#0ea5e9', color: 'white', fontWeight: 900, cursor: 'pointer', textAlign: 'center' }}
                             >
-                                Close Details
+                                {t('close_details', 'Close Details')}
                             </button>
                         </div>
                     </div>

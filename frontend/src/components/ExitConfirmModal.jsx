@@ -1,6 +1,8 @@
 import { LogOut } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
+  const { t } = useLanguage();
   if (!isOpen) return null;
 
   return (
@@ -41,10 +43,10 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
         </div>
 
         <h3 style={{ fontSize: '20px', fontWeight: 900, margin: '0 0 10px 0', letterSpacing: '-0.02em' }}>
-          Exit Application?
+          {t('exit_app_title', 'Exit Application?')}
         </h3>
         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: 600, margin: '0 0 24px 0', lineHeight: '1.5' }}>
-          Are you sure you want to exit the application?
+          {t('exit_app_desc', 'Are you sure you want to exit the application?')}
         </p>
 
         <div style={{ display: 'flex', gap: '12px' }}>
@@ -62,7 +64,7 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
               cursor: 'pointer'
             }}
           >
-            Cancel
+            {t('cancel', 'Cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -79,7 +81,7 @@ const ExitConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
               boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
             }}
           >
-            OK
+            {t('ok', 'OK')}
           </button>
         </div>
       </div>

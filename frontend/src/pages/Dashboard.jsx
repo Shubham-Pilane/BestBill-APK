@@ -7,12 +7,35 @@ import { toast } from 'react-hot-toast';
 import { PlusCircle, Table as TableIcon, LayoutGrid, Search, X, Hash, Trash2, RefreshCcw, Hotel, Fingerprint, Sun, Moon, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import SwapModal from '../components/SwapModal';
 import { initSocket, onUpdate, isWaiterModuleEnabled } from '../services/socketService';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const { theme, toggleTheme, setTheme, isLight } = useTheme();
+  const { t, language } = useLanguage();
+
+  const translateFloor = (floorName) => {
+    if (language !== 'mr') return floorName;
+    if (!floorName) return '';
+    if (floorName.startsWith('Floor ')) {
+      const num = floorName.replace('Floor ', '');
+      const marathiDigits = { '0': '०', '1': '१', '2': '२', '3': '३', '4': '४', '5': '५', '6': '६', '7': '७', '8': '८', '9': '९' };
+      const mrNum = num.split('').map(d => marathiDigits[d] || d).join('');
+      return `मजला ${mrNum}`;
+    }
+    const floorMap = {
+      'Main Hall': 'मुख्य हॉल',
+      'Party Hall': 'पार्टी हॉल',
+      'Rooftop': 'रूफटॉप',
+      'Garden': 'गार्डन',
+      'Family Section': 'फॅमिली विभाग',
+      'Counter': 'काउंटर'
+    };
+    return floorMap[floorName] || floorName;
+  };
+
   const isOwner = user?.role === 'owner';
   const [tables, setTables] = useState([]);
   const [selectedTable, setSelectedTable] = useState(null);
@@ -61,7 +84,7 @@ const Dashboard = () => {
       const diffMs = expires.getTime() - now.getTime();
       
       if (diffMs <= 0) {
-        setTimeRemainingStr('Expired');
+        setTimeRemainingStr(language === 'mr' ? 'मुदत संपली' : 'Expired');
         return;
       }
 
@@ -74,20 +97,20 @@ const Dashboard = () => {
       const days = Math.floor(totalHours / 24);
 
       if (days > 0) {
-        setTimeRemainingStr(`${days}d ${hours}h ${mins}m`);
+        setTimeRemainingStr(language === 'mr' ? `${days}दिवस ${hours}तास ${mins}मि` : `${days}d ${hours}h ${mins}m`);
       } else if (hours > 0) {
-        setTimeRemainingStr(`${hours}h ${mins}m`);
+        setTimeRemainingStr(language === 'mr' ? `${hours}तास ${mins}मि` : `${hours}h ${mins}m`);
       } else if (mins > 0) {
-        setTimeRemainingStr(`${mins}m ${secs}s`);
+        setTimeRemainingStr(language === 'mr' ? `${mins}मि ${secs}से` : `${mins}m ${secs}s`);
       } else {
-        setTimeRemainingStr(`${secs}s`);
+        setTimeRemainingStr(language === 'mr' ? `${secs}से` : `${secs}s`);
       }
     };
 
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [subStatus]);
+  }, [subStatus, language]);
 
   const fetchTables = async () => {
     try {
@@ -177,7 +200,7 @@ const Dashboard = () => {
     e.preventDefault();
     try {
       await api.put(`/tables/${editingTable.id}`, editData);
-      toast.success('Table layout synchronized');
+      toast.success(language === 'mr' ? 'टेबल रचना अपडेट झाली' : 'Table layout synchronized');
       setEditModalOpen(false);
       fetchTables();
     } catch (err) {
@@ -188,7 +211,7 @@ const Dashboard = () => {
   const handleSwapTable = async (targetTableId) => {
     try {
       await api.post(`/tables/${selectedTable.id}/swap`, { targetTableId });
-      toast.success('Table migration successful');
+      toast.success(language === 'mr' ? 'टेबल अदलाबदल यशस्वी झाली' : 'Table migration successful');
       setSwapModalOpen(false);
       fetchTables();
     } catch (err) {
@@ -201,7 +224,7 @@ const Dashboard = () => {
     try {
       await api.delete(`/tables/${tableToDelete.id}`);
       fetchTables();
-      toast.success('Table removed successfully');
+      toast.success(language === 'mr' ? 'टेबल यशस्वीरीत्या हटवले' : 'Table removed successfully');
       setDeleteConfirmOpen(false);
       setTableToDelete(null);
     } catch (err) {
@@ -213,9 +236,9 @@ const Dashboard = () => {
     e.preventDefault();
     if (!isOwner) return;
     const count = parseInt(tableCount);
-    if (isNaN(count) || count <= 0) return toast.error('Enter valid count');
+    if (isNaN(count) || count <= 0) return toast.error(language === 'mr' ? 'योग्य संख्या प्रविष्ट करा' : 'Enter valid count');
     
-    const loadingToast = toast.loading('Calculating sequence holes...');
+    const loadingToast = toast.loading(language === 'mr' ? 'टेबल्स जोडत आहे...' : 'Calculating sequence holes...');
     try {
       const existingInFloor = new Set(tables.filter(t => t.floor === newTableFloor).map(t => parseInt(t.table_number)).filter(n => !isNaN(n)));
       
@@ -232,7 +255,7 @@ const Dashboard = () => {
       await api.post('/tables/batch', { tableNumbers: newTableNumbers, floor: newTableFloor });
       fetchTables();
       setAddTableOpen(false);
-      toast.success(`${count} tables added to ${newTableFloor}!`, { id: loadingToast });
+      toast.success(language === 'mr' ? `${newTableFloor} मध्ये ${count} टेबल्स जोडले!` : `${count} tables added to ${newTableFloor}!`, { id: loadingToast });
     } catch (err) {
       toast.error('Error adding tables', { id: loadingToast });
     }
@@ -243,7 +266,7 @@ const Dashboard = () => {
     if (!isOwner) return;
     try {
       await api.post('/tables/batch', { tableNumbers: ['Parcel Counter'], floor: 'Counter' });
-      toast.success('Parcel Counter activated!');
+      toast.success(language === 'mr' ? 'पार्सल काउंटर सुरू झाले!' : 'Parcel Counter activated!');
       fetchTables();
     } catch (err) {
       toast.error('Failed to create Parcel Counter');
@@ -255,7 +278,7 @@ const Dashboard = () => {
     if (!isOwner) return;
     try {
       await api.post('/tables/batch', { tableNumbers: ['Token Counter'], floor: 'Counter' });
-      toast.success('Token Counter activated!');
+      toast.success(language === 'mr' ? 'टोकन काउंटर सुरू झाले!' : 'Token Counter activated!');
       fetchTables();
     } catch (err) {
       toast.error('Failed to create Token Counter');
@@ -267,7 +290,7 @@ const Dashboard = () => {
     if (!isOwner) return;
     try {
       await api.post('/tables/batch', { tableNumbers: ['Online Order'], floor: 'Counter' });
-      toast.success('Online Order counter created!');
+      toast.success(language === 'mr' ? 'ऑनलाइन ऑर्डर काउंटर सुरू झाले!' : 'Online Order counter created!');
       fetchTables();
     } catch (err) {
       toast.error('Failed to create Online Order counter');
@@ -352,9 +375,9 @@ const Dashboard = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <h1 style={{ fontSize: '24px', fontWeight: 950, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>{user?.hotel_name || 'My Hotel'}</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>
-              <span>Owner: {user?.name || 'A'}</span>
+              <span>{t('owner_label', 'Owner:')} {user?.name || 'A'}</span>
               <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'var(--bg-border)' }}></div>
-              <span style={{ color: '#10b981' }}>Active Session</span>
+              <span style={{ color: '#10b981' }}>{t('active_session', 'Active Session')}</span>
             </div>
           </div>
         </div>
@@ -376,27 +399,27 @@ const Dashboard = () => {
               fontWeight: 700
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Plan:</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('plan_label', 'PLAN:')}</span>
                 <span style={{ color: isLight ? 'var(--text-primary)' : '#0ea5e9', fontWeight: 800 }}>
-                  {subStatus.type === 'trial' ? 'Free Trial' : 
-                   subStatus.type === 'monthly' ? 'Monthly' : 
-                   subStatus.type === 'yearly' ? 'Yearly' : 'Lifetime'}
+                  {subStatus.type === 'trial' ? t('plan_free_trial', 'Free Trial') : 
+                   subStatus.type === 'monthly' ? t('plan_monthly', 'Monthly') : 
+                   subStatus.type === 'yearly' ? t('plan_yearly', 'Yearly') : t('plan_lifetime', 'Lifetime')}
                 </span>
               </div>
               {subStatus.type !== 'permanent' && (
                 <>
                   <div style={{ width: '3px', height: '3px', borderRadius: '50%', backgroundColor: 'var(--bg-border)' }}></div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expires:</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('expires_label', 'EXPIRES:')}</span>
                     <span style={{ color: 'var(--text-primary)', fontWeight: 800 }}>
-                      {subStatus.expiresAt ? new Date(subStatus.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                      {subStatus.expiresAt ? new Date(subStatus.expiresAt).toLocaleDateString(language === 'mr' ? 'mr-IN' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                     </span>
                   </div>
                   <div style={{ width: '3px', height: '3px', borderRadius: '50%', backgroundColor: 'var(--bg-border)' }}></div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Remaining:</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('remaining_label', 'REMAINING:')}</span>
                     <span style={{ color: subStatus.daysRemaining <= 3 ? '#f43f5e' : '#10b981', fontWeight: 800 }}>
-                      {timeRemainingStr || `${subStatus.daysRemaining}d`}
+                      {timeRemainingStr || (language === 'mr' ? `${subStatus.daysRemaining}दिवस` : `${subStatus.daysRemaining}d`)}
                     </span>
                   </div>
                 </>
@@ -433,7 +456,7 @@ const Dashboard = () => {
                 boxShadow: isLight ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
               }}
             >
-              <Sun size={13} /> Light
+              <Sun size={13} /> {t('theme_light', 'Light')}
             </button>
             <button
               type="button"
@@ -454,7 +477,7 @@ const Dashboard = () => {
                 boxShadow: !isLight ? '0 2px 4px rgba(0,0,0,0.15)' : 'none'
               }}
             >
-              <Moon size={13} /> Dark
+              <Moon size={13} /> {t('theme_dark', 'Dark')}
             </button>
           </div>
 
@@ -480,7 +503,7 @@ const Dashboard = () => {
                 }}
               >
                 <PlusCircle size={15} />
-                Create New...
+                {t('create_new', 'Create New...')}
                 <ChevronDown 
                   size={13} 
                   style={{ 
@@ -532,7 +555,7 @@ const Dashboard = () => {
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#0ea5e9' }}></span>
-                    Parcel Counter
+                    {t('parcel_counter', 'Parcel Counter')}
                   </button>
 
                   <button
@@ -560,7 +583,7 @@ const Dashboard = () => {
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-                    Token Counter
+                    {t('token_counter', 'Token Counter')}
                   </button>
 
                   <button
@@ -588,7 +611,7 @@ const Dashboard = () => {
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#a855f7' }}></span>
-                    Online Orders
+                    {t('online_orders', 'Online Orders')}
                   </button>
 
                   <button
@@ -616,7 +639,7 @@ const Dashboard = () => {
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     <PlusCircle size={14} color="var(--text-muted)" />
-                    Table Card
+                    {t('table_card', 'Table Card')}
                   </button>
                 </div>
               )}
@@ -655,7 +678,11 @@ const Dashboard = () => {
             <span style={{ fontWeight: 900, fontSize: '16px' }}>!</span>
           </div>
           <div>
-            Your subscription will expire in {timeRemainingStr || `${subStatus.daysRemaining} day(s)`}. Please contact Shubham Pilane to renew your license. Mobile: 9822401802
+            {language === 'mr' ? (
+              `तुमची सबस्क्रिप्शन ${timeRemainingStr || `${subStatus.daysRemaining} दिवसांत`} संपेल. नूतनीकरणासाठी कृपया शुभम पिलाणे यांच्याशी संपर्क साधा. मोबाईल: 9822401802`
+            ) : (
+              `Your subscription will expire in ${timeRemainingStr || `${subStatus.daysRemaining} day(s)`}. Please contact Shubham Pilane to renew your license. Mobile: 9822401802`
+            )}
           </div>
         </div>
       )}
@@ -677,11 +704,11 @@ const Dashboard = () => {
           <div style={{ width: '80px', height: '80px', backgroundColor: 'var(--bg-border)', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
             <TableIcon size={40} style={{ color: '#334155' }} />
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '18px', fontWeight: 600, margin: 0 }}>No tables found in this hotel.</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '18px', fontWeight: 600, margin: 0 }}>{t('no_tables_found', 'No tables found in this hotel.')}</p>
           <button 
             onClick={() => setAddTableOpen(true)}
             style={{ color: '#0ea5e9', fontWeight: 900, background: 'none', border: 'none', cursor: 'pointer', marginTop: '12px', fontSize: '16px', textDecoration: 'underline' }}>
-            Setup Initial Floor Plan
+            {t('setup_initial_floor', 'Setup Initial Floor Plan')}
           </button>
         </div>
       ) : (
@@ -714,9 +741,9 @@ const Dashboard = () => {
              return (
                <div key={floor} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                     <h2 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-secondary)', letterSpacing: '0.05em', margin: 0, textTransform: 'uppercase' }}>{floor}</h2>
+                     <h2 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-secondary)', letterSpacing: '0.05em', margin: 0, textTransform: 'uppercase' }}>{translateFloor(floor)}</h2>
                      <div style={{ flex: 1, height: '2px', backgroundColor: 'var(--bg-border)' }}></div>
-                     <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800 }}>{tableCount} TABLES</span>
+                     <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 800 }}>{tableCount} {t('tables_count_label', 'TABLES')}</span>
                   </div>
                   
                   <div className="tables-grid">
@@ -765,7 +792,7 @@ const Dashboard = () => {
              boxShadow: '0 50px 100px -20px rgba(0, 0, 0, 1)'
            }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-                <h3 style={{fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Add New Tables</h3>
+                <h3 style={{fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{t('add_new_tables', 'Add New Tables')}</h3>
                 <button onClick={() => setAddTableOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                   <X size={24} />
                 </button>
@@ -773,7 +800,7 @@ const Dashboard = () => {
 
                <form onSubmit={addTables} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                     <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginLeft: '4px' }}>Select Floor</label>
+                     <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginLeft: '4px' }}>{t('select_floor', 'Select Floor')}</label>
                      <select 
                         value={isCustomFloor ? '__custom__' : newTableFloor}
                         onChange={(e) => {
@@ -788,9 +815,9 @@ const Dashboard = () => {
                         style={{width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: 'var(--text-primary)', padding: '14px', borderRadius: '16px', outline: 'none', fontWeight: 600 }}
                      >
                         {existingFloors.map(f => (
-                           <option key={f} value={f}>{f}</option>
+                           <option key={f} value={f}>{translateFloor(f)}</option>
                         ))}
-                        <option value="__custom__">➕ Add Custom Floor...</option>
+                        <option value="__custom__">{t('add_custom_floor', '➕ Add Custom Floor...')}</option>
                      </select>
                      {isCustomFloor && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
@@ -801,7 +828,7 @@ const Dashboard = () => {
                                setCustomFloorName(e.target.value);
                                setNewTableFloor(e.target.value);
                              }}
-                             placeholder="Type custom floor name (e.g. AC Cabin)..."
+                             placeholder={language === 'mr' ? 'सानुकूल मजल्याचे नाव टाका (उदा. एसी केबिन)...' : 'Type custom floor name (e.g. AC Cabin)...'}
                              required
                              style={{width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: 'var(--text-primary)', padding: '12px 14px', borderRadius: '12px', outline: 'none', fontWeight: 600 }}
                            />
@@ -809,7 +836,7 @@ const Dashboard = () => {
                      )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                     <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginLeft: '4px' }}>How many tables?</label>
+                     <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginLeft: '4px' }}>{t('how_many_tables', 'How many tables?')}</label>
                      <div style={{ position: 'relative' }}>
                         <Hash style={{ position: 'absolute', top: '15px', left: '16px', color: 'var(--text-muted)' }} size={18} />
                         <input 
@@ -821,7 +848,7 @@ const Dashboard = () => {
                      </div>
                   </div>
                   <button type="submit" style={{ width: '100%', backgroundColor: '#0ea5e9', color: 'white', border: 'none', padding: '16px', borderRadius: '16px', fontSize: '15px', fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 16px rgba(14, 165, 233, 0.2)' }}>
-                     Deploy Tables
+                     {t('deploy_tables', 'Deploy Tables')}
                   </button>
                </form>
             </div>
@@ -835,10 +862,10 @@ const Dashboard = () => {
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px'
         }}>
            <div style={{ width: '100%', maxWidth: '400px', backgroundColor: 'var(--bg-card)', borderRadius: '32px', padding: '40px' }}>
-              <h3 style={{fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '24px' }}>Swap Config</h3>
+              <h3 style={{fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '24px' }}>{t('swap_config', 'Swap Config')}</h3>
               <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                  <div>
-                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Table Number</label>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('table_number', 'Table Number')}</label>
                     <input 
                       type="text" value={editData.table_number} 
                       onChange={(e) => setEditData({...editData, table_number: e.target.value})}
@@ -846,7 +873,7 @@ const Dashboard = () => {
                     />
                  </div>
                  <div>
-                     <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Floor</label>
+                     <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('floor', 'Floor')}</label>
                        <select 
                          value={isEditCustomFloor ? '__custom__' : editData.floor} 
                          onChange={(e) => {
@@ -861,9 +888,9 @@ const Dashboard = () => {
                          style={{width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: 'var(--text-primary)', padding: '14px', borderRadius: '16px', outline: 'none', fontWeight: 600 }}
                        >
                            {existingFloors.map(f => (
-                              <option key={f} value={f}>{f}</option>
+                              <option key={f} value={f}>{translateFloor(f)}</option>
                            ))}
-                           <option value="__custom__">➕ Add Custom Floor...</option>
+                           <option value="__custom__">{t('add_custom_floor', '➕ Add Custom Floor...')}</option>
                        </select>
                        {isEditCustomFloor && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
@@ -874,7 +901,7 @@ const Dashboard = () => {
                                  setEditCustomFloorName(e.target.value);
                                  setEditData({...editData, floor: e.target.value});
                                }}
-                               placeholder="Type custom floor name (e.g. AC Cabin)..."
+                               placeholder={language === 'mr' ? 'सानुकूल मजल्याचे नाव टाका (उदा. एसी केबिन)...' : 'Type custom floor name (e.g. AC Cabin)...'}
                                required
                                style={{width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: 'var(--text-primary)', padding: '12px 14px', borderRadius: '12px', outline: 'none', fontWeight: 600 }}
                              />
@@ -882,8 +909,8 @@ const Dashboard = () => {
                        )}
                   </div>
                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <button type="button" onClick={() => setEditModalOpen(false)} style={{flex: 1, backgroundColor: 'var(--bg-border)', color: 'var(--text-primary)', padding: '14px', borderRadius: '16px', border: 'none' }}>Cancel</button>
-                    <button type="submit" style={{ flex: 2, backgroundColor: '#0ea5e9', color: 'white', padding: '14px', borderRadius: '16px', border: 'none' }}>Change</button>
+                    <button type="button" onClick={() => setEditModalOpen(false)} style={{flex: 1, backgroundColor: 'var(--bg-border)', color: 'var(--text-primary)', padding: '14px', borderRadius: '16px', border: 'none' }}>{t('cancel', 'Cancel')}</button>
+                    <button type="submit" style={{ flex: 2, backgroundColor: '#0ea5e9', color: 'white', padding: '14px', borderRadius: '16px', border: 'none' }}>{t('change', 'Change')}</button>
                  </div>
               </form>
            </div>
@@ -893,8 +920,9 @@ const Dashboard = () => {
       {/* Confirmation Modal */}
       <ConfirmModal
         isOpen={isDeleteConfirmOpen}
-        title="Remove Position?"
-        message={`Are you sure you want to permanently decommission Table ${tableToDelete?.table_number}? This record will be archived.`}
+        title={t('remove_position_title', 'Remove Position?')}
+        message={language === 'mr' ? `तुम्हाला खात्री आहे की आपण टेबल ${tableToDelete?.table_number} कायमचे हटवू इच्छिता? ही नोंद संग्रहित केली जाईल.` : `Are you sure you want to permanently decommission Table ${tableToDelete?.table_number}? This record will be archived.`}
+        confirmText={t('delete_permanently', 'Delete Permanently')}
         onConfirm={confirmDeleteTable}
         onCancel={() => setDeleteConfirmOpen(false)}
       />
@@ -927,6 +955,17 @@ const Dashboard = () => {
 
 // Memoized Table Card for performance
 const TableCard = React.memo(({ table, isOwner, onOpen, onEdit, onDelete, onSwap }) => {
+  const { t, language } = useLanguage();
+
+  const formatTableTitle = (tableNumber) => {
+    if (language !== 'mr') return tableNumber;
+    const str = String(tableNumber || '').toLowerCase();
+    if (str.includes('parcel')) return 'पार्सल काउंटर';
+    if (str.includes('token')) return 'टोकन काउंटर';
+    if (str.includes('online')) return 'ऑनलाइन ऑर्डर्स';
+    return tableNumber;
+  };
+
   return (
     <div
       onClick={() => onOpen(table)}
@@ -949,12 +988,12 @@ const TableCard = React.memo(({ table, isOwner, onOpen, onEdit, onDelete, onSwap
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span className="card-header-label" style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {String(table.table_number || '').toLowerCase().includes('parcel') 
-            ? 'SERVICE DESK' 
+            ? t('service_desk', 'SERVICE DESK') 
             : String(table.table_number || '').toLowerCase().includes('token')
-              ? 'TOKEN COUNTER'
+              ? t('token_counter_header', 'TOKEN COUNTER')
               : String(table.table_number || '').toLowerCase().includes('online')
-                ? 'ONLINE COUNTER'
-                : `TABLE ${table.table_number}`
+                ? t('online_counter_header', 'ONLINE COUNTER')
+                : `${t('table_header_prefix', 'TABLE')} ${table.table_number}`
           }
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -964,7 +1003,7 @@ const TableCard = React.memo(({ table, isOwner, onOpen, onEdit, onDelete, onSwap
                     onClick={onSwap}
                     style={{ color: '#0ea5e9', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 900, fontSize: '11px', textTransform: 'uppercase' }}
                  >
-                    Swap
+                    {t('swap', 'SWAP')}
                  </button>
               )}
               {isOwner && (
@@ -1001,17 +1040,17 @@ const TableCard = React.memo(({ table, isOwner, onOpen, onEdit, onDelete, onSwap
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis'
-        }}>{table.table_number}</h3>
+        }}>{formatTableTitle(table.table_number)}</h3>
         <span className="card-status-label" style={{ fontSize: '12px', fontWeight: 800, color: table.active_order_id ? '#f43f5e' : '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {table.active_order_id ? 'OCCUPIED' : 'AVAILABLE'}
+          {table.active_order_id ? t('occupied', 'OCCUPIED') : t('available', 'AVAILABLE')}
         </span>
       </div>
 
       <div className="card-footer" style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
          {table.active_order_id ? (
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700, fontStyle: 'italic' }}>Ongoing Order</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700, fontStyle: 'italic' }}>{t('ongoing_order', 'Ongoing Order')}</span>
          ) : (
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Ready to serve</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>{t('ready_to_serve', 'Ready to serve')}</span>
          )}
          <div style={{ padding: '8px', borderRadius: '12px', backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
             <PlusCircle size={18} style={{ color: 'var(--text-muted)' }} />
