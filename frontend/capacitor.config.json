@@ -1,5 +1,11 @@
 {
   "appId": "com.bestbill.pos",
   "appName": "BestBill",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "Keyboard": {
+      "resize": "none",
+      "style": "DARK"
+    }
+  }
 }
