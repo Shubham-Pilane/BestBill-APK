@@ -300,11 +300,22 @@ CREATE TABLE IF NOT EXISTS credits (
     customer_name TEXT,
     customer_phone TEXT,
     amount REAL NOT NULL,
+    paid_amount REAL DEFAULT 0,
     status TEXT DEFAULT 'pending',
     settled_at TIMESTAMP,
     settlement_payment_method TEXT,
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
     updated_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS credit_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
+    credit_id INTEGER REFERENCES credits(id) ON DELETE CASCADE,
+    amount_paid REAL NOT NULL,
+    payment_method TEXT NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
 );
 
 CREATE TABLE IF NOT EXISTS cancelled_orders (
@@ -435,10 +446,16 @@ export const initDb = async () => {
       console.log('[LOCAL DB] Fresh database initialized. Running DDL schema...');
     }
     
-    // Always execute DDL schema check to auto-create missing tables (cancel_orders, expenses, etc.)
+    // Always execute DDL schema check to auto-create missing tables (cancel_orders, expenses, credit_payments, etc.)
     db.run(DDL_SCHEMA);
     try {
       db.run("ALTER TABLE orders ADD COLUMN removed_items_json TEXT DEFAULT '[]';");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE credits ADD COLUMN paid_amount REAL DEFAULT 0;");
+    } catch (e) {}
+    try {
+      db.run("UPDATE credits SET paid_amount = amount WHERE status = 'settled' AND (paid_amount IS NULL OR paid_amount = 0);");
     } catch (e) {}
     saveDbFileNow();
     

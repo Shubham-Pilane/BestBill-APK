@@ -1118,23 +1118,203 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     // ----------------------------------------
-    // ----------------------------------------
-    // CREDIT ROUTES (REWRITTEN FOR MOBILE APP MATCH)
+    // CREDIT ROUTES (ENHANCED FOR CUSTOMER GROUPING & PARTIAL SETTLEMENTS)
     // ----------------------------------------
     if (path === '/credit/dashboard' && methodUpper === 'GET') {
-      const totalRes = await db.query("SELECT SUM(amount) as sum FROM credits WHERE hotel_id = $1 AND status = 'pending'", [user.hotel_id]);
-      const custRes = await db.query("SELECT SUM(amount) as sum FROM credits WHERE hotel_id = $1 AND status = 'pending' AND party_type = 'customer'", [user.hotel_id]);
-      const vendRes = await db.query("SELECT SUM(amount) as sum FROM credits WHERE hotel_id = $1 AND status = 'pending' AND party_type = 'vendor'", [user.hotel_id]);
-      const settledRes = await db.query("SELECT SUM(amount) as sum FROM credits WHERE hotel_id = $1 AND status = 'settled'", [user.hotel_id]);
+      const totalRes = await db.query("SELECT SUM(amount - COALESCE(paid_amount, 0)) as sum FROM credits WHERE hotel_id = $1 AND status != 'settled'", [user.hotel_id]);
+      const custRes = await db.query("SELECT SUM(amount - COALESCE(paid_amount, 0)) as sum FROM credits WHERE hotel_id = $1 AND status != 'settled' AND party_type = 'customer'", [user.hotel_id]);
+      const vendRes = await db.query("SELECT SUM(amount - COALESCE(paid_amount, 0)) as sum FROM credits WHERE hotel_id = $1 AND status != 'settled' AND party_type = 'vendor'", [user.hotel_id]);
+      const settledRes = await db.query("SELECT SUM(COALESCE(paid_amount, 0)) as sum FROM credits WHERE hotel_id = $1", [user.hotel_id]);
       return {
         status: 200,
         data: {
-          totalOutstandingAmount: Number(totalRes.rows[0]?.sum || 0),
-          customerOutstandingAmount: Number(custRes.rows[0]?.sum || 0),
-          vendorOutstandingAmount: Number(vendRes.rows[0]?.sum || 0),
-          totalSettledAmount: Number(settledRes.rows[0]?.sum || 0)
+          totalOutstandingAmount: Math.max(0, parseFloat(Number(totalRes.rows[0]?.sum || 0).toFixed(2))),
+          customerOutstandingAmount: Math.max(0, parseFloat(Number(custRes.rows[0]?.sum || 0).toFixed(2))),
+          vendorOutstandingAmount: Math.max(0, parseFloat(Number(vendRes.rows[0]?.sum || 0).toFixed(2))),
+          totalSettledAmount: parseFloat(Number(settledRes.rows[0]?.sum || 0).toFixed(2))
         }
       };
+    }
+
+    if (path === '/credit/customers' && methodUpper === 'GET') {
+      const { search } = queryParams;
+      let queryStr = `
+        SELECT 
+          c.customer_phone,
+          MAX(c.customer_name) as customer_name,
+          COUNT(c.id) as total_bills,
+          SUM(c.amount) as total_credit,
+          SUM(COALESCE(c.paid_amount, 0)) as total_paid,
+          SUM(c.amount - COALESCE(c.paid_amount, 0)) as remaining_balance,
+          MAX(c.created_at) as last_transaction_date,
+          CASE 
+            WHEN SUM(c.amount - COALESCE(c.paid_amount, 0)) <= 0 THEN 'settled'
+            WHEN SUM(COALESCE(c.paid_amount, 0)) > 0 THEN 'partial'
+            ELSE 'pending'
+          END as status
+        FROM credits c
+        WHERE c.hotel_id = $1 AND c.party_type = 'customer' AND c.customer_phone IS NOT NULL AND c.customer_phone != ''
+      `;
+      const params = [user.hotel_id];
+      let paramIndex = 2;
+
+      if (search) {
+        const pattern = `%${search}%`;
+        queryStr += ` AND (c.customer_name LIKE $${paramIndex} OR c.customer_phone LIKE $${paramIndex + 1})`;
+        params.push(pattern, pattern);
+        paramIndex += 2;
+      }
+
+      queryStr += ` GROUP BY c.customer_phone ORDER BY remaining_balance DESC, last_transaction_date DESC`;
+
+      const res = await db.query(queryStr, params);
+      return {
+        status: 200,
+        data: res.rows.map(row => ({
+          ...row,
+          total_credit: Number(row.total_credit || 0),
+          total_paid: Number(row.total_paid || 0),
+          remaining_balance: Math.max(0, Number(row.remaining_balance || 0)),
+          total_bills: Number(row.total_bills || 0)
+        }))
+      };
+    }
+
+    if (path === '/credit/customers/lookup' && methodUpper === 'GET') {
+      const { phone } = queryParams;
+      if (!phone) return { status: 200, data: null };
+      const res = await db.query(
+        `SELECT customer_name, customer_phone FROM credits WHERE hotel_id = $1 AND customer_phone = $2 AND party_type = 'customer' ORDER BY id DESC LIMIT 1`,
+        [user.hotel_id, phone]
+      );
+      return { status: 200, data: res.rows[0] || null };
+    }
+
+    if (path.startsWith('/credit/customers/') && methodUpper === 'GET' && !path.endsWith('/settle')) {
+      const phone = decodeURIComponent(path.split('/')[3]);
+      const creditsRes = await db.query(
+        `SELECT c.*, b.created_at as bill_date
+         FROM credits c
+         LEFT JOIN bills b ON c.bill_id = b.id
+         WHERE c.hotel_id = $1 AND c.customer_phone = $2 AND c.party_type = 'customer'
+         ORDER BY c.created_at DESC`,
+        [user.hotel_id, phone]
+      );
+
+      if (creditsRes.rows.length === 0) {
+        return { status: 404, data: { message: 'Customer record not found' } };
+      }
+
+      let totalCredit = 0;
+      let totalPaid = 0;
+      const transactions = [];
+
+      for (const c of creditsRes.rows) {
+        const amt = Number(c.amount || 0);
+        const paid = Number(c.paid_amount || 0);
+        totalCredit += amt;
+        totalPaid += paid;
+
+        const paymentsRes = await db.query(
+          `SELECT * FROM credit_payments WHERE credit_id = $1 ORDER BY created_at ASC`,
+          [c.id]
+        );
+
+        let items = [];
+        if (c.bill_id) {
+          const billRes = await db.query('SELECT order_id FROM bills WHERE id = $1', [c.bill_id]);
+          if (billRes.rows[0]?.order_id) {
+            const itemsRes = await db.query(
+              `SELECT oi.quantity, mi.name, mi.price 
+               FROM order_items oi 
+               JOIN menu_items mi ON oi.menu_item_id = mi.id 
+               WHERE oi.order_id = $1`,
+              [billRes.rows[0].order_id]
+            );
+            items = itemsRes.rows;
+          }
+        }
+
+        transactions.push({
+          ...c,
+          amount: amt,
+          paid_amount: paid,
+          remaining_amount: Math.max(0, parseFloat((amt - paid).toFixed(2))),
+          payments: paymentsRes.rows,
+          items
+        });
+      }
+
+      const customerName = creditsRes.rows[0]?.customer_name || 'Customer';
+      const remainingBalance = Math.max(0, parseFloat((totalCredit - totalPaid).toFixed(2)));
+
+      return {
+        status: 200,
+        data: {
+          customer_phone: phone,
+          customer_name: customerName,
+          total_credit: parseFloat(totalCredit.toFixed(2)),
+          total_paid: parseFloat(totalPaid.toFixed(2)),
+          remaining_balance: remainingBalance,
+          status: remainingBalance <= 0 ? 'settled' : (totalPaid > 0 ? 'partial' : 'pending'),
+          transactions
+        }
+      };
+    }
+
+    if (path.startsWith('/credit/customers/') && path.endsWith('/settle') && methodUpper === 'POST') {
+      const phone = decodeURIComponent(path.split('/')[3]);
+      const { amount_paid, method, notes } = body;
+      const payMethod = method || 'cash';
+      let remainingToPay = Number(amount_paid || 0);
+
+      if (isNaN(remainingToPay) || remainingToPay <= 0) {
+        return { status: 400, data: { message: 'Invalid payment amount' } };
+      }
+
+      const openCreditsRes = await db.query(
+        `SELECT * FROM credits 
+         WHERE hotel_id = $1 AND customer_phone = $2 AND party_type = 'customer' AND status != 'settled'
+         ORDER BY created_at ASC`,
+        [user.hotel_id, phone]
+      );
+
+      let totalApplied = 0;
+
+      for (const c of openCreditsRes.rows) {
+        if (remainingToPay <= 0) break;
+
+        const creditAmt = Number(c.amount || 0);
+        const currPaid = Number(c.paid_amount || 0);
+        const creditRem = Math.max(0, creditAmt - currPaid);
+
+        if (creditRem <= 0) continue;
+
+        const paymentForThisCredit = Math.min(remainingToPay, creditRem);
+        const newPaidAmount = currPaid + paymentForThisCredit;
+        const isFullyPaid = newPaidAmount >= creditAmt;
+        const newStatus = isFullyPaid ? 'settled' : 'partial';
+
+        await db.query(
+          `INSERT INTO credit_payments (hotel_id, credit_id, amount_paid, payment_method, notes)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [user.hotel_id, c.id, paymentForThisCredit, payMethod, notes || 'Customer account settlement']
+        );
+
+        await db.query(
+          `UPDATE credits SET paid_amount = $1, status = $2, settled_at = $3, settlement_payment_method = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5`,
+          [newPaidAmount, newStatus, isFullyPaid ? new Date().toISOString() : c.settled_at, payMethod, c.id]
+        );
+
+        if (isFullyPaid && c.bill_id) {
+          await db.query('UPDATE bills SET is_paid = 1, payment_method = $1 WHERE id = $2', [payMethod, c.bill_id]);
+        }
+
+        remainingToPay -= paymentForThisCredit;
+        totalApplied += paymentForThisCredit;
+      }
+
+      return { status: 200, data: { success: true, amount_applied: totalApplied, remaining_to_pay: remainingToPay } };
     }
 
     if (path === '/credit/transactions' && methodUpper === 'GET') {
@@ -1188,9 +1368,20 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       queryStr += ` ORDER BY c.status ASC, c.created_at DESC`;
 
       const credits = await db.query(queryStr, params);
-      return { status: 200, data: credits.rows.map(c => ({ ...c, amount: Number(c.amount) })) };
+      return { 
+        status: 200, 
+        data: credits.rows.map(c => {
+          const amt = Number(c.amount || 0);
+          const paid = Number(c.paid_amount || 0);
+          return {
+            ...c,
+            amount: amt,
+            paid_amount: paid,
+            remaining_amount: Math.max(0, parseFloat((amt - paid).toFixed(2)))
+          };
+        }) 
+      };
     }
-
 
     if (path.startsWith('/credit/transactions/') && methodUpper === 'GET' && !path.endsWith('/settle')) {
       const creditId = parseInt(path.split('/')[3]);
@@ -1204,6 +1395,17 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       if (creditRes.rows.length === 0) return { status: 404, data: { error: 'Not found' } };
       
       const credit = creditRes.rows[0];
+      const amt = Number(credit.amount || 0);
+      const paid = Number(credit.paid_amount || 0);
+      const formattedCredit = {
+        ...credit,
+        amount: amt,
+        paid_amount: paid,
+        remaining_amount: Math.max(0, parseFloat((amt - paid).toFixed(2)))
+      };
+
+      const paymentsRes = await db.query('SELECT * FROM credit_payments WHERE credit_id = $1 ORDER BY created_at ASC', [creditId]);
+
       let bill = null;
       let items = [];
       
@@ -1221,15 +1423,15 @@ export async function handleRequest(method, url, body = null, headers = {}) {
           items = itemsRes.rows;
         }
       }
-      return { status: 200, data: { credit, bill, items } };
+      return { status: 200, data: { credit: formattedCredit, bill, items, payments: paymentsRes.rows } };
     }
 
     if ((path === '/credit/save' || path === '/credit/transactions') && methodUpper === 'POST') {
       const { bill_id, party_type, amount, vendor_id, customer_name, customer_phone } = body;
       await db.query(
-        `INSERT INTO credits (hotel_id, bill_id, party_type, vendor_id, customer_name, customer_phone, amount, status) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [user.hotel_id, bill_id || null, party_type, vendor_id || null, customer_name || null, customer_phone || null, amount, 'pending']
+        `INSERT INTO credits (hotel_id, bill_id, party_type, vendor_id, customer_name, customer_phone, amount, paid_amount, status) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 'pending')`,
+        [user.hotel_id, bill_id || null, party_type, vendor_id || null, customer_name || null, customer_phone || null, amount]
       );
 
       if (bill_id) {
@@ -1240,16 +1442,53 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if (path.startsWith('/credit/transactions/') && path.endsWith('/settle') && methodUpper === 'POST') {
       const creditId = parseInt(path.split('/')[3]);
-      const { method } = body;
-      const creditRes = await db.query('SELECT bill_id FROM credits WHERE id = $1 AND hotel_id = $2', [creditId, user.hotel_id]);
-      await db.query(
-        'UPDATE credits SET status = \'settled\', settled_at = CURRENT_TIMESTAMP, settlement_payment_method = $1 WHERE id = $2 AND hotel_id = $3',
-        [method || 'cash', creditId, user.hotel_id]
-      );
-      if (creditRes.rows[0]?.bill_id) {
-        await db.query('UPDATE bills SET is_paid = 1, payment_method = $1 WHERE id = $2', [method || 'cash', creditRes.rows[0].bill_id]);
+      const { method, amount_paid, notes } = body;
+      const payMethod = method || 'cash';
+
+      const creditRes = await db.query('SELECT * FROM credits WHERE id = $1 AND hotel_id = $2', [creditId, user.hotel_id]);
+      if (creditRes.rows.length === 0) return { status: 404, data: { message: 'Credit record not found' } };
+      
+      const credit = creditRes.rows[0];
+      const creditAmt = Number(credit.amount || 0);
+      const currPaid = Number(credit.paid_amount || 0);
+      const creditRem = Math.max(0, creditAmt - currPaid);
+
+      const payVal = (amount_paid !== undefined && amount_paid !== null && !isNaN(Number(amount_paid))) 
+        ? Math.min(Number(amount_paid), creditRem)
+        : creditRem;
+
+      if (payVal <= 0) {
+        return { status: 400, data: { message: 'Credit is already fully settled or invalid amount' } };
       }
-      return { status: 200, data: { success: true } };
+
+      const newPaidAmount = currPaid + payVal;
+      const isFullyPaid = newPaidAmount >= creditAmt;
+      const newStatus = isFullyPaid ? 'settled' : 'partial';
+
+      await db.query(
+        `INSERT INTO credit_payments (hotel_id, credit_id, amount_paid, payment_method, notes)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [user.hotel_id, creditId, payVal, payMethod, notes || 'Single transaction settlement']
+      );
+
+      await db.query(
+        `UPDATE credits SET paid_amount = $1, status = $2, settled_at = $3, settlement_payment_method = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5`,
+        [newPaidAmount, newStatus, isFullyPaid ? new Date().toISOString() : credit.settled_at, payMethod, creditId]
+      );
+
+      if (isFullyPaid && credit.bill_id) {
+        await db.query('UPDATE bills SET is_paid = 1, payment_method = $1 WHERE id = $2', [payMethod, credit.bill_id]);
+      }
+
+      return { 
+        status: 200, 
+        data: { 
+          success: true, 
+          paid_amount: newPaidAmount, 
+          remaining_amount: Math.max(0, creditAmt - newPaidAmount), 
+          status: newStatus 
+        } 
+      };
     }
 
     if (path === '/credit/vendors' && methodUpper === 'GET') {

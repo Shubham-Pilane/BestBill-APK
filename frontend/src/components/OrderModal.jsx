@@ -57,6 +57,8 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [customerName, setCustomerName] = useState('');
   const [selectedVendorId, setSelectedVendorId] = useState('');
   const [vendors, setVendors] = useState([]);
+  const [savedCustomers, setSavedCustomers] = useState([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [customDeliveryPartners, setCustomDeliveryPartners] = useState(() => {
     try {
@@ -108,15 +110,19 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
   useEffect(() => {
     if (selectedPaymentMethod === 'credit') {
-      const fetchVendors = async () => {
+      const fetchCreditData = async () => {
         try {
-          const res = await api.get('/credit/vendors');
-          setVendors(res.data || []);
+          const [vendorRes, customerRes] = await Promise.all([
+            api.get('/credit/vendors').catch(() => ({ data: [] })),
+            api.get('/credit/customers').catch(() => ({ data: [] }))
+          ]);
+          setVendors(vendorRes.data || []);
+          setSavedCustomers(customerRes.data || []);
         } catch (err) {
-          toast.error('Failed to load vendors');
+          toast.error('Failed to load credit options');
         }
       };
-      fetchVendors();
+      fetchCreditData();
     }
   }, [selectedPaymentMethod]);
 
@@ -428,6 +434,17 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const confirmPayment = async (method = 'upi') => {
     try {
        if (method === 'credit') {
+          if (partyType === 'customer') {
+            if (!customerPhone.trim()) {
+              return toast.error('Customer Mobile Number is required for credit billing');
+            }
+            if (!customerName.trim()) {
+              return toast.error('Customer Name is required');
+            }
+          }
+          if (partyType === 'vendor' && !selectedVendorId) {
+            return toast.error('Please select a vendor');
+          }
           const payload = {
             bill_id: billData.id,
             party_type: partyType,
@@ -436,12 +453,6 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
             customer_name: partyType === 'customer' ? customerName : null,
             customer_phone: partyType === 'customer' ? customerPhone : null
           };
-          if (partyType === 'customer' && !customerName.trim()) {
-            return toast.error('Customer Name is required');
-          }
-          if (partyType === 'vendor' && !selectedVendorId) {
-            return toast.error('Please select a vendor');
-          }
           await api.post('/credit/save', payload);
           setBillData(prev => ({ ...prev, is_paid: false, payment_method: 'credit' }));
           setIsSuccess(true);
@@ -1447,6 +1458,41 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   
                               {partyType === 'customer' ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  {savedCustomers.length > 0 && (
+                                    <select
+                                      value={selectedCustomerId || ''}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setSelectedCustomerId(val);
+                                        if (val) {
+                                          const cust = savedCustomers.find(c => String(c.customer_phone) === String(val));
+                                          if (cust) {
+                                            setCustomerName(cust.customer_name || '');
+                                            setCustomerPhone(cust.customer_phone || '');
+                                          }
+                                        }
+                                      }}
+                                      style={{
+                                        padding: '12px 14px',
+                                        borderRadius: '12px',
+                                        border: '1px solid var(--border-color)',
+                                        backgroundColor: 'var(--bg-card)',
+                                        color: 'var(--text-primary)',
+                                        fontWeight: 800,
+                                        fontSize: '13px',
+                                        outline: 'none',
+                                        width: '100%',
+                                        boxSizing: 'border-box'
+                                      }}
+                                    >
+                                      <option value="">-- Select Saved Customer --</option>
+                                      {savedCustomers.map(c => (
+                                        <option key={c.customer_phone} value={c.customer_phone}>
+                                          {c.customer_name} ({c.customer_phone})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
                                   <input 
                                     placeholder="Customer Name"
                                     value={customerName}
@@ -1465,9 +1511,28 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                     }}
                                   />
                                   <input 
-                                    placeholder="Mobile Number"
+                                    placeholder="Mobile Number *"
                                     value={customerPhone}
-                                    onChange={e => setCustomerPhone(e.target.value)}
+                                    onChange={async (e) => {
+                                      const val = e.target.value;
+                                      setCustomerPhone(val);
+                                      const match = savedCustomers.find(c => String(c.customer_phone) === val.trim());
+                                      if (match) {
+                                        setSelectedCustomerId(match.customer_phone);
+                                        if (!customerName) setCustomerName(match.customer_name);
+                                      } else {
+                                        setSelectedCustomerId('');
+                                      }
+                                      if (val.trim().length >= 10 && !match) {
+                                        try {
+                                          const res = await api.get('/credit/customers/lookup', { params: { phone: val.trim() } });
+                                          if (res.data && res.data.customer_name && !customerName) {
+                                            setCustomerName(res.data.customer_name);
+                                            toast.success(`Found customer: ${res.data.customer_name}`, { id: 'cust-lookup' });
+                                          }
+                                        } catch (err) {}
+                                      }
+                                    }}
                                     style={{ 
                                       padding: '12px 14px', 
                                       borderRadius: '12px', 
