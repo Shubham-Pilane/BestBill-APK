@@ -387,14 +387,54 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
       const order = orderRes.rows[0];
       const itemsRes = await db.query(
-        `SELECT oi.id, oi.order_id, oi.menu_item_id, oi.quantity, mi.name, mi.price
+        `SELECT oi.id, oi.order_id, oi.menu_item_id, oi.quantity, oi.printed_quantity, oi.custom_name, oi.custom_price,
+                COALESCE(oi.custom_name, mi.name) as name,
+                COALESCE(oi.custom_price, mi.price, 0) as price
          FROM order_items oi
-         JOIN menu_items mi ON oi.menu_item_id = mi.id
+         LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
          WHERE oi.order_id = $1
          ORDER BY oi.created_at ASC`,
         [order.id]
       );
       return { status: 200, data: { order, items: itemsRes.rows } };
+    }
+
+    if (path.startsWith('/tables/') && path.endsWith('/order/manual-item') && methodUpper === 'POST') {
+      const tableId = parseInt(path.split('/')[2]);
+      const { name, price } = body || {};
+      const itemName = (name && name.trim()) ? name.trim() : 'Other';
+      const itemPrice = parseFloat(price) || 0;
+
+      let orderRes = await db.query("SELECT id FROM orders WHERE table_id = $1 AND status = 'active'", [tableId]);
+      let orderId;
+      
+      if (orderRes.rows.length === 0) {
+        const insertOrder = await db.query(
+          "INSERT INTO orders (table_id, status, source) VALUES ($1, 'active', 'admin') RETURNING id",
+          [tableId]
+        );
+        orderId = insertOrder.rows[0].id;
+      } else {
+        orderId = orderRes.rows[0].id;
+      }
+
+      await db.query(
+        "INSERT INTO order_items (order_id, menu_item_id, custom_name, custom_price, quantity) VALUES ($1, NULL, $2, $3, 1)",
+        [orderId, itemName, itemPrice]
+      );
+
+      const updatedItems = await db.query(
+        `SELECT oi.id, oi.order_id, oi.menu_item_id, oi.quantity, oi.printed_quantity, oi.custom_name, oi.custom_price,
+                COALESCE(oi.custom_name, mi.name) as name,
+                COALESCE(oi.custom_price, mi.price, 0) as price
+         FROM order_items oi 
+         LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
+         WHERE oi.order_id = $1 ORDER BY oi.created_at ASC`,
+        [orderId]
+      );
+
+      notifyUpdate('table-update');
+      return { status: 200, data: { items: updatedItems.rows } };
     }
 
     if (path.startsWith('/tables/') && path.endsWith('/order') && methodUpper === 'POST') {
@@ -432,8 +472,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       }
 
       const updatedItems = await db.query(
-        `SELECT oi.*, mi.name, mi.price FROM order_items oi 
-         JOIN menu_items mi ON oi.menu_item_id = mi.id 
+        `SELECT oi.id, oi.order_id, oi.menu_item_id, oi.quantity, oi.printed_quantity, oi.custom_name, oi.custom_price,
+                COALESCE(oi.custom_name, mi.name) as name,
+                COALESCE(oi.custom_price, mi.price, 0) as price
+         FROM order_items oi 
+         LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
          WHERE oi.order_id = $1 ORDER BY oi.created_at ASC`,
         [orderId]
       );
@@ -445,12 +488,12 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if (path.startsWith('/tables/') && path.includes('/order/items/') && methodUpper === 'PUT') {
       const tableId = parseInt(path.split('/')[2]);
       const orderItemId = parseInt(path.split('/')[5]);
-      const { quantity } = body;
+      const { quantity, custom_name, custom_price } = body;
 
       const itemQuery = await db.query(`
-        SELECT oi.id, oi.order_id, oi.quantity, mi.name, mi.price
+        SELECT oi.id, oi.order_id, oi.quantity, COALESCE(oi.custom_name, mi.name) as name, COALESCE(oi.custom_price, mi.price, 0) as price
         FROM order_items oi
-        JOIN menu_items mi ON oi.menu_item_id = mi.id
+        LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
         WHERE oi.id = $1 
            OR (oi.order_id IN (SELECT id FROM orders WHERE table_id = $2 AND status = 'active') AND oi.menu_item_id = $1)
       `, [orderItemId, tableId]);
@@ -458,7 +501,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       if (itemQuery.rows.length > 0) {
         const item = itemQuery.rows[0];
         const oldQty = Number(item.quantity || 1);
-        const newQty = Number(quantity || 0);
+        const newQty = Number(quantity !== undefined ? quantity : oldQty);
 
         if (newQty < oldQty) {
           const diff = oldQty - newQty;
@@ -472,25 +515,39 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         }
       }
 
-      await db.query(`
-        UPDATE order_items 
-        SET quantity = $1 
-        WHERE id = $2 
-           OR (order_id IN (SELECT id FROM orders WHERE table_id = $3 AND status = 'active') AND menu_item_id = $2)
-      `, [quantity, orderItemId, tableId]);
+      let updateSql = "UPDATE order_items SET quantity = $1";
+      const params = [quantity !== undefined ? quantity : 1];
+      let pIdx = 2;
+
+      if (custom_name !== undefined) {
+        updateSql += `, custom_name = $${pIdx++}`;
+        params.push(custom_name);
+      }
+      if (custom_price !== undefined) {
+        updateSql += `, custom_price = $${pIdx++}`;
+        params.push(parseFloat(custom_price) || 0);
+      }
+
+      updateSql += ` WHERE id = $${pIdx++} OR (order_id IN (SELECT id FROM orders WHERE table_id = $${pIdx++} AND status = 'active') AND menu_item_id = $${pIdx - 1})`;
+      params.push(orderItemId, tableId);
+
+      await db.query(updateSql, params);
 
       notifyUpdate('table-update');
-      return { status: 200, data: { message: 'Quantity updated' } };
+      return { status: 200, data: { message: 'Item updated successfully' } };
     }
 
     if (path.startsWith('/tables/') && path.includes('/order/items/') && methodUpper === 'DELETE') {
       const tableId = parseInt(path.split('/')[2]);
       const orderItemId = parseInt(path.split('/')[5]);
 
-      let itemQuery = await db.query('SELECT oi.id, oi.order_id, oi.quantity, mi.name, mi.price FROM order_items oi JOIN menu_items mi ON oi.menu_item_id = mi.id WHERE oi.id = $1', [orderItemId]);
+      let itemQuery = await db.query(
+        'SELECT oi.id, oi.order_id, oi.quantity, COALESCE(oi.custom_name, mi.name) as name, COALESCE(oi.custom_price, mi.price, 0) as price FROM order_items oi LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id WHERE oi.id = $1',
+        [orderItemId]
+      );
       if (itemQuery.rows.length === 0) {
         itemQuery = await db.query(
-          "SELECT oi.id, oi.order_id, oi.quantity, mi.name, mi.price FROM order_items oi JOIN menu_items mi ON oi.menu_item_id = mi.id WHERE oi.menu_item_id = $1 AND oi.order_id IN (SELECT id FROM orders WHERE table_id = $2 AND status = 'active')",
+          "SELECT oi.id, oi.order_id, oi.quantity, COALESCE(oi.custom_name, mi.name) as name, COALESCE(oi.custom_price, mi.price, 0) as price FROM order_items oi LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id WHERE oi.menu_item_id = $1 AND oi.order_id IN (SELECT id FROM orders WHERE table_id = $2 AND status = 'active')",
           [orderItemId, tableId]
         );
       }
@@ -516,9 +573,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
       // Fetch remaining active items AFTER deletion
       const activeItemsRes = await db.query(`
-        SELECT oi.quantity, mi.name, mi.price 
+        SELECT oi.quantity, COALESCE(oi.custom_name, mi.name) as name, COALESCE(oi.custom_price, mi.price, 0) as price 
         FROM order_items oi 
-        JOIN menu_items mi ON oi.menu_item_id = mi.id 
+        LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
         WHERE oi.order_id = $1 AND oi.quantity > 0
       `, [orderId]);
       
@@ -537,7 +594,6 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         const cancelledBy = user?.name || (user?.role === 'owner' ? 'Owner' : 'Staff');
         const isKotPrinted = !!orderRow.rows[0]?.kot_sent_at;
 
-        // Combine currentActiveItems (which is []) + removedItems history (which has all deleted items)
         const allOriginalItems = combineAndMergeItems(currentActiveItems, removedItems);
         const totalQty = allOriginalItems.reduce((sum, i) => sum + i.quantity, 0);
         const totalAmount = allOriginalItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
@@ -571,7 +627,6 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 200, data: { items: currentActiveItems, order_deleted: false } };
     }
 
-
     if (path.startsWith('/tables/') && path.endsWith('/order/kot') && methodUpper === 'POST') {
       const tableId = parseInt(path.split('/')[2]);
       const { waiter, notes } = body;
@@ -580,10 +635,10 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         db.query('SELECT billing_method FROM hotels WHERE id = $1', [user.hotel_id]),
         db.query('SELECT table_number, floor FROM tables WHERE id = $1', [tableId]),
         db.query(`
-          SELECT o.id as order_id, oi.quantity, oi.printed_quantity, mi.name
+          SELECT o.id as order_id, oi.quantity, oi.printed_quantity, COALESCE(oi.custom_name, mi.name) as name
           FROM orders o
           JOIN order_items oi ON oi.order_id = o.id
-          JOIN menu_items mi ON oi.menu_item_id = mi.id
+          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
           WHERE o.table_id = $1 AND o.status = 'active'
         `, [tableId])
       ]);
@@ -839,7 +894,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
            FROM menu_items mi 
            LEFT JOIN categories c ON mi.category_id = c.id
            WHERE mi.hotel_id = $1 AND mi.is_deleted = 0 AND (mi.name LIKE $2 OR c.name LIKE $3)
-           ORDER BY c.name ASC, mi.name ASC`,
+           ORDER BY COALESCE(mi.is_pinned, 0) DESC, c.name ASC, mi.name ASC`,
           [hotelId, `%${search}%`, `%${search}%`]
         );
       } else {
@@ -848,7 +903,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
            FROM menu_items mi 
            LEFT JOIN categories c ON mi.category_id = c.id
            WHERE mi.hotel_id = $1 AND mi.is_deleted = 0
-           ORDER BY c.name ASC, mi.name ASC`,
+           ORDER BY COALESCE(mi.is_pinned, 0) DESC, c.name ASC, mi.name ASC`,
           [hotelId]
         );
       }
@@ -873,6 +928,15 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       }
       
       return { status: 200, data: itemsRes.rows };
+    }
+
+    if (path.startsWith('/menu/items/') && path.endsWith('/pin') && methodUpper === 'PUT') {
+      const parts = path.split('/');
+      const id = parseInt(parts[parts.length - 2]);
+      const { is_pinned } = body;
+      const pinnedVal = is_pinned ? 1 : 0;
+      await db.query('UPDATE menu_items SET is_pinned = $1 WHERE id = $2 AND hotel_id = $3', [pinnedVal, id, user.hotel_id]);
+      return { status: 200, data: { success: true, is_pinned: pinnedVal } };
     }
 
     if (path === '/menu/items' && methodUpper === 'POST') {
@@ -2224,32 +2288,91 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 200, data: { total_expenses: Number(sumRes.rows[0]?.total_expenses || 0) } };
     }
 
+    if (path === '/expenses/vendors/summary' && methodUpper === 'GET') {
+      const rows = await db.query(
+        `SELECT 
+           COALESCE(e.vendor_id, s.id) as vendor_id,
+           COALESCE(s.name, MAX(e.title)) as vendor_name,
+           s.phone as vendor_phone,
+           COUNT(e.id) as total_entries,
+           SUM(e.amount) as total_amount,
+           MAX(e.expense_date) as last_expense_date
+         FROM expenses e
+         LEFT JOIN suppliers s ON e.vendor_id = s.id
+         WHERE e.hotel_id = $1 AND (e.vendor_id IS NOT NULL OR e.expense_type = 'vendor')
+         GROUP BY COALESCE(e.vendor_id, s.id, s.phone)
+         ORDER BY last_expense_date DESC`,
+        [user.hotel_id]
+      );
+      return { status: 200, data: rows.rows.map(r => ({ ...r, total_amount: Number(r.total_amount || 0), total_entries: Number(r.total_entries || 0) })) };
+    }
+
+    if (path.startsWith('/expenses/vendors/') && methodUpper === 'GET') {
+      const parts = path.split('/');
+      const vendorId = parseInt(parts[3]);
+      if (!isNaN(vendorId)) {
+        const vendorRes = await db.query('SELECT * FROM suppliers WHERE id = $1 AND hotel_id = $2', [vendorId, user.hotel_id]);
+        const vendor = vendorRes.rows[0] || null;
+
+        const entriesRes = await db.query(
+          `SELECT e.*, s.name as vendor_name, s.phone as vendor_phone 
+           FROM expenses e 
+           LEFT JOIN suppliers s ON e.vendor_id = s.id 
+           WHERE e.hotel_id = $1 AND e.vendor_id = $2 
+           ORDER BY e.expense_date DESC, e.id DESC`,
+          [user.hotel_id, vendorId]
+        );
+        return { status: 200, data: { vendor, entries: entriesRes.rows.map(e => ({ ...e, amount: Number(e.amount || 0) })) } };
+      }
+    }
+
+    if (path === '/expenses/staff-salary' && methodUpper === 'GET') {
+      const rows = await db.query(
+        `SELECT * FROM expenses 
+         WHERE hotel_id = $1 AND (expense_type = 'salary' OR category = 'Salary' OR staff_name IS NOT NULL) 
+         ORDER BY expense_date DESC, id DESC`,
+        [user.hotel_id]
+      );
+      return { status: 200, data: rows.rows.map(r => ({ ...r, amount: Number(r.amount || 0) })) };
+    }
+
     if (path === '/expenses' && methodUpper === 'GET') {
-      const { filter = 'Today', startDate, endDate, page = 1, limit = 10 } = queryParams;
+      const { filter = 'Today', startDate, endDate, page = 1, limit = 10, expense_type } = queryParams;
       const pageNum = parseInt(page) || 1;
       const limitNum = parseInt(limit) || 10;
       const offset = (pageNum - 1) * limitNum;
 
-      let dateClause = "date(expense_date) = date('now', 'localtime')";
+      let dateClause = "date(e.expense_date) = date('now', 'localtime')";
       if (filter === 'Yesterday') {
-        dateClause = "date(expense_date) = date('now', '-1 day', 'localtime')";
+        dateClause = "date(e.expense_date) = date('now', '-1 day', 'localtime')";
       } else if (filter === 'Last 15 Days') {
-        dateClause = "date(expense_date) >= date('now', '-14 days', 'localtime')";
+        dateClause = "date(e.expense_date) >= date('now', '-14 days', 'localtime')";
       } else if (filter === 'Current Month') {
-        dateClause = "strftime('%Y-%m', expense_date) = strftime('%Y-%m', 'now', 'localtime')";
+        dateClause = "strftime('%Y-%m', e.expense_date) = strftime('%Y-%m', 'now', 'localtime')";
       } else if (filter === 'Last Month') {
-        dateClause = "strftime('%Y-%m', expense_date) = strftime('%Y-%m', 'now', '-1 month', 'localtime')";
+        dateClause = "strftime('%Y-%m', e.expense_date) = strftime('%Y-%m', 'now', '-1 month', 'localtime')";
       } else if (filter === 'Custom' && startDate && endDate) {
-        dateClause = `date(expense_date) >= date('${startDate}') AND date(expense_date) <= date('${endDate}')`;
+        dateClause = `date(e.expense_date) >= date('${startDate}') AND date(e.expense_date) <= date('${endDate}')`;
+      } else if (filter === 'All Time') {
+        dateClause = "1=1";
       }
 
-      const totalRes = await db.query(`SELECT count(*) as count, COALESCE(SUM(amount), 0) as total_sum FROM expenses WHERE hotel_id = $1 AND ${dateClause}`, [user.hotel_id]);
+      let typeClause = "";
+      if (expense_type && expense_type !== 'all') {
+        typeClause = ` AND e.expense_type = '${expense_type}'`;
+      }
+
+      const totalRes = await db.query(`SELECT count(*) as count, COALESCE(SUM(amount), 0) as total_sum FROM expenses e WHERE e.hotel_id = $1 AND ${dateClause} ${typeClause}`, [user.hotel_id]);
       const totalCount = Number(totalRes.rows[0]?.count || 0);
       const totalExpensesAmount = Number(totalRes.rows[0]?.total_sum || 0);
       const totalPages = Math.ceil(totalCount / limitNum) || 1;
 
       const rowsRes = await db.query(
-        `SELECT * FROM expenses WHERE hotel_id = $1 AND ${dateClause} ORDER BY expense_date DESC, id DESC LIMIT $2 OFFSET $3`,
+        `SELECT e.*, s.name as vendor_name, s.phone as vendor_phone 
+         FROM expenses e 
+         LEFT JOIN suppliers s ON e.vendor_id = s.id 
+         WHERE e.hotel_id = $1 AND ${dateClause} ${typeClause} 
+         ORDER BY e.expense_date DESC, e.id DESC LIMIT $2 OFFSET $3`,
         [user.hotel_id, limitNum, offset]
       );
 
@@ -2266,11 +2389,41 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/expenses' && methodUpper === 'POST') {
-      const { title, category, amount, expense_date, payment_method, description } = body;
+      const { title, category, amount, expense_date, payment_method, description, vendor_id, vendor_name, vendor_phone, staff_name, salary_month, expense_type } = body;
+      
+      let finalVendorId = vendor_id || null;
+      if (!finalVendorId && vendor_name && vendor_phone) {
+        const existingSup = await db.query('SELECT id FROM suppliers WHERE hotel_id = $1 AND phone = $2', [user.hotel_id, vendor_phone.trim()]);
+        if (existingSup.rows.length > 0) {
+          finalVendorId = existingSup.rows[0].id;
+        } else {
+          const newSup = await db.query(
+            'INSERT INTO suppliers (hotel_id, name, phone) VALUES ($1, $2, $3) RETURNING id',
+            [user.hotel_id, vendor_name.trim(), vendor_phone.trim()]
+          );
+          finalVendorId = newSup.rows[0]?.id || null;
+        }
+      }
+
+      const typeVal = expense_type || (finalVendorId ? 'vendor' : (staff_name ? 'salary' : 'general'));
+
       const res = await db.query(
-        `INSERT INTO expenses (hotel_id, title, category, amount, expense_date, payment_method, description, created_by) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [user.hotel_id, title, category || 'Other', amount, expense_date || new Date().toISOString().split('T')[0], payment_method || 'Cash', description || '', user.name || 'Owner']
+        `INSERT INTO expenses (hotel_id, title, category, amount, expense_date, payment_method, description, created_by, vendor_id, staff_name, salary_month, expense_type) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+        [
+          user.hotel_id,
+          title,
+          category || (typeVal === 'salary' ? 'Salary' : 'General'),
+          amount,
+          expense_date || new Date().toISOString().split('T')[0],
+          payment_method || 'Cash',
+          description || '',
+          user.name || 'Owner',
+          finalVendorId,
+          staff_name || null,
+          salary_month || null,
+          typeVal
+        ]
       );
       return { status: 201, data: res.rows[0] };
     }

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
-import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, ChevronsDown, Ticket, Ban, Edit2 } from 'lucide-react';
+import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, ChevronsDown, Ticket, Ban, Edit2, Pin } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import SwapModal from './SwapModal';
@@ -207,6 +207,10 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     }
 
     filtered.sort((a, b) => {
+      const aPinned = a.is_pinned === 1 ? 1 : 0;
+      const bPinned = b.is_pinned === 1 ? 1 : 0;
+      if (aPinned !== bPinned) return bPinned - aPinned;
+
       const aInOrder = orderItems.some(i => i.menu_item_id === a.id);
       const bInOrder = orderItems.some(i => i.menu_item_id === b.id);
       if (aInOrder && !bInOrder) return -1;
@@ -223,7 +227,39 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     } else {
       setSuggestions([]);
     }
-  }, [allItems, currentPage, selectedCategory, searchQuery]);
+  }, [allItems, currentPage, selectedCategory, searchQuery, orderItems]);
+
+  const togglePinItem = async (e, item) => {
+    e.stopPropagation();
+    const newPin = item.is_pinned === 1 ? 0 : 1;
+    try {
+      await api.put(`/menu/items/${item.id}/pin`, { is_pinned: newPin });
+      setAllItems(prev => prev.map(i => i.id === item.id ? { ...i, is_pinned: newPin } : i));
+      toast.success(newPin ? `Pinned ${item.name} to top` : `Unpinned ${item.name}`);
+    } catch (err) {
+      toast.error('Failed to update pin status');
+    }
+  };
+
+  const handleAddManualItem = async () => {
+    try {
+      const res = await api.post(`/tables/${table.id}/order/manual-item`, { name: 'Other', price: 0 });
+      setOrderItems(res.data?.items || []);
+      toast.success('Manual item added');
+    } catch (err) {
+      toast.error('Failed to add manual item');
+    }
+  };
+
+  const updateManualItem = async (itemId, customName, customPrice) => {
+    const parsedPrice = isNaN(parseFloat(customPrice)) ? 0 : parseFloat(customPrice);
+    setOrderItems(prev => prev.map(i => i.id === itemId ? { ...i, name: customName, price: parsedPrice, custom_name: customName, custom_price: parsedPrice } : i));
+    try {
+      await api.put(`/tables/${table.id}/order/items/${itemId}`, { custom_name: customName, custom_price: parsedPrice });
+    } catch (err) {
+      console.error('Failed to update manual item:', err);
+    }
+  };
 
   const addToOrder = async (item) => {
     // Optimistic Update
@@ -689,7 +725,30 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               </div>
 
               {/* Horizontal Category Bar */}
-              <div className="category-bar" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
+              <div className="category-bar" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px', alignItems: 'center' }}>
+                <button 
+                  type="button"
+                  onClick={handleAddManualItem}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    border: '1px solid #10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                    color: '#10b981',
+                    fontWeight: 900,
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    letterSpacing: '0.03em',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <Plus size={14} /> MANUAL ITEM
+                </button>
+
                 <button 
                   onClick={() => { setSelectedCategory('all'); setCurrentPage(1); }} 
                   style={{
@@ -756,11 +815,36 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     }}
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, paddingRight: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <button 
+                          type="button"
+                          title={item.is_pinned === 1 ? "Unpin Item" : "Pin Item"}
+                          onClick={(e) => togglePinItem(e, item)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: item.is_pinned === 1 ? '#f59e0b' : 'var(--text-muted)',
+                            backgroundColor: item.is_pinned === 1 ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          <Pin size={15} fill={item.is_pinned === 1 ? '#f59e0b' : 'none'} color={item.is_pinned === 1 ? '#f59e0b' : 'var(--text-muted)'} />
+                        </button>
                         <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{item.name}</span>
                         <span style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: 800, backgroundColor: 'var(--bg-base)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
                           {item.category_name || 'Item'}
                         </span>
+                        {item.is_pinned === 1 && (
+                          <span style={{ fontSize: '9px', color: '#f59e0b', fontWeight: 900, backgroundColor: 'rgba(245, 158, 11, 0.15)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                            PINNED
+                          </span>
+                        )}
                       </div>
                       {item.description && (
                         <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontWeight: 500 }}>
@@ -953,22 +1037,66 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   {orderItems.map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'rgba(15, 23, 42, 0.9)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
-                        <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', wordBreak: 'break-word' }}>{item.name}</div>
-                        <div style={{ color: '#10b981', fontSize: '11px', fontWeight: 800, marginTop: '1px' }}>
-                           ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '9px' }}>(₹{Math.round(item.price)} each)</span>}
-                        </div>
+                        {item.menu_item_id === null || item.custom_name !== undefined ? (
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <input 
+                              type="text" 
+                              value={item.name} 
+                              onChange={(e) => updateManualItem(item.id, e.target.value, item.price)}
+                              placeholder="Item Name"
+                              style={{
+                                padding: '4px 6px',
+                                borderRadius: '6px',
+                                border: '1px solid #10b981',
+                                backgroundColor: '#020617',
+                                color: '#ffffff',
+                                fontWeight: 800,
+                                fontSize: '12px',
+                                width: '100px',
+                                outline: 'none'
+                              }}
+                            />
+                            <div style={{ display: 'flex', alignItems: 'center', color: '#10b981', fontWeight: 900, fontSize: '12px' }}>
+                              <span>₹</span>
+                              <input 
+                                type="number" 
+                                value={item.price === 0 ? '' : item.price} 
+                                onChange={(e) => updateManualItem(item.id, item.name, e.target.value)}
+                                placeholder="0"
+                                style={{
+                                  padding: '4px 4px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #10b981',
+                                  backgroundColor: '#020617',
+                                  color: '#10b981',
+                                  fontWeight: 900,
+                                  fontSize: '12px',
+                                  width: '55px',
+                                  outline: 'none'
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', wordBreak: 'break-word' }}>{item.name}</div>
+                            <div style={{ color: '#10b981', fontSize: '11px', fontWeight: 800, marginTop: '1px' }}>
+                               ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '9px' }}>(₹{Math.round(item.price)} each)</span>}
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <button 
-                          onClick={() => updateQuantity(item.id, -1)} 
+                          onClick={() => updateQuantity(item.id, -1, item.menu_item_id)} 
                           style={{ border: 'none', width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                           <Minus size={11} />
                         </button>
                         <span style={{ color: '#ffffff', fontWeight: 900, fontSize: '13px', minWidth: '14px', textAlign: 'center' }}>{item.quantity}</span>
                         <button 
-                          onClick={() => updateQuantity(item.id, 1)} 
+                          onClick={() => updateQuantity(item.id, 1, item.menu_item_id)} 
                           style={{ border: 'none', width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                           <Plus size={11} />
@@ -1039,10 +1167,54 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   orderItems.map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
-                        <div style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px', wordBreak: 'break-word' }}>{item.name}</div>
-                        <div style={{ color: '#10b981', fontSize: '12px', fontWeight: 900, marginTop: '2px' }}>
-                          ₹{item.price}
-                        </div>
+                        {item.menu_item_id === null || item.custom_name !== undefined ? (
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <input 
+                              type="text" 
+                              value={item.name} 
+                              onChange={(e) => updateManualItem(item.id, e.target.value, item.price)}
+                              placeholder="Item Name"
+                              style={{
+                                padding: '4px 8px',
+                                borderRadius: '8px',
+                                border: '1px solid #10b981',
+                                backgroundColor: 'var(--bg-base)',
+                                color: 'var(--text-primary)',
+                                fontWeight: 800,
+                                fontSize: '13px',
+                                width: '120px',
+                                outline: 'none'
+                              }}
+                            />
+                            <div style={{ display: 'flex', alignItems: 'center', color: '#10b981', fontWeight: 900, fontSize: '13px' }}>
+                              <span>₹</span>
+                              <input 
+                                type="number" 
+                                value={item.price === 0 ? '' : item.price} 
+                                onChange={(e) => updateManualItem(item.id, item.name, e.target.value)}
+                                placeholder="0"
+                                style={{
+                                  padding: '4px 6px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #10b981',
+                                  backgroundColor: 'var(--bg-base)',
+                                  color: '#10b981',
+                                  fontWeight: 900,
+                                  fontSize: '13px',
+                                  width: '60px',
+                                  outline: 'none'
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px', wordBreak: 'break-word' }}>{item.name}</div>
+                            <div style={{ color: '#10b981', fontSize: '12px', fontWeight: 900, marginTop: '2px' }}>
+                              ₹{item.price}
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
