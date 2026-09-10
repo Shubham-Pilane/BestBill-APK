@@ -1868,11 +1868,14 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if (path === '/hotel/printers-config') {
       const billingPrinter = localStorage.getItem('cfg_bluetooth_mac') || '';
       const billingSize = localStorage.getItem('cfg_printer_size') || '58mm';
+      const kotPrinter = localStorage.getItem('cfg_bluetooth_mac_kot') || '';
+      const kotSize = localStorage.getItem('cfg_printer_size_kot') || billingSize;
       return {
         status: 200,
         data: {
           printers: {
-            billing: { connectionType: 'bluetooth', deviceName: billingPrinter, paperSize: billingSize }
+            billing: { connectionType: 'bluetooth', deviceName: billingPrinter, paperSize: billingSize },
+            kot: { connectionType: 'bluetooth', deviceName: kotPrinter, paperSize: kotSize }
           }
         }
       };
@@ -1884,6 +1887,14 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       if (printers?.billing) {
         localStorage.setItem('cfg_bluetooth_mac', printers.billing.deviceName || '');
         localStorage.setItem('cfg_printer_size', printers.billing.paperSize || '58mm');
+      }
+      if (printers?.kot) {
+        if (printers.kot.deviceName) {
+          localStorage.setItem('cfg_bluetooth_mac_kot', printers.kot.deviceName);
+        } else {
+          localStorage.removeItem('cfg_bluetooth_mac_kot');
+        }
+        localStorage.setItem('cfg_printer_size_kot', printers.kot.paperSize || '58mm');
       }
       return { status: 200, data: { success: true } };
     }

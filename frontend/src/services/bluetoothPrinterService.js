@@ -709,6 +709,8 @@ function uint8ToBase64(bytes) {
 
 // Bluetooth printing lifecycle manager
 export class BluetoothPrinterService {
+  static currentlyConnectedMac = null;
+
   static getSelectedPrinter(type = 'billing') {
     if (type === 'kot') {
       return localStorage.getItem('cfg_bluetooth_mac_kot') || localStorage.getItem('cfg_bluetooth_mac') || '';
@@ -839,8 +841,10 @@ export class BluetoothPrinterService {
       const forceDisconnect = () => {
         return new Promise((resolve) => {
           try {
+            BluetoothPrinterService.currentlyConnectedMac = null;
             window.bluetoothSerial.disconnect(() => resolve(), () => resolve());
           } catch (e) {
+            BluetoothPrinterService.currentlyConnectedMac = null;
             resolve();
           }
         });
@@ -853,15 +857,18 @@ export class BluetoothPrinterService {
               mac,
               () => {
                 console.log('[BT PRINTER] Connected to', mac);
+                BluetoothPrinterService.currentlyConnectedMac = mac;
                 resolve(true);
               },
               (err) => {
                 console.error('[BT PRINTER] Connection attempt failed:', err);
+                BluetoothPrinterService.currentlyConnectedMac = null;
                 resolve(false);
               }
             );
           } catch (e) {
             console.error('[BT PRINTER] Native connect threw exception:', e);
+            BluetoothPrinterService.currentlyConnectedMac = null;
             resolve(false);
           }
         });
@@ -873,7 +880,7 @@ export class BluetoothPrinterService {
             window.bluetoothSerial.write(
               uint8Array.buffer,
               () => {
-                console.log('[BT PRINTER] Bytes printed successfully');
+                console.log('[BT PRINTER] Bytes printed successfully to device:', macAddress);
                 resolve(true);
               },
               (err) => {
@@ -890,38 +897,44 @@ export class BluetoothPrinterService {
 
       const connectWithRetry = async () => {
         await forceDisconnect();
+        await new Promise((r) => setTimeout(r, 200));
         let connected = await attemptConnect(macAddress);
         if (!connected) {
           console.warn('[BT PRINTER] First connect attempt failed, waiting 400ms before socket retry...');
           await new Promise((r) => setTimeout(r, 400));
           await forceDisconnect();
+          await new Promise((r) => setTimeout(r, 200));
           connected = await attemptConnect(macAddress);
         }
         return connected;
       };
 
-      const isConnected = await new Promise((resolve) => {
-        try {
-          window.bluetoothSerial.isConnected(
-            () => resolve(true),
-            () => resolve(false)
-          );
-        } catch (e) {
-          console.error('[BT PRINTER] isConnected check failed:', e);
-          resolve(false);
-        }
-      });
+      // Direct write attempt ONLY IF socket is connected to the exact requested MAC address
+      if (BluetoothPrinterService.currentlyConnectedMac && BluetoothPrinterService.currentlyConnectedMac === macAddress) {
+        const isConnected = await new Promise((resolve) => {
+          try {
+            window.bluetoothSerial.isConnected(
+              () => resolve(true),
+              () => resolve(false)
+            );
+          } catch (e) {
+            console.error('[BT PRINTER] isConnected check failed:', e);
+            resolve(false);
+          }
+        });
 
-      if (isConnected) {
-        const written = await attemptWrite();
-        if (written) return true;
-        console.warn('[BT PRINTER] Write failed on active socket handle, attempting reconnection...');
+        if (isConnected) {
+          const written = await attemptWrite();
+          if (written) return true;
+          console.warn('[BT PRINTER] Write failed on active socket handle, attempting reconnection...');
+        }
       }
 
+      // If active socket is connected to a different MAC address or socket broken, disconnect & reconnect to target MAC address
       const reconnected = await connectWithRetry();
       if (!reconnected) {
-        console.error('[BT PRINTER] Automatic reconnection failed.');
-        toast.error('Could not connect to printer. Ensure printer is ON & in range.');
+        console.error('[BT PRINTER] Automatic reconnection failed for MAC:', macAddress);
+        toast.error(`Could not connect to printer (${macAddress}). Ensure printer is ON & in range.`);
         return false;
       }
 
