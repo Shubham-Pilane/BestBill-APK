@@ -1860,6 +1860,34 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 200, data: { success: true } };
     }
 
+    if (path === '/hotel/clear-test-data' && methodUpper === 'DELETE') {
+      const { targetDate } = body;
+      if (!targetDate) return { status: 400, data: { message: 'Target date is required' } };
+      try {
+        try {
+          await db.query(`
+            DELETE FROM orders WHERE id IN (
+              SELECT o.id FROM orders o
+              JOIN tables t ON o.table_id = t.id
+              WHERE date(o.created_at) = $1 AND t.hotel_id = $2
+            )
+          `, [targetDate, user.hotel_id]);
+        } catch (e) { throw new Error('Orders query failed: ' + e.message); }
+
+        try { await db.query(`DELETE FROM cancelled_orders WHERE date(cancel_date) = $1 AND hotel_id = $2`, [targetDate, user.hotel_id]); } catch (e) { throw new Error('cancelled_orders query failed: ' + e.message); }
+        try { await db.query(`DELETE FROM expenses WHERE date(expense_date) = $1 AND hotel_id = $2`, [targetDate, user.hotel_id]); } catch (e) { throw new Error('expenses query failed: ' + e.message); }
+        try { await db.query(`DELETE FROM credits WHERE date(created_at) = $1 AND hotel_id = $2`, [targetDate, user.hotel_id]); } catch (e) { throw new Error('credits query failed: ' + e.message); }
+        try { await db.query(`DELETE FROM credit_payments WHERE date(created_at) = $1 AND hotel_id = $2`, [targetDate, user.hotel_id]); } catch (e) { throw new Error('credit_payments query failed: ' + e.message); }
+        try { await db.query(`DELETE FROM purchase_entries WHERE date(invoice_date) = $1 AND hotel_id = $2`, [targetDate, user.hotel_id]); } catch (e) { throw new Error('purchase_entries query failed: ' + e.message); }
+        try { await db.query(`DELETE FROM stock_transactions WHERE date(created_at) = $1 AND hotel_id = $2`, [targetDate, user.hotel_id]); } catch (e) { throw new Error('stock_transactions query failed: ' + e.message); }
+
+        return { status: 200, data: { message: 'Test data cleared successfully for ' + targetDate } };
+      } catch (err) {
+        console.error('Error clearing test data:', err);
+        return { status: 500, data: { message: `Failed to clear test data: ${err.message}` } };
+      }
+    }
+
     if (path === '/hotel/installed-printers') {
       // Mock: no windows drivers on mobile
       return { status: 200, data: [] };
@@ -2302,16 +2330,16 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if (path === '/expenses/vendors/summary' && methodUpper === 'GET') {
       const rows = await db.query(
         `SELECT 
-           COALESCE(e.vendor_id, s.id) as vendor_id,
-           COALESCE(s.name, MAX(e.title)) as vendor_name,
-           s.phone as vendor_phone,
+           COALESCE(e.vendor_id, s.id, MAX(e.vendor_name), MAX(e.title)) as vendor_id,
+           COALESCE(s.name, MAX(e.vendor_name), MAX(e.title)) as vendor_name,
+           COALESCE(s.phone, MAX(e.vendor_phone), '') as vendor_phone,
            COUNT(e.id) as total_entries,
            SUM(e.amount) as total_amount,
            MAX(e.expense_date) as last_expense_date
          FROM expenses e
          LEFT JOIN suppliers s ON e.vendor_id = s.id
-         WHERE e.hotel_id = $1 AND (e.vendor_id IS NOT NULL OR e.expense_type = 'vendor')
-         GROUP BY COALESCE(e.vendor_id, s.id, s.phone)
+         WHERE e.hotel_id = $1 AND (e.vendor_id IS NOT NULL OR e.expense_type = 'vendor' OR e.vendor_name IS NOT NULL OR e.category = 'Vendor Purchase')
+         GROUP BY COALESCE(e.vendor_id, s.id, LOWER(COALESCE(e.vendor_name, e.title)))
          ORDER BY last_expense_date DESC`,
         [user.hotel_id]
       );
@@ -2319,22 +2347,57 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path.startsWith('/expenses/vendors/') && methodUpper === 'GET') {
-      const parts = path.split('/');
-      const vendorId = parseInt(parts[3]);
-      if (!isNaN(vendorId)) {
-        const vendorRes = await db.query('SELECT * FROM suppliers WHERE id = $1 AND hotel_id = $2', [vendorId, user.hotel_id]);
-        const vendor = vendorRes.rows[0] || null;
+      const rawParam = decodeURIComponent(path.split('/')[3] || '');
+      const numId = parseInt(rawParam);
+      
+      let vendor = null;
+      let entries = [];
+
+      if (!isNaN(numId) && numId > 0) {
+        const vendorRes = await db.query('SELECT * FROM suppliers WHERE id = $1 AND hotel_id = $2', [numId, user.hotel_id]);
+        vendor = vendorRes.rows[0] || null;
 
         const entriesRes = await db.query(
-          `SELECT e.*, s.name as vendor_name, s.phone as vendor_phone 
+          `SELECT e.*, COALESCE(s.name, e.vendor_name, e.title) as vendor_name, COALESCE(s.phone, e.vendor_phone) as vendor_phone 
            FROM expenses e 
            LEFT JOIN suppliers s ON e.vendor_id = s.id 
-           WHERE e.hotel_id = $1 AND e.vendor_id = $2 
+           WHERE e.hotel_id = $1 AND (e.vendor_id = $2 OR s.id = $2)
            ORDER BY e.expense_date DESC, e.id DESC`,
-          [user.hotel_id, vendorId]
+          [user.hotel_id, numId]
         );
-        return { status: 200, data: { vendor, entries: entriesRes.rows.map(e => ({ ...e, amount: Number(e.amount || 0) })) } };
+        entries = entriesRes.rows;
       }
+
+      if (!entries || entries.length === 0) {
+        const entriesRes = await db.query(
+          `SELECT e.*, COALESCE(s.name, e.vendor_name, e.title) as vendor_name, COALESCE(s.phone, e.vendor_phone) as vendor_phone 
+           FROM expenses e 
+           LEFT JOIN suppliers s ON e.vendor_id = s.id 
+           WHERE e.hotel_id = $1 AND (
+             LOWER(COALESCE(e.vendor_name, e.title)) = LOWER($2) OR 
+             LOWER(COALESCE(s.name, '')) = LOWER($2) OR
+             ($2 = 'null' AND (e.vendor_id IS NOT NULL OR e.expense_type = 'vendor'))
+           )
+           ORDER BY e.expense_date DESC, e.id DESC`,
+          [user.hotel_id, rawParam]
+        );
+        entries = entriesRes.rows;
+      }
+
+      if (!vendor && entries.length > 0) {
+        vendor = {
+          name: entries[0].vendor_name || entries[0].title || 'Vendor Expenses',
+          phone: entries[0].vendor_phone || ''
+        };
+      }
+
+      return { 
+        status: 200, 
+        data: { 
+          vendor: vendor || { name: rawParam || 'Vendor Expenses', phone: '' }, 
+          entries: entries.map(e => ({ ...e, amount: Number(e.amount || 0) })) 
+        } 
+      };
     }
 
     if (path === '/expenses/staff-salary' && methodUpper === 'GET') {

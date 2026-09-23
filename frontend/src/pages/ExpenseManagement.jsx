@@ -176,9 +176,12 @@ const ExpenseManagement = () => {
     };
 
     // View Single Vendor Entries Breakdown
-    const handleViewVendorDetails = async (vendorId) => {
+    const handleViewVendorDetails = async (vendorId, vendorName) => {
         try {
-            const res = await api.get(`/expenses/vendors/${vendorId}`);
+            const key = vendorId !== null && vendorId !== undefined && String(vendorId) !== '0' && String(vendorId) !== 'null'
+                ? vendorId 
+                : encodeURIComponent(vendorName || 'Vendor');
+            const res = await api.get(`/expenses/vendors/${key}`);
             setSelectedVendorDetail(res.data);
             setShowVendorDetailModal(true);
         } catch (err) {
@@ -703,7 +706,7 @@ const ExpenseManagement = () => {
                                             </td>
                                             <td style={{ ...tdStyle, textAlign: 'right' }}>
                                                 <button 
-                                                    onClick={() => handleViewVendorDetails(ven.vendor_id)}
+                                                    onClick={() => handleViewVendorDetails(ven.vendor_id, ven.vendor_name)}
                                                     style={{
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
@@ -861,18 +864,18 @@ const ExpenseManagement = () => {
                                     </select>
                                 )}
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     <input 
                                         placeholder="Vendor Name (e.g. ABC Water)"
                                         value={formData.vendor_name}
                                         onChange={e => setFormData({ ...formData, vendor_name: e.target.value, title: formData.title || e.target.value })}
-                                        style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', fontSize: '13px' }}
+                                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', fontSize: '13px', boxSizing: 'border-box' }}
                                     />
                                     <input 
-                                        placeholder="Vendor Mobile Number"
+                                        placeholder="Vendor Mobile Number (e.g. 9876543210)"
                                         value={formData.vendor_phone}
                                         onChange={e => setFormData({ ...formData, vendor_phone: e.target.value })}
-                                        style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', fontSize: '13px' }}
+                                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 700, outline: 'none', fontSize: '13px', boxSizing: 'border-box' }}
                                     />
                                 </div>
                             </div>

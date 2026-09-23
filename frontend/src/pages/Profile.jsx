@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
-import { User, Mail, Lock, ShieldCheck, Save, Eye, EyeOff, LayoutPanelLeft, UserCircle, Wallet, Users, Trash2, UserPlus, Fingerprint, MapPin, Percent, Upload, Image as ImageIcon, Printer, ChevronDown, Globe, Download, QrCode, Key, RotateCw } from 'lucide-react';
+import { User, Mail, Lock, ShieldCheck, Save, Eye, EyeOff, LayoutPanelLeft, UserCircle, Wallet, Users, Trash2, UserPlus, Fingerprint, MapPin, Percent, Upload, Image as ImageIcon, Printer, ChevronDown, Globe, Download, QrCode, Key, RotateCw, AlertTriangle } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { BluetoothPrinterService, formatBill } from '../services/bluetoothPrinterService';
 import * as licenseService from '../services/localLicenseService';
@@ -177,6 +177,11 @@ const Profile = () => {
     // Cancel Orders State
     const [cancelOrdersEnabled, setCancelOrdersEnabled] = useState(false);
 
+    // Clear Test Data State
+    const [testDataDate, setTestDataDate] = useState('');
+    const [isClearingData, setIsClearingData] = useState(false);
+    const [showClearTestDataConfirm, setShowClearTestDataConfirm] = useState(false);
+
     // Waiter Mobile Access State
     const [waiterModuleEnabled, setWaiterModuleEnabled] = useState(false);
 
@@ -220,6 +225,26 @@ const Profile = () => {
             }
         } catch (err) {
             toast.error('Failed to toggle Cancel Order Management');
+        }
+    };
+
+    const handleClearTestDataClick = (e) => {
+        e.preventDefault();
+        setShowClearTestDataConfirm(true);
+    };
+
+    const confirmClearTestData = async () => {
+        setIsClearingData(true);
+        try {
+            const res = await api.delete('/hotel/clear-test-data', { data: { targetDate: testDataDate } });
+            toast.success(res.data.message || 'Test data cleared successfully');
+            setTestDataDate('');
+            setShowClearTestDataConfirm(false);
+        } catch (err) {
+            console.error('Clear data error:', err);
+            toast.error(err.response?.data?.message || 'Failed to clear test data');
+        } finally {
+            setIsClearingData(false);
         }
     };
 
@@ -1485,6 +1510,50 @@ const Profile = () => {
                                     </label>
                                 </div>
                             </div>
+
+                            {/* Clear Test Data Module */}
+                            <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
+                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Clear Test Data</h3>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
+                                        Clear all transaction records (bills, orders, KOTs, expenses, credits) for a specific date. Hotel settings will not be affected.
+                                    </p>
+                                </div>
+                                
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                    <input 
+                                        type="date" 
+                                        value={testDataDate}
+                                        onChange={(e) => setTestDataDate(e.target.value)}
+                                        style={{ 
+                                            padding: '10px 16px', 
+                                            borderRadius: '8px', 
+                                            border: '1px solid var(--border-rgba-05)',
+                                            backgroundColor: 'var(--bg-base)',
+                                            color: 'var(--text-primary)',
+                                            fontWeight: 600,
+                                            outline: 'none'
+                                        }}
+                                    />
+                                    <button 
+                                        onClick={handleClearTestDataClick}
+                                        disabled={!testDataDate || isClearingData}
+                                        style={{
+                                            padding: '10px 20px',
+                                            backgroundColor: '#f43f5e',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            fontWeight: 700,
+                                            cursor: (!testDataDate || isClearingData) ? 'not-allowed' : 'pointer',
+                                            opacity: (!testDataDate || isClearingData) ? 0.5 : 1
+                                        }}
+                                    >
+                                        Delete Data
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
             </div>
@@ -1644,6 +1713,34 @@ const Profile = () => {
                                 setShowCloudSyncSetupModal(false);
                                 toast.success('Online Cloud Sync Enabled');
                             }} style={{ flex: 1, padding: '16px', borderRadius: '16px', backgroundColor: '#10b981', color: '#ffffff', fontWeight: 900, border: 'none', cursor: 'pointer', fontSize: '15px', boxShadow: '0 8px 16px rgba(16, 185, 129, 0.2)' }}>Enable Sync</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Clear Test Data Modal */}
+            {showClearTestDataConfirm && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '24px' }} onClick={() => setShowClearTestDataConfirm(false)}>
+                    <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '24px', padding: '36px', border: '1px solid var(--bg-border)', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <AlertTriangle size={28} style={{ color: '#f43f5e' }} />
+                            <h3 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
+                                Confirm Deletion
+                            </h3>
+                        </div>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, margin: 0, lineHeight: '1.6' }}>
+                            Are you sure you want to permanently clear all bills, orders, KOTs, credits, and expenses for <strong style={{ color: '#f43f5e' }}>{testDataDate}</strong>? This cannot be undone.
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                            <button
+                                onClick={() => setShowClearTestDataConfirm(false)}
+                                style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: 'var(--bg-border)', color: 'var(--text-secondary)', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '14px' }}
+                            >Cancel</button>
+                            <button
+                                onClick={confirmClearTestData}
+                                disabled={isClearingData}
+                                style={{flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#f43f5e', color: 'white', fontWeight: 900, border: 'none', cursor: isClearingData ? 'not-allowed' : 'pointer', fontSize: '14px', boxShadow: '0 8px 20px rgba(244,63,94,0.3)', opacity: isClearingData ? 0.7 : 1 }}
+                            >{isClearingData ? 'Clearing...' : 'Clear Data'}</button>
                         </div>
                     </div>
                 </div>

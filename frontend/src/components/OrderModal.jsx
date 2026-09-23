@@ -1008,25 +1008,25 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 style={{
                   width: '100%',
                   height: '90vh',
-                  backgroundColor: '#070c18',
+                  backgroundColor: 'var(--bg-base)',
                   borderTopLeftRadius: '24px',
                   borderTopRightRadius: '24px',
                   display: 'flex',
                   flexDirection: 'column',
                   overflow: 'hidden',
                   boxShadow: '0 -20px 50px rgba(0,0,0,0.8)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                  border: '1px solid var(--border-color)'
                 }}
               >
                 {/* Drawer Header */}
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#0f172a' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'var(--bg-card)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Receipt size={16} color="#0ea5e9" />
-                    <h3 style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff', margin: 0 }}>Active Selection ({orderItems.length})</h3>
+                    <h3 style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Active Selection ({orderItems.length})</h3>
                   </div>
                   <button 
                     onClick={() => setIsMobileCartOpen(false)}
-                    style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', border: 'none', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'var(--border-rgba-05)', border: 'none', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                   >
                     <ChevronDown size={16} />
                   </button>
@@ -1035,9 +1035,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 {/* Drawer Cart List - Compact to fit 6+ items easily */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {orderItems.map(item => (
-                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'rgba(15, 23, 42, 0.9)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
-                        {item.menu_item_id === null || item.custom_name !== undefined ? (
+                        {!item.menu_item_id ? (
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <input 
                               type="text" 
@@ -1047,16 +1047,16 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                               style={{
                                 padding: '4px 6px',
                                 borderRadius: '6px',
-                                border: '1px solid #10b981',
-                                backgroundColor: '#020617',
-                                color: '#ffffff',
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: 'var(--bg-base)',
+                                color: 'var(--text-primary)',
                                 fontWeight: 800,
                                 fontSize: '12px',
                                 width: '100px',
                                 outline: 'none'
                               }}
                             />
-                            <div style={{ display: 'flex', alignItems: 'center', color: '#10b981', fontWeight: 900, fontSize: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-primary)', fontWeight: 900, fontSize: '12px' }}>
                               <span>₹</span>
                               <input 
                                 type="number" 
@@ -1066,9 +1066,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                 style={{
                                   padding: '4px 4px',
                                   borderRadius: '6px',
-                                  border: '1px solid #10b981',
-                                  backgroundColor: '#020617',
-                                  color: '#10b981',
+                                  border: '1px solid var(--border-color)',
+                                  backgroundColor: 'var(--bg-base)',
+                                  color: 'var(--text-primary)',
                                   fontWeight: 900,
                                   fontSize: '12px',
                                   width: '55px',
@@ -1079,9 +1079,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                           </div>
                         ) : (
                           <>
-                            <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', wordBreak: 'break-word' }}>{item.name}</div>
-                            <div style={{ color: '#10b981', fontSize: '11px', fontWeight: 800, marginTop: '1px' }}>
-                               ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '9px' }}>(₹{Math.round(item.price)} each)</span>}
+                            <div style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '13px', wordBreak: 'break-word' }}>{item.name}</div>
+                            <div style={{ color: 'var(--text-primary)', fontSize: '11px', fontWeight: 800, marginTop: '1px' }}>
+                               ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'var(--text-muted)', fontSize: '9px' }}>(₹{Math.round(item.price)} each)</span>}
                             </div>
                           </>
                         )}
@@ -1090,14 +1090,14 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <button 
                           onClick={() => updateQuantity(item.id, -1, item.menu_item_id)} 
-                          style={{ border: 'none', width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ border: 'none', width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'var(--border-rgba-05)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                           <Minus size={11} />
                         </button>
-                        <span style={{ color: '#ffffff', fontWeight: 900, fontSize: '13px', minWidth: '14px', textAlign: 'center' }}>{item.quantity}</span>
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '13px', minWidth: '14px', textAlign: 'center' }}>{item.quantity}</span>
                         <button 
                           onClick={() => updateQuantity(item.id, 1, item.menu_item_id)} 
-                          style={{ border: 'none', width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ border: 'none', width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'var(--border-rgba-05)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                           <Plus size={11} />
                         </button>
@@ -1107,19 +1107,19 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 </div>
 
                 {/* Drawer Cart Footer - Compact Bottom Section */}
-                <div style={{ padding: '10px 16px', backgroundColor: '#0f172a', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ padding: '10px 16px', backgroundColor: 'var(--bg-card)', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>LOYALTY DISCOUNT (%)</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>LOYALTY DISCOUNT (%)</span>
                     <input 
                        type="number" 
                        value={discount} 
                        onChange={e => setDiscount(Math.max(0, Math.min(100, e.target.value)))} 
-                       style={{ width: '40px', background: 'none', border: 'none', borderBottom: '2px solid #0ea5e9', color: '#ffffff', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '12px' }} 
+                       style={{ width: '40px', background: 'none', border: 'none', borderBottom: '2px solid #0ea5e9', color: 'var(--text-primary)', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '12px' }} 
                     />
                   </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>Final Due</span>
-                    <span style={{ color: '#10b981', fontSize: '18px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
+                    <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)' }}>Final Due</span>
+                    <span style={{ color: 'var(--text-primary)', fontSize: '18px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
                   </div>
 
                   {showKotButton ? (
@@ -1167,7 +1167,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   orderItems.map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
-                        {item.menu_item_id === null || item.custom_name !== undefined ? (
+                        {!item.menu_item_id ? (
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <input 
                               type="text" 
@@ -1177,7 +1177,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                               style={{
                                 padding: '4px 8px',
                                 borderRadius: '8px',
-                                border: '1px solid #10b981',
+                                border: '1px solid var(--border-color)',
                                 backgroundColor: 'var(--bg-base)',
                                 color: 'var(--text-primary)',
                                 fontWeight: 800,
@@ -1186,7 +1186,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                 outline: 'none'
                               }}
                             />
-                            <div style={{ display: 'flex', alignItems: 'center', color: '#10b981', fontWeight: 900, fontSize: '13px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-primary)', fontWeight: 900, fontSize: '13px' }}>
                               <span>₹</span>
                               <input 
                                 type="number" 
@@ -1196,9 +1196,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                 style={{
                                   padding: '4px 6px',
                                   borderRadius: '8px',
-                                  border: '1px solid #10b981',
+                                  border: '1px solid var(--border-color)',
                                   backgroundColor: 'var(--bg-base)',
-                                  color: '#10b981',
+                                  color: 'var(--text-primary)',
                                   fontWeight: 900,
                                   fontSize: '13px',
                                   width: '60px',
@@ -1210,7 +1210,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                         ) : (
                           <>
                             <div style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px', wordBreak: 'break-word' }}>{item.name}</div>
-                            <div style={{ color: '#10b981', fontSize: '12px', fontWeight: 900, marginTop: '2px' }}>
+                            <div style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: 900, marginTop: '2px' }}>
                               ₹{item.price}
                             </div>
                           </>
@@ -1257,7 +1257,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-primary)' }}>Grand Total</span>
-                  <span style={{ color: '#10b981', fontSize: '22px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
+                  <span style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
                 </div>
 
                 {showKotButton ? (
