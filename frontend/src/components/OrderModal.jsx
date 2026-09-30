@@ -99,6 +99,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const isTokenCounter = String(table?.table_number || table?.id || '').toLowerCase().includes('token');
   const isParcelCounter = table?.table_number === 'Parcel Counter';
   const cancelOrdersEnabled = user?.cancelOrdersEnabled === true;
+  const settleWithoutPrintEnabledState = user?.settleWithoutPrintEnabled === true;
   const isWaiterAccessEnabled = user?.role === 'waiter' || user?.waiterModuleEnabled || localStorage.getItem('cfg_waiter_module') === 'true';
   const showKotButton = (user?.simpleKotEnabled || user?.kotEnabled || isWaiterAccessEnabled) && !isTokenCounter;
 
@@ -1811,6 +1812,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                         <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
                            <Printer size={16} /> {!billData.is_paid ? 'Print' : 'Re-Print'}
                         </button>
+                        {settleWithoutPrintEnabledState && (
+                          <button onClick={settleWithoutPrint} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#10b981', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
+                             <CheckCircle size={16} /> Settle Only
+                          </button>
+                        )}
                         {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
                           <button onClick={shareViaWhatsApp} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#22c55e', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
                              <MessageCircle size={16} /> WhatsApp

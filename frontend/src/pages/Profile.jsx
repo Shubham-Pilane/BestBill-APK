@@ -177,6 +177,9 @@ const Profile = () => {
     // Cancel Orders State
     const [cancelOrdersEnabled, setCancelOrdersEnabled] = useState(false);
 
+    // Settle Without Print State
+    const [settleWithoutPrintEnabled, setSettleWithoutPrintEnabled] = useState(false);
+
     // Clear Test Data State
     const [testDataDate, setTestDataDate] = useState('');
     const [isClearingData, setIsClearingData] = useState(false);
@@ -201,6 +204,7 @@ const Profile = () => {
             fetchSimpleKotStatus();
             fetchWaiterModuleStatus();
             fetchCancelOrdersStatus();
+            fetchSettleWithoutPrintStatus();
         }
     }, [isOwner]);
 
@@ -225,6 +229,30 @@ const Profile = () => {
             }
         } catch (err) {
             toast.error('Failed to toggle Cancel Order Management');
+        }
+    };
+
+    const fetchSettleWithoutPrintStatus = async () => {
+        try {
+            const res = await api.get('/hotel/settle-without-print-status');
+            const isEnabled = !!res.data.settleWithoutPrintEnabled;
+            setSettleWithoutPrintEnabled(isEnabled);
+            updateUser({ settleWithoutPrintEnabled: isEnabled });
+        } catch (err) {
+            console.error('Failed to fetch settle without print status', err);
+        }
+    };
+
+    const handleToggleSettleWithoutPrint = async (shouldEnable) => {
+        try {
+            const res = await api.post('/hotel/toggle-settle-without-print', { enabled: shouldEnable });
+            if (res.data.success) {
+                setSettleWithoutPrintEnabled(shouldEnable);
+                updateUser({ settleWithoutPrintEnabled: shouldEnable });
+                toast.success(`Settle Without Print ${shouldEnable ? 'activated' : 'deactivated'}!`);
+            }
+        } catch (err) {
+            toast.error('Failed to toggle Settle Without Print');
         }
     };
 
@@ -1504,6 +1532,39 @@ const Profile = () => {
                                             name="cancelOrdersModule"
                                             checked={cancelOrdersEnabled} 
                                             onChange={() => handleToggleCancelOrders(true)}
+                                            style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        Enabled
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Settle Without Print Module */}
+                            <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-rgba-05)' }}></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '650px' }}>
+                                    <h3 style={{fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Settle Without Print</h3>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6', marginTop: '4px' }}>
+                                        Enable the "Settle Only" button while settling the bill. This allows user to settle the bill without printing.
+                                    </p>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 500, fontSize: '14px' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="settleWithoutPrintModule"
+                                            checked={!settleWithoutPrintEnabled} 
+                                            onChange={() => handleToggleSettleWithoutPrint(false)}
+                                            style={{ accentColor: '#ef4444', width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        Disabled
+                                    </label>
+                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500, fontSize: '14px' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="settleWithoutPrintModule"
+                                            checked={settleWithoutPrintEnabled} 
+                                            onChange={() => handleToggleSettleWithoutPrint(true)}
                                             style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
                                         />
                                         Enabled

@@ -1815,6 +1815,10 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const isEnabled = localStorage.getItem('cfg_token_counter') === 'true';
       return { status: 200, data: { enabled: isEnabled, tokenCounterEnabled: isEnabled } };
     }
+    if (path === '/hotel/settle-without-print-status') {
+      const isEnabled = localStorage.getItem('cfg_settle_without_print') === 'true';
+      return { status: 200, data: { enabled: isEnabled, settleWithoutPrintEnabled: isEnabled } };
+    }
     if (path === '/hotel/waiter-module-status') {
       const isEnabled = localStorage.getItem('cfg_waiter_module') === 'true';
       return { status: 200, data: { enabled: isEnabled, waiterModuleEnabled: isEnabled } };
@@ -1823,6 +1827,12 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if (path === '/hotel/toggle-waiter-module') {
       const { enabled } = body;
       localStorage.setItem('cfg_waiter_module', enabled ? 'true' : 'false');
+      return { status: 200, data: { success: true, enabled: !!enabled } };
+    }
+
+    if (path === '/hotel/toggle-settle-without-print') {
+      const { enabled } = body;
+      localStorage.setItem('cfg_settle_without_print', enabled ? 'true' : 'false');
       return { status: 200, data: { success: true, enabled: !!enabled } };
     }
 
