@@ -1035,7 +1035,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
                 {/* Drawer Cart List - Compact to fit 6+ items easily */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {orderItems.map(item => (
+                  {[...orderItems].sort((a, b) => (!a.menu_item_id ? 1 : 0) - (!b.menu_item_id ? 1 : 0)).map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
                         {!item.menu_item_id ? (
@@ -1165,7 +1165,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     No items selected yet. Tap items on the left to add.
                   </div>
                 ) : (
-                  orderItems.map(item => (
+                  [...orderItems].sort((a, b) => (!a.menu_item_id ? 1 : 0) - (!b.menu_item_id ? 1 : 0)).map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
                         {!item.menu_item_id ? (

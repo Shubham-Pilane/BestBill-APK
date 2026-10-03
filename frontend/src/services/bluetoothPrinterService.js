@@ -583,7 +583,13 @@ export async function formatBill(data, printerSize = '58mm') {
 
   builder.line('-', LINE_WIDTH);
 
-  (data.items || []).forEach(item => {
+  const sortedBillItems = [...(data.items || [])].sort((a, b) => {
+    const aManual = (!a.menu_item_id && a.menu_item_id !== 0) || a.custom_name ? 1 : 0;
+    const bManual = (!b.menu_item_id && b.menu_item_id !== 0) || b.custom_name ? 1 : 0;
+    return aManual - bManual;
+  });
+
+  sortedBillItems.forEach(item => {
     const qty = item.quantity || item.qty || 1;
     const rate = formatAmount(item.price);
     const amt = formatAmount(item.price * qty);

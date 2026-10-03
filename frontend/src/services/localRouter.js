@@ -393,7 +393,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
          FROM order_items oi
          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
          WHERE oi.order_id = $1
-         ORDER BY oi.created_at ASC`,
+         ORDER BY CASE WHEN oi.menu_item_id IS NULL THEN 1 ELSE 0 END ASC, oi.created_at ASC`,
         [order.id]
       );
       return { status: 200, data: { order, items: itemsRes.rows } };
@@ -429,7 +429,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
                 COALESCE(oi.custom_price, mi.price, 0) as price
          FROM order_items oi 
          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
-         WHERE oi.order_id = $1 ORDER BY oi.created_at ASC`,
+         WHERE oi.order_id = $1 ORDER BY CASE WHEN oi.menu_item_id IS NULL THEN 1 ELSE 0 END ASC, oi.created_at ASC`,
         [orderId]
       );
 
@@ -477,7 +477,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
                 COALESCE(oi.custom_price, mi.price, 0) as price
          FROM order_items oi 
          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
-         WHERE oi.order_id = $1 ORDER BY oi.created_at ASC`,
+         WHERE oi.order_id = $1 ORDER BY CASE WHEN oi.menu_item_id IS NULL THEN 1 ELSE 0 END ASC, oi.created_at ASC`,
         [orderId]
       );
 
@@ -640,6 +640,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
           JOIN order_items oi ON oi.order_id = o.id
           LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
           WHERE o.table_id = $1 AND o.status = 'active'
+          ORDER BY CASE WHEN oi.menu_item_id IS NULL THEN 1 ELSE 0 END ASC, oi.created_at ASC
         `, [tableId])
       ]);
 
@@ -702,10 +703,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const formattedOrders = [];
       for (const order of ordersRes.rows) {
         const itemsRes = await db.query(`
-          SELECT mi.name, oi.quantity, oi.printed_quantity, mi.price
+          SELECT COALESCE(oi.custom_name, mi.name) as name, oi.quantity, oi.printed_quantity, COALESCE(oi.custom_price, mi.price, 0) as price
           FROM order_items oi
-          JOIN menu_items mi ON oi.menu_item_id = mi.id
+          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
           WHERE oi.order_id = $1
+          ORDER BY CASE WHEN oi.menu_item_id IS NULL THEN 1 ELSE 0 END ASC, oi.created_at ASC
         `, [order.order_id]);
 
         if (itemsRes.rows.length > 0) {
@@ -750,11 +752,15 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         db.query('SELECT name, phone, location, gst_percentage FROM hotels WHERE id = $1', [user.hotel_id]),
         db.query('SELECT table_number FROM tables WHERE id = $1', [tableId]),
         db.query(`
-          SELECT o.id as order_id, oi.quantity, mi.name, mi.price, mi.id as menu_item_id
+          SELECT o.id as order_id, oi.quantity,
+                 COALESCE(oi.custom_name, mi.name) as name,
+                 COALESCE(oi.custom_price, mi.price, 0) as price,
+                 oi.menu_item_id
           FROM orders o
           JOIN order_items oi ON oi.order_id = o.id
-          JOIN menu_items mi ON oi.menu_item_id = mi.id
+          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
           WHERE o.table_id = $1 AND o.status = 'active'
+          ORDER BY CASE WHEN oi.menu_item_id IS NULL THEN 1 ELSE 0 END ASC, oi.created_at ASC
         `, [tableId])
       ]);
 
@@ -835,10 +841,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         const formattedBills = [];
         for (const bill of billsRes.rows) {
           const itemsRes = await db.query(`
-            SELECT oi.id, mi.name, oi.quantity, mi.price
+            SELECT oi.id, COALESCE(oi.custom_name, mi.name) as name, oi.quantity, COALESCE(oi.custom_price, mi.price, 0) as price
             FROM order_items oi
-            JOIN menu_items mi ON oi.menu_item_id = mi.id
+            LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
             WHERE oi.order_id = $1
+            ORDER BY CASE WHEN oi.menu_item_id IS NULL THEN 1 ELSE 0 END ASC, oi.created_at ASC
           `, [bill.order_id]);
 
           formattedBills.push({
@@ -1018,10 +1025,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         }
 
         const itemsRes = await db.query(
-          `SELECT oi.quantity, mi.name, mi.price 
+          `SELECT oi.quantity, COALESCE(oi.custom_name, mi.name) as name, COALESCE(oi.custom_price, mi.price, 0) as price 
            FROM order_items oi 
-           JOIN menu_items mi ON oi.menu_item_id = mi.id 
-           WHERE oi.order_id = $1`,
+           LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
+           WHERE oi.order_id = $1
+           ORDER BY CASE WHEN oi.menu_item_id IS NULL THEN 1 ELSE 0 END ASC, oi.created_at ASC`,
           [b.order_id]
         );
 
@@ -1074,10 +1082,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const hotel = hotelRes.rows[0] || {};
 
       const itemsRes = await db.query(
-        `SELECT oi.quantity, mi.name, mi.price 
+        `SELECT oi.quantity, COALESCE(oi.custom_name, mi.name) as name, COALESCE(oi.custom_price, mi.price, 0) as price 
          FROM order_items oi 
-         JOIN menu_items mi ON oi.menu_item_id = mi.id 
-         WHERE oi.order_id = $1`,
+         LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
+         WHERE oi.order_id = $1
+         ORDER BY CASE WHEN oi.menu_item_id IS NULL THEN 1 ELSE 0 END ASC, oi.created_at ASC`,
         [bill.order_id]
       );
 
@@ -1131,10 +1140,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         }
 
         const itemsRes = await db.query(`
-          SELECT oi.quantity, mi.name, mi.price 
+          SELECT oi.quantity, COALESCE(oi.custom_name, mi.name) as name, COALESCE(oi.custom_price, mi.price, 0) as price 
           FROM order_items oi 
-          JOIN menu_items mi ON oi.menu_item_id = mi.id 
-          WHERE oi.order_id = $1`,
+          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
+          WHERE oi.order_id = $1
+          ORDER BY CASE WHEN oi.menu_item_id IS NULL THEN 1 ELSE 0 END ASC, oi.created_at ASC`,
           [bill.order_id]
         );
         items = itemsRes.rows;
@@ -1289,9 +1299,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
           const billRes = await db.query('SELECT order_id FROM bills WHERE id = $1', [c.bill_id]);
           if (billRes.rows[0]?.order_id) {
             const itemsRes = await db.query(
-              `SELECT oi.quantity, mi.name, mi.price 
+              `SELECT oi.quantity, COALESCE(oi.custom_name, mi.name) as name, COALESCE(oi.custom_price, mi.price, 0) as price 
                FROM order_items oi 
-               JOIN menu_items mi ON oi.menu_item_id = mi.id 
+               LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
                WHERE oi.order_id = $1`,
               [billRes.rows[0].order_id]
             );
@@ -1478,9 +1488,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         if (billRes.rows.length > 0) {
           bill = billRes.rows[0];
           const itemsRes = await db.query(
-            `SELECT oi.quantity, mi.name, mi.price 
+            `SELECT oi.quantity, COALESCE(oi.custom_name, mi.name) as name, COALESCE(oi.custom_price, mi.price, 0) as price 
              FROM order_items oi 
-             JOIN menu_items mi ON oi.menu_item_id = mi.id 
+             LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
              WHERE oi.order_id = $1`, 
              [bill.order_id]
           );
@@ -2107,9 +2117,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
         // Fetch active items before update/delete to inspect target item
         const beforeActiveRes = await db.query(`
-          SELECT oi.id, oi.quantity, mi.name, mi.price 
+          SELECT oi.id, oi.quantity, COALESCE(oi.custom_name, mi.name) as name, COALESCE(oi.custom_price, mi.price, 0) as price 
           FROM order_items oi 
-          JOIN menu_items mi ON oi.menu_item_id = mi.id 
+          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
           WHERE oi.order_id = $1
         `, [orderId]);
         const beforeActiveItems = beforeActiveRes.rows.map(i => ({
@@ -2152,9 +2162,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
         // Fetch remaining active items AFTER deletion
         const remainingRes = await db.query(`
-          SELECT oi.*, mi.name, mi.price 
+          SELECT oi.*, COALESCE(oi.custom_name, mi.name) as name, COALESCE(oi.custom_price, mi.price, 0) as price 
           FROM order_items oi 
-          JOIN menu_items mi ON oi.menu_item_id = mi.id 
+          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
           WHERE oi.order_id = $1 AND oi.quantity > 0
         `, [orderId]);
 
@@ -2218,9 +2228,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
         const tableRes = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [tableId]);
         const itemsRes = await db.query(`
-          SELECT oi.quantity, oi.printed_quantity, mi.name, mi.price
+          SELECT oi.quantity, oi.printed_quantity, COALESCE(oi.custom_name, mi.name) as name, COALESCE(oi.custom_price, mi.price, 0) as price
           FROM order_items oi
-          JOIN menu_items mi ON oi.menu_item_id = mi.id
+          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
           WHERE oi.order_id = $1
         `, [orderId]);
 
