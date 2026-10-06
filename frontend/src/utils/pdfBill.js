@@ -19,7 +19,7 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
   const phone = hotelInfo.hotel_phone || hotelInfo.phone || '';
   const email = hotelInfo.hotel_email || hotelInfo.email || '';
   const gstNo = hotelInfo.gst_number || hotelInfo.gstin || '';
-  const fssaiNo = hotelInfo.fssai_number || '';
+  const fssaiNo = hotelInfo.fssai_number || hotelInfo.fssai || hotelInfo.hotelFssai || '';
   const logoUrl = hotelInfo.logo_url || '';
 
   const billId = billData.id || billData.bill_id || 'N/A';

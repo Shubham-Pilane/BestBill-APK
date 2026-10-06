@@ -749,7 +749,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const { discount_percentage } = body;
 
       const [hotelRes, tableRes, orderRes] = await Promise.all([
-        db.query('SELECT name, phone, location, gst_percentage FROM hotels WHERE id = $1', [user.hotel_id]),
+        db.query('SELECT name, phone, location, gst_percentage, fssai_number FROM hotels WHERE id = $1', [user.hotel_id]),
         db.query('SELECT table_number FROM tables WHERE id = $1', [tableId]),
         db.query(`
           SELECT o.id as order_id, oi.quantity,
@@ -803,7 +803,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         items: orderRes.rows,
         hotel_name: hotel.name || user?.hotel_name || '',
         hotel_phone: hotel.phone || '',
-        hotel_location: hotel.location || ''
+        hotel_location: hotel.location || '',
+        fssai_number: hotel.fssai_number || user?.fssai_number || '',
+        hotelFssai: hotel.fssai_number || user?.fssai_number || ''
       };
 
       notifyUpdate('table-update');
@@ -1168,6 +1170,8 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         hotelName: hotel.name || user?.hotel_name || '',
         hotelPhone: hotel.phone || '',
         hotelLocation: hotel.location || '',
+        hotelFssai: hotel.fssai_number || user?.fssai_number || '',
+        fssai_number: hotel.fssai_number || user?.fssai_number || '',
         upiId: showUPI ? (hotel.upi_id || '') : '',
         isPaid: bill.is_paid === 1 || bill.is_paid === true,
         gst_percentage: hotel.gst_percentage || 0,
