@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
     price REAL NOT NULL,
     description TEXT,
     is_available BOOLEAN DEFAULT 1,
-    is_pinned INTEGER DEFAULT 0,
+    lang TEXT DEFAULT 'en',
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
     is_deleted BOOLEAN DEFAULT 0
 );
@@ -197,11 +197,10 @@ CREATE TABLE IF NOT EXISTS order_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
     menu_item_id INTEGER REFERENCES menu_items(id),
-    custom_name TEXT,
-    custom_price REAL,
     quantity INTEGER NOT NULL,
     printed_quantity INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
+    created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
+    UNIQUE (order_id, menu_item_id)
 );
 
 CREATE TABLE IF NOT EXISTS subscription_history (
@@ -243,8 +242,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
     email TEXT,
     address TEXT,
     gst_number TEXT,
-    created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
-    updated_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
+    created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
 );
 
 CREATE TABLE IF NOT EXISTS purchase_entries (
@@ -303,22 +301,11 @@ CREATE TABLE IF NOT EXISTS credits (
     customer_name TEXT,
     customer_phone TEXT,
     amount REAL NOT NULL,
-    paid_amount REAL DEFAULT 0,
     status TEXT DEFAULT 'pending',
     settled_at TIMESTAMP,
     settlement_payment_method TEXT,
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
     updated_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
-);
-
-CREATE TABLE IF NOT EXISTS credit_payments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
-    credit_id INTEGER REFERENCES credits(id) ON DELETE CASCADE,
-    amount_paid REAL NOT NULL,
-    payment_method TEXT NOT NULL,
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
 );
 
 CREATE TABLE IF NOT EXISTS cancelled_orders (
@@ -349,10 +336,6 @@ CREATE TABLE IF NOT EXISTS expenses (
     payment_method TEXT DEFAULT 'Cash',
     description TEXT,
     created_by TEXT DEFAULT 'Owner',
-    vendor_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL,
-    staff_name TEXT,
-    salary_month TEXT,
-    expense_type TEXT DEFAULT 'general',
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
 );
 `;
@@ -453,37 +436,13 @@ export const initDb = async () => {
       console.log('[LOCAL DB] Fresh database initialized. Running DDL schema...');
     }
     
-    // Always execute DDL schema check to auto-create missing tables (cancel_orders, expenses, credit_payments, etc.)
+    // Always execute DDL schema check to auto-create missing tables (cancel_orders, expenses, etc.)
     db.run(DDL_SCHEMA);
     try {
       db.run("ALTER TABLE orders ADD COLUMN removed_items_json TEXT DEFAULT '[]';");
     } catch (e) {}
     try {
-      db.run("ALTER TABLE credits ADD COLUMN paid_amount REAL DEFAULT 0;");
-    } catch (e) {}
-    try {
-      db.run("UPDATE credits SET paid_amount = amount WHERE status = 'settled' AND (paid_amount IS NULL OR paid_amount = 0);");
-    } catch (e) {}
-    try {
-      db.run("ALTER TABLE menu_items ADD COLUMN is_pinned INTEGER DEFAULT 0;");
-    } catch (e) {}
-    try {
-      db.run("ALTER TABLE order_items ADD COLUMN custom_name TEXT;");
-    } catch (e) {}
-    try {
-      db.run("ALTER TABLE order_items ADD COLUMN custom_price REAL;");
-    } catch (e) {}
-    try {
-      db.run("ALTER TABLE expenses ADD COLUMN vendor_id INTEGER;");
-    } catch (e) {}
-    try {
-      db.run("ALTER TABLE expenses ADD COLUMN staff_name TEXT;");
-    } catch (e) {}
-    try {
-      db.run("ALTER TABLE expenses ADD COLUMN salary_month TEXT;");
-    } catch (e) {}
-    try {
-      db.run("ALTER TABLE expenses ADD COLUMN expense_type TEXT DEFAULT 'general';");
+      db.run("ALTER TABLE menu_items ADD COLUMN lang TEXT DEFAULT 'en';");
     } catch (e) {}
     saveDbFileNow();
     

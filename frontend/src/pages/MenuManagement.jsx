@@ -3,8 +3,11 @@ import api from '../services/api';
 import ConfirmModal from '../components/ConfirmModal';
 import { toast } from 'react-hot-toast';
 import { Plus, Utensils, Tag, IndianRupee, Layers, ListChecks, Trash2, Edit2, X, Check, Save, Search, UploadCloud, ChevronDown, ChevronUp } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 const MenuManagement = () => {
+  const { language, t } = useLanguage();
+  const [menuLang, setMenuLang] = useState(language || 'en');
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
   const [newCatName, setNewCatName] = useState('');
@@ -37,11 +40,15 @@ const MenuManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
-  const fetchData = async (page = 1, search = '') => {
+  useEffect(() => {
+    setMenuLang(language || 'en');
+  }, [language]);
+
+  const fetchData = async (page = 1, search = '', targetLang = menuLang) => {
     try {
       const [catRes, itemsRes] = await Promise.all([
         api.get('/menu/categories'),
-        api.get(`/menu/items?page=${page}&limit=10&search=${encodeURIComponent(search)}`)
+        api.get(`/menu/items?page=${page}&limit=10&search=${encodeURIComponent(search)}&lang=${targetLang}`)
       ]);
       setCategories(Array.isArray(catRes.data) ? catRes.data : []);
       const itemsData = itemsRes.data;
@@ -64,8 +71,8 @@ const MenuManagement = () => {
   };
 
   useEffect(() => {
-    fetchData(currentPage, searchTerm);
-  }, [currentPage, searchTerm]);
+    fetchData(currentPage, searchTerm, menuLang);
+  }, [currentPage, searchTerm, menuLang]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -106,11 +113,12 @@ const MenuManagement = () => {
         return;
       }
 
-      const loadingToast = toast.loading(`Importing ${importedItems.length} menu items...`);
+      const targetLangName = menuLang === 'mr' ? 'Marathi' : 'English';
+      const loadingToast = toast.loading(`Importing ${importedItems.length} items into ${targetLangName} menu...`);
       try {
-        const res = await api.post('/menu/items/bulk', { items: importedItems });
-        toast.success(res.data.message || `Successfully imported ${importedItems.length} items!`, { id: loadingToast });
-        fetchData(1, '');
+        const res = await api.post('/menu/items/bulk', { items: importedItems, lang: menuLang });
+        toast.success(res.data.message || `Successfully imported ${importedItems.length} ${targetLangName} menu items!`, { id: loadingToast });
+        fetchData(1, '', menuLang);
         setCurrentPage(1);
       } catch (err) {
         toast.error('Failed to import menu CSV', { id: loadingToast });
@@ -166,12 +174,12 @@ const MenuManagement = () => {
     e.preventDefault();
     if (!newItem.category_id) return toast.error('Please assign a category');
     try {
-      await api.post('/menu/items', newItem);
+      await api.post('/menu/items', { ...newItem, lang: menuLang });
       setNewItem({ name: '', price: '', category_id: '', description: '' });
-      fetchData(1, '');
+      fetchData(1, '', menuLang);
       setCurrentPage(1);
       setSearchTerm('');
-      toast.success('Menu item successfully added!');
+      toast.success(`Menu item added to ${menuLang === 'mr' ? 'Marathi' : 'English'} menu!`);
     } catch (err) {
       toast.error('Could not create item');
     }
@@ -185,7 +193,7 @@ const MenuManagement = () => {
       onConfirm: async () => {
         try {
           const res = await api.delete(`/menu/items/${id}`);
-          fetchData(currentPage, searchTerm);
+          fetchData(currentPage, searchTerm, menuLang);
           toast.success(res.data?.message || 'Item deleted');
           setConfirmModal({ ...confirmModal, isOpen: false });
         } catch (err) {
@@ -202,9 +210,9 @@ const MenuManagement = () => {
 
   const saveItemUpdate = async (id) => {
     try {
-      await api.put(`/menu/items/${id}`, editItemData);
+      await api.put(`/menu/items/${id}`, { ...editItemData, lang: menuLang });
       setEditingItemId(null);
-      fetchData(currentPage, searchTerm);
+      fetchData(currentPage, searchTerm, menuLang);
       toast.success('Item details updated');
     } catch (err) {
       toast.error('Update failed');
@@ -212,18 +220,19 @@ const MenuManagement = () => {
   };
 
   const deleteAllMenu = () => {
+    const targetLangName = menuLang === 'mr' ? 'Marathi' : 'English';
     setConfirmModal({
       isOpen: true,
-      title: 'Delete Entire Menu?',
-      message: 'This will permanently delete ALL categories and ALL menu items. Active tables will lose item references. This action is irreversible!',
+      title: `Delete Entire ${targetLangName} Menu?`,
+      message: `This will permanently delete all menu items in the ${targetLangName} menu. Active tables will lose item references. This action is irreversible!`,
       onConfirm: async () => {
-        const loadingToast = toast.loading('Deleting all menu categories and items...');
+        const loadingToast = toast.loading(`Deleting ${targetLangName} menu items...`);
         try {
-          await api.delete('/menu/purge-all');
-          fetchData(1, '');
+          await api.delete(`/menu/purge-all?lang=${menuLang}`);
+          fetchData(1, '', menuLang);
           setCurrentPage(1);
           setSearchTerm('');
-          toast.success('All menu items and categories successfully deleted', { id: loadingToast });
+          toast.success(`${targetLangName} menu items successfully deleted`, { id: loadingToast });
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
         } catch (err) {
           toast.error(err.response?.data?.message || 'Delete failed', { id: loadingToast });
@@ -232,9 +241,7 @@ const MenuManagement = () => {
     });
   };
 
-  // Smart paginator — shows: ‹ Prev  1  2  3  ...  n-1  n  Next ›
-  const SmartPagination = ({ currentPage, totalPages, onPageChange, activeColor = '#6366f1' }) => {
-    if (totalPages <= 1) return null;
+  const renderPagination = (activeColor = '#38bdf8') => {
     const getPages = () => {
       const pages = [];
       if (totalPages <= 7) {
@@ -255,31 +262,78 @@ const MenuManagement = () => {
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '24px', flexWrap: 'wrap' }}>
         <button
           disabled={currentPage === 1}
-          onClick={() => onPageChange(currentPage - 1)}
+          onClick={() => setCurrentPage(currentPage - 1)}
           style={{ ...btnBase, padding: '0 14px', backgroundColor: currentPage === 1 ? 'rgba(255,255,255,0.03)' : 'var(--bg-border)', color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === 1 ? 'default' : 'pointer' }}
-        >&#8249; Prev</button>
+        >&#8249; {t('prev', 'Prev')}</button>
         {getPages().map((p, i) =>
           p === '...' ? (
             <span key={`ellipsis-${i}`} style={{ color: 'var(--text-muted)', fontWeight: 800, padding: '0 4px' }}>...</span>
           ) : (
             <button
               key={p}
-              onClick={() => onPageChange(p)}
+              onClick={() => setCurrentPage(p)}
               style={{ ...btnBase, backgroundColor: currentPage === p ? activeColor : 'var(--bg-border)', color: currentPage === p ? 'white' : 'var(--text-secondary)', boxShadow: currentPage === p ? `0 4px 12px ${activeColor}55` : 'none' }}
             >{p}</button>
           )
         )}
         <button
           disabled={currentPage === totalPages}
-          onClick={() => onPageChange(currentPage + 1)}
+          onClick={() => setCurrentPage(currentPage + 1)}
           style={{ ...btnBase, padding: '0 14px', backgroundColor: currentPage === totalPages ? 'rgba(255,255,255,0.03)' : 'var(--bg-border)', color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === totalPages ? 'default' : 'pointer' }}
-        >Next &#8250;</button>
+        >{t('next', 'Next')} &#8250;</button>
       </div>
     );
   };
 
   return (
-    <div className="responsive-grid-12" style={{ width: '100%', maxWidth: '1400px' }}>
+    <div style={{ width: '100%', maxWidth: '1400px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      
+      {/* Dual Language Menu Tabs */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', backgroundColor: 'var(--bg-card)', padding: '12px 18px', borderRadius: '20px', border: '1px solid var(--border-rgba-05)' }}>
+        <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{t('active_menu_lang', 'Active Menu Language:')}</span>
+        <button
+          type="button"
+          onClick={() => setMenuLang('en')}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '12px',
+            border: menuLang === 'en' ? '2px solid #0ea5e9' : '1px solid var(--bg-border)',
+            backgroundColor: menuLang === 'en' ? 'rgba(14, 165, 233, 0.15)' : 'transparent',
+            color: menuLang === 'en' ? '#0ea5e9' : 'var(--text-secondary)',
+            fontWeight: 850,
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.2s'
+          }}
+        >
+          {t('english_menu', 'English Menu')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMenuLang('mr')}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '12px',
+            border: menuLang === 'mr' ? '2px solid #10b981' : '1px solid var(--bg-border)',
+            backgroundColor: menuLang === 'mr' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+            color: menuLang === 'mr' ? '#10b981' : 'var(--text-secondary)',
+            fontWeight: 850,
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.2s'
+          }}
+        >
+          {t('marathi_menu', 'Marathi Menu')}
+        </button>
+      </div>
+
+      <div className="responsive-grid-12" style={{ width: '100%' }}>
       
       {/* Category Management Column */}
       <div style={{ gridColumn: 'span 4', display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -294,14 +348,14 @@ const MenuManagement = () => {
                  <Layers size={22} style={{ color: '#818cf8', margin: 'auto' }} />
               </div>
               <div>
-                <h2 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Groups</h2>
+                <h2 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{t('menu_groups', 'Groups & Categories')}</h2>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700 }}>
-                  {categories.length} {categories.length === 1 ? 'Category' : 'Categories'} Configured
+                  {categories.length} {t('category_name', 'Categories')}
                 </span>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: '#818cf8', fontWeight: 800, fontSize: '13px' }}>
-              {isGroupsCardExpanded ? 'Collapse' : 'Expand & Manage'}
+              {isGroupsCardExpanded ? t('collapse', 'Collapse') : t('expand_manage', 'Expand & Manage')}
               {isGroupsCardExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </div>
           </div>
@@ -311,12 +365,12 @@ const MenuManagement = () => {
             <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <form onSubmit={addCategory} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <label style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>New Category Title</label>
+                  <label style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{t('category_name', 'New Category Title')}</label>
                   <div style={{ position: 'relative' }}>
                     <Tag style={{ position: 'absolute', top: '14px', left: '16px', color: 'var(--text-muted)' }} size={16} />
                     <input
                       type="text"
-                      placeholder="Category Title..."
+                      placeholder={t('category_name', 'Category Title...')}
                       style={{width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: 'var(--text-primary)', padding: '12px 16px 12px 40px', borderRadius: '14px', outline: 'none', fontSize: '14px', fontWeight: 600 }}
                       value={newCatName}
                       onChange={(e) => setNewCatName(e.target.value)}
@@ -325,15 +379,13 @@ const MenuManagement = () => {
                   </div>
                 </div>
                 <button type="submit" style={{width: '100%', backgroundColor: '#6366f1', color: '#ffffff', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '14px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                  <Plus size={18} strokeWidth={3} /> Add Category
+                  <Plus size={18} strokeWidth={3} /> {t('add_category', 'Add Category')}
                 </button>
               </form>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <h3 style={{ fontSize: '10px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.2em', borderBottom: '1px solid var(--bg-border)', paddingBottom: '8px', margin: 0 }}>Category Groups</h3>
+                <h3 style={{ fontSize: '10px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.2em', borderBottom: '1px solid var(--bg-border)', paddingBottom: '8px', margin: 0 }}>{t('menu_groups', 'Category Groups')}</h3>
                 {(categories || []).map(cat => {
-                  const categoryItems = (items || []).filter(i => String(i.category_id) === String(cat.id) || i.category_name?.toLowerCase() === cat.name?.toLowerCase());
-
                   return (
                     <div key={cat.id} style={{ backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -376,22 +428,22 @@ const MenuManagement = () => {
               <div style={{ width: '44px', height: '44px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                  <Utensils size={22} style={{ color: '#10b981' }} />
               </div>
-              <h2 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Add To Live Menu</h2>
+              <h2 style={{fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{menuLang === 'mr' ? t('create_marathi_menu', 'मराठी मेनू तयार करा') : t('add_to_live_menu', 'Add To Live Menu')}</h2>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-              <label style={{ backgroundColor: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: '160px', justifyContent: 'center', margin: 0 }}>
-                <UploadCloud size={18} /> Import CSV
+              <label style={{ backgroundColor: menuLang === 'mr' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(14, 165, 233, 0.1)', color: menuLang === 'mr' ? '#10b981' : '#0ea5e9', border: menuLang === 'mr' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(14, 165, 233, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: menuLang === 'mr' ? '210px' : '180px', justifyContent: 'center', margin: 0 }}>
+                <UploadCloud size={18} /> {menuLang === 'mr' ? t('import_marathi_csv', 'मराठी मेनू CSV अपलोड करा') : t('import_english_csv', 'Import English CSV')}
                 <input type="file" accept=".csv, text/csv, application/vnd.ms-excel, text/plain, text/comma-separated-values" style={{ display: 'none' }} onChange={handleFileUpload} />
               </label>
-              <button onClick={deleteAllMenu} type="button" style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: '160px', justifyContent: 'center' }}>
-                <Trash2 size={18} /> Delete All
+              <button onClick={deleteAllMenu} type="button" style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', width: menuLang === 'mr' ? '210px' : '180px', justifyContent: 'center' }}>
+                <Trash2 size={18} /> {menuLang === 'mr' ? t('delete_marathi_menu', 'मराठी मेनू डिलीट करा') : t('delete_english_menu', 'Delete English Menu')}
               </button>
             </div>
           </div>
 
           <form onSubmit={addItem} style={{ gap: '24px' }} className="responsive-grid-12">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 6' }}>
-              <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Dish Name</label>
+              <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('item_name', 'Dish Name')}</label>
               <input
                 type="text"
                 style={{width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: 'var(--text-primary)', padding: '14px 16px', borderRadius: '16px', outline: 'none', fontSize: '14px', fontWeight: 700 }}
@@ -401,7 +453,7 @@ const MenuManagement = () => {
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 6' }}>
-              <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Price (₹)</label>
+              <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('item_price', 'Price (₹)')}</label>
               <div style={{ position: 'relative' }}>
                 <IndianRupee style={{ position: 'absolute', top: '15px', left: '16px', color: 'var(--text-muted)' }} size={16} />
                 <input
@@ -414,20 +466,20 @@ const MenuManagement = () => {
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 6' }}>
-              <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Category</label>
+              <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('category_name', 'Category')}</label>
               <select
                 style={{width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: 'var(--text-primary)', padding: '14px 16px', borderRadius: '16px', outline: 'none', fontSize: '14px', fontWeight: 700 }}
                 value={newItem.category_id}
                 onChange={(e) => setNewItem({...newItem, category_id: e.target.value})}
               >
-                <option value="">Choose Alignment</option>
+                <option value="">{t('select_category', '-- Select Category --')}</option>
                 {(categories || []).map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.name.toUpperCase()}</option>
                 ))}
               </select>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 6' }}>
-              <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Description</label>
+              <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('description_label', 'Description')}</label>
               <input
                 type="text"
                 style={{ width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: 'var(--text-secondary)', padding: '14px 16px', borderRadius: '16px', outline: 'none', fontSize: '14px' }}
@@ -436,7 +488,7 @@ const MenuManagement = () => {
               />
             </div>
             <button type="submit" style={{ gridColumn: 'span 12', backgroundColor: '#10b981', color: 'white', border: 'none', padding: '18px', borderRadius: '20px', fontSize: '16px', fontWeight: 950, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-              <Plus size={22} strokeWidth={4} /> Publish To Menu
+              <Plus size={22} strokeWidth={4} /> {t('add_item', 'Publish To Menu')}
             </button>
           </form>
         </div>
@@ -446,14 +498,14 @@ const MenuManagement = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                <ListChecks size={20} style={{ color: 'var(--text-muted)' }} />
-               <h3 style={{ fontSize: '14px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>Current Menu Catalog</h3>
+               <h3 style={{ fontSize: '14px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>{t('menu_management_title', 'Current Menu Catalog')}</h3>
             </div>
             
             <div style={{ position: 'relative', width: '320px', maxWidth: '100%' }}>
                <Search style={{ position: 'absolute', top: '12px', left: '16px', color: 'var(--text-muted)' }} size={16} />
                <input
                  type="text"
-                 placeholder="Search dishes or groups..."
+                 placeholder={t('search_menu', 'Search dishes or groups...')}
                  value={searchTerm}
                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                  style={{width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: 'var(--text-primary)', padding: '10px 16px 10px 42px', borderRadius: '12px', outline: 'none', fontSize: '13px', fontWeight: 700 }}
@@ -488,11 +540,11 @@ const MenuManagement = () => {
                    <div style={{ flex: 1, padding: '0 16px', minWidth: '220px' }}>
                       {editingItemId === item.id ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <label style={{ fontSize: '10px', fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item Description / Details</label>
+                          <label style={{ fontSize: '10px', fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('item_description_details', 'Item Description / Details')}</label>
                           <textarea 
                             value={editItemData.description} 
                             onChange={(e) => setEditItemData({...editItemData, description: e.target.value})} 
-                            placeholder="Enter dish description, ingredients, or notes..."
+                            placeholder={t('enter_dish_description', 'Enter dish description, ingredients, or notes...')}
                             style={{ 
                               width: '100%', 
                               background: 'var(--bg-base)', 
@@ -510,7 +562,7 @@ const MenuManagement = () => {
                           />
                         </div>
                       ) : (
-                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.4' }}>{item.description || 'No description provided'}</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.4' }}>{item.description || t('no_description', 'No description provided')}</p>
                       )}
                    </div>
                 </div>
@@ -546,11 +598,7 @@ const MenuManagement = () => {
           </div>
 
           {/* Pagination Bar */}
-          <SmartPagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={(p) => setCurrentPage(p)}
-          />
+          {renderPagination('#38bdf8')}
         </div>
       </div>
 
@@ -561,6 +609,7 @@ const MenuManagement = () => {
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
       />
+    </div>
     </div>
   );
 };

@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
-import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, ChevronsDown, Ticket, Ban, Edit2, Pin } from 'lucide-react';
+import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, ChevronsDown, Ticket, Ban, Edit2 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import SwapModal from './SwapModal';
 import { onUpdate } from '../services/socketService';
 
 const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) => {
   if (!table) return null;
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   const [categories, setCategories] = useState(initialMenu?.categories || []);
   const [allItems, setAllItems] = useState([]);
@@ -29,11 +31,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
         items: orderItems
       });
       setOrderItems([]);
-      toast.success('Order cancelled and table cleared!');
+      toast.success(t('toast_order_cancelled_cleared', 'Order cancelled and table cleared!'));
       setShowCancelConfirmModal(false);
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to cancel order');
+      toast.error(err.response?.data?.message || t('toast_failed_cancel_order', 'Failed to cancel order'));
     }
   };
   const [totalPages, setTotalPages] = useState(1);
@@ -56,9 +58,10 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [partyType, setPartyType] = useState('customer'); // 'customer' or 'vendor'
   const [customerName, setCustomerName] = useState('');
   const [selectedVendorId, setSelectedVendorId] = useState('');
+  const [customerNameError, setCustomerNameError] = useState('');
+  const [customerPhoneError, setCustomerPhoneError] = useState('');
+  const [vendorError, setVendorError] = useState('');
   const [vendors, setVendors] = useState([]);
-  const [savedCustomers, setSavedCustomers] = useState([]);
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [customDeliveryPartners, setCustomDeliveryPartners] = useState(() => {
     try {
@@ -72,6 +75,26 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [partnerToDelete, setPartnerToDelete] = useState(null);
   const [partnerToRename, setPartnerToRename] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+
+  const translateFloorName = (floorName) => {
+    if (!floorName) return '';
+    if (language === 'mr') {
+      if (floorName.toLowerCase().startsWith('floor ')) {
+        const num = floorName.replace(/floor\s*/i, '');
+        return `मजला ${num}`;
+      }
+      const floorMap = {
+        'Main Hall': 'मुख्य हॉल',
+        'Party Hall': 'पार्टी हॉल',
+        'Rooftop': 'रूफटॉप',
+        'Garden': 'गार्डन',
+        'Family Section': 'फॅमिली विभाग',
+        'Counter': 'काउंटर'
+      };
+      return floorMap[floorName] || floorName;
+    }
+    return floorName;
+  };
 
   const handleAddDeliveryPartner = (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -99,7 +122,6 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const isTokenCounter = String(table?.table_number || table?.id || '').toLowerCase().includes('token');
   const isParcelCounter = table?.table_number === 'Parcel Counter';
   const cancelOrdersEnabled = user?.cancelOrdersEnabled === true;
-  const settleWithoutPrintEnabledState = user?.settleWithoutPrintEnabled === true;
   const isWaiterAccessEnabled = user?.role === 'waiter' || user?.waiterModuleEnabled || localStorage.getItem('cfg_waiter_module') === 'true';
   const showKotButton = (user?.simpleKotEnabled || user?.kotEnabled || isWaiterAccessEnabled) && !isTokenCounter;
 
@@ -111,19 +133,15 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
   useEffect(() => {
     if (selectedPaymentMethod === 'credit') {
-      const fetchCreditData = async () => {
+      const fetchVendors = async () => {
         try {
-          const [vendorRes, customerRes] = await Promise.all([
-            api.get('/credit/vendors').catch(() => ({ data: [] })),
-            api.get('/credit/customers').catch(() => ({ data: [] }))
-          ]);
-          setVendors(vendorRes.data || []);
-          setSavedCustomers(customerRes.data || []);
+          const res = await api.get('/credit/vendors');
+          setVendors(res.data || []);
         } catch (err) {
-          toast.error('Failed to load credit options');
+          toast.error('Failed to load vendors');
         }
       };
-      fetchCreditData();
+      fetchVendors();
     }
   }, [selectedPaymentMethod]);
 
@@ -208,10 +226,6 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     }
 
     filtered.sort((a, b) => {
-      const aPinned = a.is_pinned === 1 ? 1 : 0;
-      const bPinned = b.is_pinned === 1 ? 1 : 0;
-      if (aPinned !== bPinned) return bPinned - aPinned;
-
       const aInOrder = orderItems.some(i => i.menu_item_id === a.id);
       const bInOrder = orderItems.some(i => i.menu_item_id === b.id);
       if (aInOrder && !bInOrder) return -1;
@@ -228,39 +242,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     } else {
       setSuggestions([]);
     }
-  }, [allItems, currentPage, selectedCategory, searchQuery, orderItems]);
-
-  const togglePinItem = async (e, item) => {
-    e.stopPropagation();
-    const newPin = item.is_pinned === 1 ? 0 : 1;
-    try {
-      await api.put(`/menu/items/${item.id}/pin`, { is_pinned: newPin });
-      setAllItems(prev => prev.map(i => i.id === item.id ? { ...i, is_pinned: newPin } : i));
-      toast.success(newPin ? `Pinned ${item.name} to top` : `Unpinned ${item.name}`);
-    } catch (err) {
-      toast.error('Failed to update pin status');
-    }
-  };
-
-  const handleAddManualItem = async () => {
-    try {
-      const res = await api.post(`/tables/${table.id}/order/manual-item`, { name: 'Other', price: 0 });
-      setOrderItems(res.data?.items || []);
-      toast.success('Manual item added');
-    } catch (err) {
-      toast.error('Failed to add manual item');
-    }
-  };
-
-  const updateManualItem = async (itemId, customName, customPrice) => {
-    const parsedPrice = isNaN(parseFloat(customPrice)) ? 0 : parseFloat(customPrice);
-    setOrderItems(prev => prev.map(i => i.id === itemId ? { ...i, name: customName, price: parsedPrice, custom_name: customName, custom_price: parsedPrice } : i));
-    try {
-      await api.put(`/tables/${table.id}/order/items/${itemId}`, { custom_name: customName, custom_price: parsedPrice });
-    } catch (err) {
-      console.error('Failed to update manual item:', err);
-    }
-  };
+  }, [allItems, currentPage, selectedCategory, searchQuery]);
 
   const addToOrder = async (item) => {
     // Optimistic Update
@@ -325,13 +307,13 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     try {
       const res = await api.delete(`/tables/${table.id}/order/items/${itemId}`);
       if (res.data.order_deleted) {
-         toast.success('Table Cleared', { icon: '✨' });
+         toast.success(t('toast_table_cleared', 'Table Cleared'), { icon: '✨' });
          onClose();
       }
     } catch (err) {
       setOrderItems(originalItems);
       if (err.response?.status !== 404) {
-        toast.error('Removal failed');
+        toast.error(t('toast_removal_failed', 'Removal failed'));
       }
     } finally {
       setSyncingItems(prev => {
@@ -358,11 +340,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
         // Update local orderItems state
         setOrderItems(orderItems.map(i => i.id === orderItemId ? { ...i, price: parseFloat(editPriceValue) } : i));
         
-        toast.success('Price updated in master menu');
+        toast.success(t('toast_price_updated_master', 'Price updated in master menu'));
       }
       setEditingPriceId(null);
     } catch (err) {
-      toast.error('Failed to update price');
+      toast.error(t('toast_failed_update_price', 'Failed to update price'));
       setEditingPriceId(null);
     }
   };
@@ -372,18 +354,18 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       const res = await api.post(`/tables/${table.id}/bill`, { discount_percentage: discount });
       setBillData(res.data);
       setShowBill(true);
-      toast.success('Bill finalized!', {
+      toast.success(t('toast_bill_finalized', 'Bill finalized!'), {
         icon: '🧾',
         style: { borderRadius: '16px', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 900 }
       });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Billing failed');
+      toast.error(err.response?.data?.message || t('toast_billing_failed', 'Billing failed'));
     }
   };
 
   const sendToKitchen = async () => {
-    if (orderItems.length === 0) return toast.error('No items to send');
-    const t = toast.loading('Sending KOT to kitchen...');
+    if (orderItems.length === 0) return toast.error(t('toast_no_items_to_send', 'No items to send'));
+    const tKotLoading = toast.loading(t('toast_sending_kot', 'Sending KOT to kitchen...'));
     try {
       const res = await api.post(`/tables/${table.id}/order/kot`, {
         waiter: user?.role === 'waiter' ? user.name : null,
@@ -391,11 +373,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       });
       
       if (res.data && res.data.success === false) {
-          toast.error(res.data.message || 'No new item added to cart', { id: t });
+          toast.error(res.data.message || 'No new item added to cart', { id: tKotLoading });
           return;
       }
       
-      toast.success('KOT sent to kitchen successfully!', { id: t });
+      toast.success(t('toast_kot_sent_kitchen', 'KOT Sent to Kitchen!'), { id: tKotLoading });
       
       if (table.table_number !== 'Parcel Counter') {
         onClose();
@@ -409,8 +391,35 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       toast.error(errorMsg, { id: t });
     }
   };
+  const validateCreditDetails = () => {
+    let isValid = true;
+    setCustomerNameError('');
+    setCustomerPhoneError('');
+    setVendorError('');
+
+    if (selectedPaymentMethod === 'credit') {
+      if (partyType === 'customer') {
+        if (!customerName.trim()) {
+          setCustomerNameError(t('please_fill_out_this_field', 'Please fill out this field'));
+          isValid = false;
+        }
+        if (!customerPhone.trim()) {
+          setCustomerPhoneError(t('please_fill_out_this_field', 'Please fill out this field'));
+          isValid = false;
+        }
+      } else if (partyType === 'vendor') {
+        if (!selectedVendorId) {
+          setVendorError(t('please_fill_out_this_field', 'Please fill out this field'));
+          isValid = false;
+        }
+      }
+    }
+    return isValid;
+  };
+
   const printToken = async () => {
     if (!billData) return;
+    if (!validateCreditDetails()) return;
     try {
       await api.post(`/bills/${billData.id}/print`, { paymentMethod: selectedPaymentMethod, isToken: true });
       toast.success('Token ticket sent to printer!');
@@ -422,9 +431,10 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
   const printBill = async () => {
     if (!billData) return;
+    if (!validateCreditDetails()) return;
     try {
       await api.post(`/bills/${billData.id}/print`, { paymentMethod: selectedPaymentMethod });
-      toast.success('Bill finalized!');
+      toast.success(t('toast_bill_finalized', 'Bill finalized!'));
       if (!billData.is_paid) {
         await confirmPayment(selectedPaymentMethod);
       }
@@ -434,7 +444,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
         if (!billData.is_paid) {
           await confirmPayment(selectedPaymentMethod);
         } else {
-          toast.success('Bill finalized!');
+          toast.success(t('toast_bill_finalized', 'Bill finalized!'));
         }
       } catch (confirmErr) {
         toast.error(confirmErr.response?.data?.message || 'Settlement failed');
@@ -444,11 +454,12 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
   const settleWithoutPrint = async () => {
     if (!billData) return;
+    if (!validateCreditDetails()) return;
     try {
       if (!billData.is_paid) {
         await confirmPayment(selectedPaymentMethod);
       } else {
-        toast.success('Transaction settled!');
+        toast.success(t('toast_payment_settled_success', 'Transaction settled!'));
       }
     } catch (err) {
       console.error('Settlement failed:', err);
@@ -471,17 +482,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const confirmPayment = async (method = 'upi') => {
     try {
        if (method === 'credit') {
-          if (partyType === 'customer') {
-            if (!customerPhone.trim()) {
-              return toast.error('Customer Mobile Number is required for credit billing');
-            }
-            if (!customerName.trim()) {
-              return toast.error('Customer Name is required');
-            }
-          }
-          if (partyType === 'vendor' && !selectedVendorId) {
-            return toast.error('Please select a vendor');
-          }
+          if (!validateCreditDetails()) return;
           const payload = {
             bill_id: billData.id,
             party_type: partyType,
@@ -493,7 +494,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
           await api.post('/credit/save', payload);
           setBillData(prev => ({ ...prev, is_paid: false, payment_method: 'credit' }));
           setIsSuccess(true);
-          toast.success('Credit Bill Recorded!');
+          toast.success(t('toast_payment_settled_success', 'Credit Bill Recorded!'));
           setTimeout(() => {
              onClose();
           }, 1800);
@@ -502,7 +503,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
        await api.put(`/tables/bill/${billData.id}/pay`, { method });
        setBillData(prev => ({ ...prev, is_paid: true }));
        setIsSuccess(true);
-       toast.success('Transaction Completed');
+       toast.success(t('toast_payment_settled_success', 'Transaction Completed'));
        
        setTimeout(() => {
           onClose();
@@ -608,12 +609,14 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
             <div>
               <h2 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {String(table.table_number || '').toLowerCase().includes('parcel') 
-                  ? 'Parcel Counter Summary' 
+                  ? t('parcel_counter_summary', 'Parcel Counter Summary') 
                   : String(table.table_number || '').toLowerCase().includes('token') 
-                    ? 'Token Counter Summary' 
+                    ? t('token_counter_summary', 'Token Counter Summary') 
                     : String(table.table_number || '').toLowerCase().includes('online')
-                      ? (selectedDeliveryPartner ? `${selectedDeliveryPartner.toUpperCase()} Order` : 'Online Order Summary')
-                      : table.floor ? `Table ${table.table_number || table.id} (${table.floor})` : `Table ${table.table_number || table.id}`
+                      ? (selectedDeliveryPartner ? `${selectedDeliveryPartner.toUpperCase()} Order` : t('online_order_summary', 'Online Order Summary'))
+                      : table.floor 
+                        ? `${t('table_title', 'Table')} ${table.table_number || table.id} (${translateFloorName(table.floor)})` 
+                        : `${t('table_title', 'Table')} ${table.table_number || table.id}`
                 }
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
@@ -660,7 +663,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 </div>
                 <input 
                    type="text" 
-                   placeholder="Search Menu..."
+                   placeholder={t('search_menu', 'Search Menu...')}
                    value={searchQuery}
                    onChange={handleSearchChange}
                    style={{
@@ -726,30 +729,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               </div>
 
               {/* Horizontal Category Bar */}
-              <div className="category-bar" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px', alignItems: 'center' }}>
-                <button 
-                  type="button"
-                  onClick={handleAddManualItem}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '20px',
-                    border: '1px solid #10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                    color: '#10b981',
-                    fontWeight: 900,
-                    fontSize: '11px',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    letterSpacing: '0.03em',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  <Plus size={14} /> MANUAL ITEM
-                </button>
-
+              <div className="category-bar" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
                 <button 
                   onClick={() => { setSelectedCategory('all'); setCurrentPage(1); }} 
                   style={{
@@ -766,7 +746,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     transition: 'all 0.15s'
                   }}
                 >
-                  ALL ITEMS
+                  {t('all_items', 'ALL ITEMS')}
                 </button>
                 {categories.map(cat => (
                   <button 
@@ -816,36 +796,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     }}
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, paddingRight: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <button 
-                          type="button"
-                          title={item.is_pinned === 1 ? "Unpin Item" : "Pin Item"}
-                          onClick={(e) => togglePinItem(e, item)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: '4px',
-                            borderRadius: '6px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: item.is_pinned === 1 ? '#f59e0b' : 'var(--text-muted)',
-                            backgroundColor: item.is_pinned === 1 ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                            transition: 'all 0.15s'
-                          }}
-                        >
-                          <Pin size={15} fill={item.is_pinned === 1 ? '#f59e0b' : 'none'} color={item.is_pinned === 1 ? '#f59e0b' : 'var(--text-muted)'} />
-                        </button>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{item.name}</span>
                         <span style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: 800, backgroundColor: 'var(--bg-base)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
                           {item.category_name || 'Item'}
                         </span>
-                        {item.is_pinned === 1 && (
-                          <span style={{ fontSize: '9px', color: '#f59e0b', fontWeight: 900, backgroundColor: 'rgba(245, 158, 11, 0.15)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
-                            PINNED
-                          </span>
-                        )}
                       </div>
                       {item.description && (
                         <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontWeight: 500 }}>
@@ -874,7 +829,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                             gap: '4px'
                           }}
                         >
-                          <Plus size={14} /> ADD
+                          <Plus size={14} /> {t('add_btn', 'ADD')}
                         </button>
                       ) : (
                         <div 
@@ -931,7 +886,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '16px', flexWrap: 'wrap' }}>
                     <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}
                       style={{ ...btn, padding: '0 10px', backgroundColor: currentPage === 1 ? 'var(--border-rgba-05)' : 'var(--border-rgba-1)', color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === 1 ? 'default' : 'pointer' }}
-                    >&#8249; Prev</button>
+                    >&#8249; {t('prev', 'Prev')}</button>
                     {getPages().map((p, i) => p === '...' ? (
                       <span key={`e${i}`} style={{ color: 'var(--text-muted)', fontWeight: 800, padding: '0 4px' }}>...</span>
                     ) : (
@@ -941,7 +896,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     ))}
                     <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}
                       style={{ ...btn, padding: '0 10px', backgroundColor: currentPage === totalPages ? 'var(--border-rgba-05)' : 'var(--border-rgba-1)', color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-secondary)', cursor: currentPage === totalPages ? 'default' : 'pointer' }}
-                    >Next &#8250;</button>
+                    >{t('next', 'Next')} &#8250;</button>
                   </div>
                 );
               })()}
@@ -974,7 +929,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '10px', fontWeight: 800, color: 'rgba(255, 255, 255, 0.8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    {orderItems.reduce((acc, i) => acc + i.quantity, 0)} {orderItems.reduce((acc, i) => acc + i.quantity, 0) === 1 ? 'Item' : 'Items'} Added
+                    {orderItems.reduce((acc, i) => acc + i.quantity, 0)} {t('items_added', 'Items Added')}
                   </span>
                   <span style={{ fontSize: '18px', fontWeight: 1000, color: '#ffffff' }}>
                     ₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}
@@ -983,7 +938,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(255, 255, 255, 0.25)', padding: '8px 14px', borderRadius: '12px', color: '#ffffff', fontWeight: 900, fontSize: '12px' }}>
-                <span>VIEW CART</span>
+                <span>{t('view_cart', 'VIEW CART')}</span>
                 <ChevronUp size={16} />
               </div>
             </div>
@@ -1009,25 +964,25 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 style={{
                   width: '100%',
                   height: '90vh',
-                  backgroundColor: 'var(--bg-base)',
+                  backgroundColor: '#070c18',
                   borderTopLeftRadius: '24px',
                   borderTopRightRadius: '24px',
                   display: 'flex',
                   flexDirection: 'column',
                   overflow: 'hidden',
                   boxShadow: '0 -20px 50px rgba(0,0,0,0.8)',
-                  border: '1px solid var(--border-color)'
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
                 }}
               >
                 {/* Drawer Header */}
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'var(--bg-card)' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#0f172a' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Receipt size={16} color="#0ea5e9" />
-                    <h3 style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Active Selection ({orderItems.length})</h3>
+                    <h3 style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff', margin: 0 }}>{t('active_selection', 'Active Selection')} ({orderItems.length})</h3>
                   </div>
                   <button 
                     onClick={() => setIsMobileCartOpen(false)}
-                    style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'var(--border-rgba-05)', border: 'none', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', border: 'none', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                   >
                     <ChevronDown size={16} />
                   </button>
@@ -1035,70 +990,26 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
                 {/* Drawer Cart List - Compact to fit 6+ items easily */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {[...orderItems].sort((a, b) => (!a.menu_item_id ? 1 : 0) - (!b.menu_item_id ? 1 : 0)).map(item => (
-                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                  {orderItems.map(item => (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'rgba(15, 23, 42, 0.9)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
-                        {!item.menu_item_id ? (
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <input 
-                              type="text" 
-                              value={item.name} 
-                              onChange={(e) => updateManualItem(item.id, e.target.value, item.price)}
-                              placeholder="Item Name"
-                              style={{
-                                padding: '4px 6px',
-                                borderRadius: '6px',
-                                border: '1px solid var(--border-color)',
-                                backgroundColor: 'var(--bg-base)',
-                                color: 'var(--text-primary)',
-                                fontWeight: 800,
-                                fontSize: '12px',
-                                width: '100px',
-                                outline: 'none'
-                              }}
-                            />
-                            <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-primary)', fontWeight: 900, fontSize: '12px' }}>
-                              <span>₹</span>
-                              <input 
-                                type="number" 
-                                value={item.price === 0 ? '' : item.price} 
-                                onChange={(e) => updateManualItem(item.id, item.name, e.target.value)}
-                                placeholder="0"
-                                style={{
-                                  padding: '4px 4px',
-                                  borderRadius: '6px',
-                                  border: '1px solid var(--border-color)',
-                                  backgroundColor: 'var(--bg-base)',
-                                  color: 'var(--text-primary)',
-                                  fontWeight: 900,
-                                  fontSize: '12px',
-                                  width: '55px',
-                                  outline: 'none'
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '13px', wordBreak: 'break-word' }}>{item.name}</div>
-                            <div style={{ color: 'var(--text-primary)', fontSize: '11px', fontWeight: 800, marginTop: '1px' }}>
-                               ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'var(--text-muted)', fontSize: '9px' }}>(₹{Math.round(item.price)} each)</span>}
-                            </div>
-                          </>
-                        )}
+                        <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', wordBreak: 'break-word' }}>{item.name}</div>
+                        <div style={{ color: '#10b981', fontSize: '11px', fontWeight: 800, marginTop: '1px' }}>
+                           ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '9px' }}>(₹{Math.round(item.price)} each)</span>}
+                        </div>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <button 
-                          onClick={() => updateQuantity(item.id, -1, item.menu_item_id)} 
-                          style={{ border: 'none', width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'var(--border-rgba-05)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={() => updateQuantity(item.id, -1)} 
+                          style={{ border: 'none', width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                           <Minus size={11} />
                         </button>
-                        <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '13px', minWidth: '14px', textAlign: 'center' }}>{item.quantity}</span>
+                        <span style={{ color: '#ffffff', fontWeight: 900, fontSize: '13px', minWidth: '14px', textAlign: 'center' }}>{item.quantity}</span>
                         <button 
-                          onClick={() => updateQuantity(item.id, 1, item.menu_item_id)} 
-                          style={{ border: 'none', width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'var(--border-rgba-05)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={() => updateQuantity(item.id, 1)} 
+                          style={{ border: 'none', width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                           <Plus size={11} />
                         </button>
@@ -1108,28 +1019,28 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 </div>
 
                 {/* Drawer Cart Footer - Compact Bottom Section */}
-                <div style={{ padding: '10px 16px', backgroundColor: 'var(--bg-card)', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ padding: '10px 16px', backgroundColor: '#0f172a', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>LOYALTY DISCOUNT (%)</span>
+                    <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>{t('loyalty_discount', 'LOYALTY DISCOUNT (%)')}</span>
                     <input 
                        type="number" 
                        value={discount} 
                        onChange={e => setDiscount(Math.max(0, Math.min(100, e.target.value)))} 
-                       style={{ width: '40px', background: 'none', border: 'none', borderBottom: '2px solid #0ea5e9', color: 'var(--text-primary)', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '12px' }} 
+                       style={{ width: '40px', background: 'none', border: 'none', borderBottom: '2px solid #0ea5e9', color: '#ffffff', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '12px' }} 
                     />
                   </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)' }}>Final Due</span>
-                    <span style={{ color: 'var(--text-primary)', fontSize: '18px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
+                    <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>{t('final_due', 'Final Due')}</span>
+                    <span style={{ color: '#10b981', fontSize: '18px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
                   </div>
 
                   {showKotButton ? (
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button disabled={orderItems.length === 0} onClick={sendToKitchen} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>PRINT KOT</button>
-                      <button disabled={orderItems.length === 0} onClick={generateBill} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>SETTLE BILL</button>
+                      <button disabled={orderItems.length === 0} onClick={sendToKitchen} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>{t('print_kot', 'PRINT KOT')}</button>
+                      <button disabled={orderItems.length === 0} onClick={generateBill} style={{ flex: 1, padding: '11px 6px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '12px', cursor: 'pointer' }}>{t('settle_bill', 'SETTLE BILL')}</button>
                     </div>
                   ) : (
-                    <button disabled={orderItems.length === 0} onClick={generateBill} style={{ width: '100%', padding: '11px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '13px', cursor: 'pointer' }}>SETTLE TRANSACTION</button>
+                    <button disabled={orderItems.length === 0} onClick={generateBill} style={{ width: '100%', padding: '11px', borderRadius: '12px', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', fontWeight: 900, fontSize: '13px', cursor: 'pointer' }}>{t('settle_transaction', 'SETTLE TRANSACTION')}</button>
                   )}
 
                   {(cancelOrdersEnabled && (table.active_order_id || orderItems.length > 0)) && (
@@ -1138,91 +1049,49 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                       onClick={() => setShowCancelConfirmModal(true)} 
                       style={{ width: '100%', padding: '11px', borderRadius: '12px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 900, fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '6px' }}
                     >
-                      <Ban size={14} /> CANCEL ORDER / CLEAR TABLE
+                      <Ban size={15} /> {t('cancel_order', 'CANCEL ORDER / CLEAR TABLE')}
                     </button>
                   )}
-                </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Right Panel: Desktop Active Selection Cart */}
+        {/* Right Panel: Desktop Active Selection Cart */}
           {!isMobile && (
-            <div className="order-modal-cart" style={{ width: '400px', backgroundColor: 'var(--bg-base)', display: 'flex', flexDirection: 'column' }}>
+            <div className="order-modal-cart" style={{ width: '400px', backgroundColor: 'var(--bg-base)', display: 'flex', flexDirection: 'column', height: '100%' }}>
               
               {/* Active Selection Header */}
-              <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                 <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'rgba(14, 165, 233, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9' }}>
-                    <Receipt size={16} />
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                 <div style={{ width: '26px', height: '26px', borderRadius: '8px', backgroundColor: 'rgba(14, 165, 233, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9' }}>
+                    <Receipt size={15} />
                  </div>
-                 <h3 style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Active Selection</h3>
+                 <h3 style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
+                   {t('active_selection', 'Active Selection')} ({orderItems.length})
+                 </h3>
               </div>
  
               {/* Cart Items List */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px', minHeight: 0 }}>
                 {orderItems.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '13px', fontStyle: 'italic' }}>
+                  <div style={{ textAlign: 'center', padding: '30px 20px', color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic' }}>
                     No items selected yet. Tap items on the left to add.
                   </div>
                 ) : (
-                  [...orderItems].sort((a, b) => (!a.menu_item_id ? 1 : 0) - (!b.menu_item_id ? 1 : 0)).map(item => (
-                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', backgroundColor: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
-                      <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
-                        {!item.menu_item_id ? (
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <input 
-                              type="text" 
-                              value={item.name} 
-                              onChange={(e) => updateManualItem(item.id, e.target.value, item.price)}
-                              placeholder="Item Name"
-                              style={{
-                                padding: '4px 8px',
-                                borderRadius: '8px',
-                                border: '1px solid var(--border-color)',
-                                backgroundColor: 'var(--bg-base)',
-                                color: 'var(--text-primary)',
-                                fontWeight: 800,
-                                fontSize: '13px',
-                                width: '120px',
-                                outline: 'none'
-                              }}
-                            />
-                            <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-primary)', fontWeight: 900, fontSize: '13px' }}>
-                              <span>₹</span>
-                              <input 
-                                type="number" 
-                                value={item.price === 0 ? '' : item.price} 
-                                onChange={(e) => updateManualItem(item.id, item.name, e.target.value)}
-                                placeholder="0"
-                                style={{
-                                  padding: '4px 6px',
-                                  borderRadius: '8px',
-                                  border: '1px solid var(--border-color)',
-                                  backgroundColor: 'var(--bg-base)',
-                                  color: 'var(--text-primary)',
-                                  fontWeight: 900,
-                                  fontSize: '13px',
-                                  width: '60px',
-                                  outline: 'none'
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px', wordBreak: 'break-word' }}>{item.name}</div>
-                            <div style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: 900, marginTop: '2px' }}>
-                              ₹{item.price}
-                            </div>
-                          </>
-                        )}
+                  orderItems.map(item => (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
+                        <div style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                        <div style={{ color: '#10b981', fontSize: '12px', fontWeight: 900, marginTop: '1px' }}>
+                          ₹{item.price}
+                        </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-base)', borderRadius: '12px', padding: '4px', border: '1px solid var(--border-color)' }}>
-                          <button onClick={() => updateQuantity(item.id, -1, item.menu_item_id)} style={{ width: '28px', height: '28px', border: 'none', backgroundColor: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={14} /></button>
-                          <span style={{ width: '28px', textAlign: 'center', fontWeight: 900, color: 'var(--text-primary)', fontSize: '14px' }}>{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, 1, item.menu_item_id)} style={{ width: '28px', height: '28px', border: 'none', backgroundColor: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={14} /></button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-base)', borderRadius: '10px', padding: '2px', border: '1px solid var(--border-color)' }}>
+                          <button onClick={() => updateQuantity(item.id, -1, item.menu_item_id)} style={{ width: '24px', height: '24px', border: 'none', backgroundColor: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={12} /></button>
+                          <span style={{ width: '24px', textAlign: 'center', fontWeight: 900, color: 'var(--text-primary)', fontSize: '13px' }}>{item.quantity}</span>
+                          <button onClick={() => updateQuantity(item.id, 1, item.menu_item_id)} style={{ width: '24px', height: '24px', border: 'none', backgroundColor: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={12} /></button>
                         </div>
                       </div>
                     </div>
@@ -1231,75 +1100,77 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               </div>
 
               {/* Desktop Active Selection Actions Footer */}
-              <div style={{ padding: '20px', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700 }}>Subtotal</span>
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '15px' }}>₹{orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>{t('subtotal', 'Subtotal')}</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px' }}>₹{orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</span>
                 </div>
                 
                 {Boolean(user?.gst_percentage) && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700 }}>GST ({user.gst_percentage}%)</span>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '15px' }}>₹{(orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (user.gst_percentage / 100)).toFixed(2)}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>{t('gst', 'GST')} ({user.gst_percentage}%)</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px' }}>₹{(orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (user.gst_percentage / 100)).toFixed(2)}</span>
                   </div>
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 800 }}>DISCOUNT (%)</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 800 }}>{t('loyalty_discount', 'DISCOUNT (%)')}</span>
                   <input 
                     type="number" 
                     value={discount} 
                     onChange={e => setDiscount(e.target.value === '' ? '' : Math.max(0, Math.min(100, e.target.value)))} 
-                    style={{ width: '50px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '13px', borderRadius: '6px', padding: '2px 4px' }} 
+                    style={{ width: '45px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '12px', borderRadius: '6px', padding: '2px 4px' }} 
                   />
                 </div>
 
                 <div style={{ height: '1px', backgroundColor: 'var(--border-color)' }}></div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-primary)' }}>Grand Total</span>
-                  <span style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
+                  <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)' }}>{t('final_due', 'Grand Total')}</span>
+                  <span style={{ color: '#10b981', fontSize: '18px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
                 </div>
 
                 {showKotButton ? (
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     <button 
                       disabled={orderItems.length === 0} 
                       onClick={sendToKitchen} 
                       style={{ 
-                        flex: 1, 
-                        padding: '14px', 
-                        borderRadius: '14px', 
+                        padding: '10px 6px', 
+                        borderRadius: '10px', 
                         backgroundColor: '#f59e0b', 
                         color: '#ffffff', 
                         border: 'none', 
                         fontWeight: 900, 
-                        fontSize: '13px', 
+                        fontSize: '11px', 
                         cursor: 'pointer', 
                         opacity: orderItems.length === 0 ? 0.3 : 1, 
-                        boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)' 
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
                       }}
                     >
-                      PRINT KOT
+                      {t('print_kot', 'PRINT KOT')}
                     </button>
                     <button 
                       disabled={orderItems.length === 0} 
                       onClick={generateBill} 
                       style={{ 
-                        flex: 1, 
-                        padding: '14px', 
-                        borderRadius: '14px', 
+                        padding: '10px 6px', 
+                        borderRadius: '10px', 
                         backgroundColor: '#0ea5e9', 
                         color: '#ffffff', 
                         border: 'none', 
                         fontWeight: 900, 
-                        fontSize: '13px', 
+                        fontSize: '11px', 
                         cursor: 'pointer', 
                         opacity: orderItems.length === 0 ? 0.3 : 1, 
-                        boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)' 
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
                       }}
                     >
-                      SETTLE BILL
+                      {t('settle_bill', 'SETTLE BILL')}
                     </button>
                   </div>
                 ) : (
@@ -1308,45 +1179,18 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     onClick={generateBill} 
                     style={{ 
                       width: '100%', 
-                      padding: '14px', 
-                      borderRadius: '14px', 
+                      padding: '10px 6px', 
+                      borderRadius: '10px', 
                       backgroundColor: '#0ea5e9', 
                       color: '#ffffff', 
                       border: 'none', 
                       fontWeight: 900, 
-                      fontSize: '14px', 
+                      fontSize: '12px', 
                       cursor: 'pointer', 
-                      opacity: orderItems.length === 0 ? 0.3 : 1, 
-                      transition: '0.2s', 
-                      boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)' 
+                      opacity: orderItems.length === 0 ? 0.3 : 1
                     }}
                   >
-                    {table.table_number === 'Parcel Counter' ? 'SETTLE BILL' : 'SETTLE TRANSACTION'}
-                  </button>
-                )}
-
-                {(cancelOrdersEnabled && (table.active_order_id || orderItems.length > 0)) && (
-                  <button 
-                    type="button" 
-                    onClick={() => setShowCancelConfirmModal(true)} 
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      borderRadius: '14px', 
-                      backgroundColor: 'rgba(239, 68, 68, 0.12)', 
-                      color: '#f43f5e', 
-                      border: '1px solid rgba(239, 68, 68, 0.3)', 
-                      fontWeight: 900, 
-                      fontSize: '13px', 
-                      cursor: 'pointer', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      gap: '6px', 
-                      marginTop: '4px' 
-                    }}
-                  >
-                    <Ban size={15} /> CANCEL ORDER / CLEAR TABLE
+                    {t('settle_bill', 'SETTLE BILL')}
                   </button>
                 )}
               </div>
@@ -1380,7 +1224,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '20px', opacity: billData.is_paid ? 0.3 : 1 }}>
                     <div style={{ backgroundColor: 'rgba(14, 165, 233, 0.15)', border: '1px solid #0ea5e9', color: billData.is_paid ? '#ffffff' : 'var(--text-primary)', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', zIndex: 5 }}>
                       <Receipt size={14} color="#0ea5e9" />
-                      <span>FINALIZED BILL</span>
+                      <span>{t('finalized_bill', 'FINALIZED BILL')}</span>
                     </div>
                     <h1 style={{ margin: 0, fontWeight: 950, fontSize: '24px', color: billData.is_paid ? '#ffffff' : 'var(--text-primary)', textAlign: 'center' }}>{(billData.hotel_name || user?.hotel_name || '').toUpperCase()}</h1>
                     <div style={{ color: billData.is_paid ? 'rgba(255,255,255,0.7)' : 'var(--text-secondary)', fontWeight: 800, fontSize: '13px', textAlign: 'center' }}>{billData.hotel_location}</div>
@@ -1388,15 +1232,15 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 
                 <div style={{ borderTop: '2px dashed var(--border-color)', borderBottom: '2px dashed var(--border-color)', padding: '14px 0', marginBottom: '20px' }}>
                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 900, color: billData.is_paid ? '#ffffff' : 'var(--text-primary)' }}>
-                      <span>TABLE NO: {table.table_numberByFloor || table.table_number}</span>
-                      <span>BILL NO: #{billData.id}</span>
+                      <span>{t('table_no', 'TABLE NO')}: {table.table_numberByFloor || table.table_number}</span>
+                      <span>{t('bill_no', 'BILL NO')}: #{billData.id}</span>
                    </div>
-                   <div style={{ fontSize: '12px', color: billData.is_paid ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)' }}>DATE: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</div>
+                   <div style={{ fontSize: '12px', color: billData.is_paid ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)' }}>{t('date_label', 'DATE')}: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</div>
                 </div>
  
                 <div style={{ marginBottom: '20px' }}>
                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 60px 30px 70px' : '1fr 80px 60px 100px', borderBottom: '1px dashed var(--border-color)', paddingBottom: '6px', marginBottom: '10px', fontSize: '11px', fontWeight: 900, color: billData.is_paid ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)' }}>
-                      <span>Item</span><span style={{ textAlign: 'right' }}>Price</span><span style={{ textAlign: 'right' }}>Qty</span><span style={{ textAlign: 'right' }}>Total</span>
+                      <span>{t('item', 'Item')}</span><span style={{ textAlign: 'right' }}>{t('price', 'Price')}</span><span style={{ textAlign: 'right' }}>{t('qty', 'Qty')}</span><span style={{ textAlign: 'right' }}>{t('total', 'Total')}</span>
                    </div>
                    {billData.items.map((i, idx) => (
                       <div key={idx} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 60px 30px 70px' : '1fr 80px 60px 100px', fontSize: isMobile ? '12px' : '14px', fontWeight: 800, marginBottom: '6px', color: billData.is_paid ? '#ffffff' : 'var(--text-primary)' }}>
@@ -1406,9 +1250,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 </div>
  
                 <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '6px', color: billData.is_paid ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)' }}>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>SUBTOTAL</span><span>₹{parseFloat(billData.subtotal).toFixed(2)}</span></div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>GST</span><span>₹{parseFloat(billData.gst).toFixed(2)}</span></div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '32px', fontWeight: 1000, color: '#10b981', borderTop: '2px double var(--border-color)', marginTop: '10px', paddingTop: '10px' }}><span>TOTAL</span><span>₹{parseFloat(billData.final_amount).toFixed(2)}</span></div>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('subtotal', 'SUBTOTAL')}</span><span>₹{parseFloat(billData.subtotal).toFixed(2)}</span></div>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('gst', 'GST')}</span><span>₹{parseFloat(billData.gst).toFixed(2)}</span></div>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '32px', fontWeight: 1000, color: '#10b981', borderTop: '2px double var(--border-color)', marginTop: '10px', paddingTop: '10px' }}><span>{t('total', 'TOTAL')}</span><span>₹{parseFloat(billData.final_amount).toFixed(2)}</span></div>
                 </div>
 
                  {!billData.is_paid && (
@@ -1419,9 +1263,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
                  <div style={{ marginTop: '16px' }}>
                   {!billData.is_paid ? (
-                    <button onClick={rollbackBill} className="btn-modify-invoice" style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1px solid #475569', backgroundColor: '#334155', color: '#ffffff', fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)', transition: 'background-color 0.2s' }}>MODIFY INVOICE</button>
+                    <button onClick={rollbackBill} className="btn-modify-invoice" style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1px solid #475569', backgroundColor: '#334155', color: '#ffffff', fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)', transition: 'background-color 0.2s' }}>{t('modify_invoice', 'MODIFY INVOICE')}</button>
                   ) : (
-                    <div style={{ textAlign: 'center', padding: '16px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '16px', color: '#10b981', fontWeight: 950, fontSize: '18px' }}>SUCCESSFULLY SETTLED</div>
+                    <div style={{ textAlign: 'center', padding: '16px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '16px', color: '#10b981', fontWeight: 950, fontSize: '18px' }}>{t('successfully_settled', 'SUCCESSFULLY SETTLED')}</div>
                   )}
                 </div>
               </div>
@@ -1435,7 +1279,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                           {/* Payment Method Section */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <label style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                              PAYMENT METHOD
+                              {t('payment_method', 'PAYMENT METHOD')}
                             </label>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button 
@@ -1455,7 +1299,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                   transition: 'all 0.2s'
                                 }}
                               >
-                                Cash
+                                {t('cash', 'Cash')}
                               </button>
                               <button 
                                 type="button"
@@ -1474,7 +1318,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                   transition: 'all 0.2s'
                                 }}
                               >
-                                Online
+                                {t('online', 'Online')}
                               </button>
                               <button 
                                 type="button"
@@ -1493,7 +1337,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                   transition: 'all 0.2s'
                                 }}
                               >
-                                Credit
+                                {t('credit', 'Credit')}
                               </button>
                             </div>
                           </div>
@@ -1607,7 +1451,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                     cursor: 'pointer'
                                   }}
                                 >
-                                  Customer
+                                  {t('customer', 'Customer')}
                                 </button>
                                 <button 
                                   type="button" 
@@ -1625,127 +1469,103 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                     cursor: 'pointer'
                                   }}
                                 >
-                                  Vendor
+                                  {t('vendor', 'Vendor')}
                                 </button>
                               </div>
   
                               {partyType === 'customer' ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                  {savedCustomers.length > 0 && (
-                                    <select
-                                      value={selectedCustomerId || ''}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        setSelectedCustomerId(val);
-                                        if (val) {
-                                          const cust = savedCustomers.find(c => String(c.customer_phone) === String(val));
-                                          if (cust) {
-                                            setCustomerName(cust.customer_name || '');
-                                            setCustomerPhone(cust.customer_phone || '');
-                                          }
-                                        }
+                                  <div>
+                                    <input 
+                                      placeholder={t('customer_name', 'Customer Name')}
+                                      value={customerName}
+                                      onChange={e => {
+                                        setCustomerName(e.target.value);
+                                        if (e.target.value.trim()) setCustomerNameError('');
                                       }}
-                                      style={{
-                                        padding: '12px 14px',
-                                        borderRadius: '12px',
-                                        border: '1px solid var(--border-color)',
-                                        backgroundColor: 'var(--bg-card)',
-                                        color: 'var(--text-primary)',
-                                        fontWeight: 800,
-                                        fontSize: '13px',
-                                        outline: 'none',
-                                        width: '100%',
+                                      style={{ 
+                                        padding: '12px 14px', 
+                                        borderRadius: '12px', 
+                                        border: customerNameError ? '1.5px solid #ef4444' : '1px solid var(--border-color)', 
+                                        backgroundColor: 'var(--bg-card)', 
+                                        color: 'var(--text-primary)', 
+                                        fontWeight: 800, 
+                                        fontSize: '13px', 
+                                        outline: 'none', 
+                                        width: '100%', 
                                         boxSizing: 'border-box'
                                       }}
-                                    >
-                                      <option value="">-- Select Saved Customer --</option>
-                                      {savedCustomers.map(c => (
-                                        <option key={c.customer_phone} value={c.customer_phone}>
-                                          {c.customer_name} ({c.customer_phone})
-                                        </option>
-                                      ))}
-                                    </select>
-                                  )}
-                                  <input 
-                                    placeholder="Customer Name"
-                                    value={customerName}
-                                    onChange={e => setCustomerName(e.target.value)}
-                                    style={{ 
-                                      padding: '12px 14px', 
-                                      borderRadius: '12px', 
-                                      border: '1px solid var(--border-color)', 
-                                      backgroundColor: 'var(--bg-card)', 
-                                      color: 'var(--text-primary)', 
-                                      fontWeight: 800, 
-                                      fontSize: '13px', 
-                                      outline: 'none', 
-                                      width: '100%', 
-                                      boxSizing: 'border-box'
-                                    }}
-                                  />
-                                  <input 
-                                    placeholder="Mobile Number *"
-                                    value={customerPhone}
-                                    onChange={async (e) => {
-                                      const val = e.target.value;
-                                      setCustomerPhone(val);
-                                      const match = savedCustomers.find(c => String(c.customer_phone) === val.trim());
-                                      if (match) {
-                                        setSelectedCustomerId(match.customer_phone);
-                                        if (!customerName) setCustomerName(match.customer_name);
-                                      } else {
-                                        setSelectedCustomerId('');
-                                      }
-                                      if (val.trim().length >= 10 && !match) {
-                                        try {
-                                          const res = await api.get('/credit/customers/lookup', { params: { phone: val.trim() } });
-                                          if (res.data && res.data.customer_name && !customerName) {
-                                            setCustomerName(res.data.customer_name);
-                                            toast.success(`Found customer: ${res.data.customer_name}`, { id: 'cust-lookup' });
-                                          }
-                                        } catch (err) {}
-                                      }
-                                    }}
-                                    style={{ 
-                                      padding: '12px 14px', 
-                                      borderRadius: '12px', 
-                                      border: '1px solid var(--border-color)', 
-                                      backgroundColor: 'var(--bg-card)', 
-                                      color: 'var(--text-primary)', 
-                                      fontWeight: 800, 
-                                      fontSize: '13px', 
-                                      outline: 'none', 
-                                      width: '100%', 
-                                      boxSizing: 'border-box'
-                                    }}
-                                  />
+                                    />
+                                    {customerNameError && (
+                                      <span style={{ color: '#ef4444', fontSize: '11px', fontWeight: 800, marginTop: '4px', display: 'block', paddingLeft: '4px' }}>
+                                        {customerNameError}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <input 
+                                      placeholder={t('mobile_number', 'Mobile Number')}
+                                      value={customerPhone}
+                                      onChange={e => {
+                                        setCustomerPhone(e.target.value);
+                                        if (e.target.value.trim()) setCustomerPhoneError('');
+                                      }}
+                                      style={{ 
+                                        padding: '12px 14px', 
+                                        borderRadius: '12px', 
+                                        border: customerPhoneError ? '1.5px solid #ef4444' : '1px solid var(--border-color)', 
+                                        backgroundColor: 'var(--bg-card)', 
+                                        color: 'var(--text-primary)', 
+                                        fontWeight: 800, 
+                                        fontSize: '13px', 
+                                        outline: 'none', 
+                                        width: '100%', 
+                                        boxSizing: 'border-box'
+                                      }}
+                                    />
+                                    {customerPhoneError && (
+                                      <span style={{ color: '#ef4444', fontSize: '11px', fontWeight: 800, marginTop: '4px', display: 'block', paddingLeft: '4px' }}>
+                                        {customerPhoneError}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               ) : (
                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                    {vendors.length === 0 ? (
-                                     <div style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', padding: '12px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>No vendors registered.</div>
+                                     <div style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', padding: '12px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>{t('no_vendors_registered', 'No vendors registered.')}</div>
                                    ) : (
-                                     <select 
-                                       value={selectedVendorId || ''} 
-                                       onChange={(e) => setSelectedVendorId(e.target.value)}
-                                       style={{
-                                         padding: '12px 14px', 
-                                         borderRadius: '12px', 
-                                         border: '1px solid var(--border-color)', 
-                                         backgroundColor: 'var(--bg-card)', 
-                                         color: 'var(--text-primary)', 
-                                         fontWeight: 800, 
-                                         fontSize: '13px', 
-                                         outline: 'none', 
-                                         width: '100%', 
-                                         boxSizing: 'border-box'
-                                       }}
-                                     >
-                                       <option value="" disabled>Select Vendor</option>
-                                       {vendors.map(v => (
-                                         <option key={v.id} value={v.id}>{v.name} {v.phone ? `(${v.phone})` : ''}</option>
-                                       ))}
-                                     </select>
+                                     <div>
+                                       <select 
+                                         value={selectedVendorId || ''} 
+                                         onChange={(e) => {
+                                           setSelectedVendorId(e.target.value);
+                                           if (e.target.value) setVendorError('');
+                                         }}
+                                         style={{
+                                           padding: '12px 14px', 
+                                           borderRadius: '12px', 
+                                           border: vendorError ? '1.5px solid #ef4444' : '1px solid var(--border-color)', 
+                                           backgroundColor: 'var(--bg-card)', 
+                                           color: 'var(--text-primary)', 
+                                           fontWeight: 800, 
+                                           fontSize: '13px', 
+                                           outline: 'none', 
+                                           width: '100%', 
+                                           boxSizing: 'border-box'
+                                         }}
+                                       >
+                                         <option value="" disabled>{t('select_vendor', 'Select Vendor')}</option>
+                                         {vendors.map(v => (
+                                           <option key={v.id} value={v.id}>{v.name} {v.phone ? `(${v.phone})` : ''}</option>
+                                         ))}
+                                       </select>
+                                       {vendorError && (
+                                         <span style={{ color: '#ef4444', fontSize: '11px', fontWeight: 800, marginTop: '4px', display: 'block', paddingLeft: '4px' }}>
+                                           {vendorError}
+                                         </span>
+                                       )}
+                                     </div>
                                    )}
                                  </div>
                               )}
@@ -1768,7 +1588,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                   marginTop: '4px'
                                 }}
                               >
-                                Settle Without Print
+                                {t('settle_without_print', 'Settle Without Print')}
                               </button>
                             </div>
                           )}
@@ -1780,7 +1600,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                      <div style={{ backgroundColor: 'var(--bg-card)', padding: '14px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid var(--border-color)' }}>
                         <Phone size={16} color="var(--text-muted)" />
                         <input 
-                           placeholder="Enter Mobile No" 
+                           placeholder={t('enter_mobile_no', 'Enter Mobile No')} 
                            value={customerPhone} 
                            onChange={(e) => setCustomerPhone(e.target.value)}
                            style={{ border: 'none', width: '100%', outline: 'none', fontWeight: 800, fontSize: '13px', backgroundColor: 'transparent', color: 'var(--text-primary)', WebkitAppearance: 'none' }}
@@ -1791,35 +1611,30 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   {String(table.table_number || table.id || '').toLowerCase().includes('token') ? (
                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                        <button onClick={printToken} style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '900', fontSize: '13px', boxShadow: '0 4px 12px rgba(245,158,11,0.25)' }}>
-                          <Ticket size={16} /> Print Token
+                          <Ticket size={16} /> {t('print_token', 'Print Token')}
                        </button>
                        <div style={{ display: 'flex', gap: '10px' }}>
                          <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '900', fontSize: '12px', boxShadow: '0 4px 12px rgba(59,130,246,0.25)' }}>
-                            <Printer size={16} /> Settle & Print
+                            <Printer size={16} /> {t('settle_and_print', 'Settle & Print')}
                          </button>
                          <button onClick={settleWithoutPrint} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#10b981', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '900', fontSize: '12px', boxShadow: '0 4px 12px rgba(16,185,129,0.25)' }}>
-                            <CheckCircle size={16} /> Settle Without Print
+                            <CheckCircle size={16} /> {t('settle_without_print', 'Settle Without Print')}
                          </button>
                        </div>
                        {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
                          <button onClick={shareViaWhatsApp} style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: '#059669', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
-                            <MessageCircle size={16} /> WhatsApp
+                            <MessageCircle size={16} /> {t('whatsapp', 'WhatsApp')}
                          </button>
                        )}
                      </div>
                   ) : (
                      <div style={{ display: 'flex', gap: '10px' }}>
                         <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
-                           <Printer size={16} /> {!billData.is_paid ? 'Print' : 'Re-Print'}
+                           <Printer size={16} /> {!billData.is_paid ? t('print', 'Print') : t('re_print', 'Re-Print')}
                         </button>
-                        {settleWithoutPrintEnabledState && (
-                          <button onClick={settleWithoutPrint} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#10b981', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
-                             <CheckCircle size={16} /> Settle Only
-                          </button>
-                        )}
                         {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
                           <button onClick={shareViaWhatsApp} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#22c55e', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
-                             <MessageCircle size={16} /> WhatsApp
+                             <MessageCircle size={16} /> {t('whatsapp', 'WhatsApp')}
                           </button>
                         )}
                      </div>
@@ -1837,20 +1652,20 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 <Ban size={24} />
               </div>
               <div>
-                <h3 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Cancel Order & Clear Table</h3>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0', fontWeight: 600 }}>Table: {table.table_numberByFloor || table.table_number}</p>
+                <h3 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{t('cancel_order_modal_title', 'Cancel Order & Clear Table')}</h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0', fontWeight: 600 }}>{t('table', 'Table')}: {table.table_numberByFloor || table.table_number}</p>
               </div>
             </div>
 
             <p style={{ color: 'var(--text-primary)', fontSize: '13px', lineHeight: 1.5, margin: 0, fontWeight: 600 }}>
-              Are you sure you want to cancel this order and clear the table? A record will be logged in <b>Cancel Orders</b> audit history.
+              {t('cancel_order_modal_desc', 'Are you sure you want to cancel this order and clear the table? A record will be logged in Cancel Orders audit history.')}
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Cancellation Reason (Optional)</label>
+              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('cancellation_reason_label', 'CANCELLATION REASON (OPTIONAL)')}</label>
               <input 
                 type="text" 
-                placeholder="e.g. Customer left / Wrong order" 
+                placeholder={t('cancellation_reason_placeholder', 'e.g. Customer left / Wrong order')} 
                 value={cancellationReason}
                 onChange={e => setCancellationReason(e.target.value)}
                 style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 600, fontSize: '13px', outline: 'none' }}
@@ -1863,14 +1678,14 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 onClick={() => setShowCancelConfirmModal(false)}
                 style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 800, cursor: 'pointer', fontSize: '13px' }}
               >
-                Keep Order
+                {t('keep_order', 'Keep Order')}
               </button>
               <button 
                 type="button" 
                 onClick={handleConfirmCancelOrder}
                 style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: '#f43f5e', border: 'none', color: '#ffffff', fontWeight: 900, cursor: 'pointer', fontSize: '13px', boxShadow: '0 4px 12px rgba(244, 63, 94, 0.3)' }}
               >
-                Yes, Cancel Order
+                {t('yes_cancel_order', 'Yes, Cancel Order')}
               </button>
             </div>
           </div>

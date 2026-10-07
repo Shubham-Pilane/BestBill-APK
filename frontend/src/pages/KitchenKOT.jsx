@@ -3,6 +3,7 @@ import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { playInternalChime } from '../components/Layout';
 import { onUpdate } from '../services/socketService';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   ChefHat, 
   Clock, 
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 
 const KitchenKOT = () => {
+    const { t } = useLanguage();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [audioEnabled, setAudioEnabled] = useState(() => {
@@ -38,13 +40,13 @@ const KitchenKOT = () => {
         localStorage.setItem('kitchen_order_sound', 'true');
         setAudioEnabled(true);
         playInternalChime();
-        toast.success('Sound Alert Activated!', { icon: '🔊' });
+        toast.success(t('toast_sound_activated', 'Sound Alert Activated!'), { icon: '🔊' });
     };
 
     const disableSound = () => {
         localStorage.setItem('kitchen_order_sound', 'false');
         setAudioEnabled(false);
-        toast('Sound Notifications Muted', { icon: '🔕' });
+        toast(t('toast_sound_muted', 'Sound Notifications Muted'), { icon: '🔕' });
     };
 
     const fetchKitchenOrders = async () => {
@@ -56,7 +58,7 @@ const KitchenKOT = () => {
             if (prevCount.current !== -1 && currentCount > prevCount.current) {
                 if (localStorage.getItem('kitchen_order_sound') === 'true') {
                     playInternalChime();
-                    toast(`New KOT Order Received!`, { 
+                    toast(t('toast_new_kot_received', 'New KOT Order Received!'), { 
                         icon: '🍳',
                         style: { borderRadius: '20px', background: '#f59e0b', color: '#fff', fontWeight: 900 }
                     });
@@ -106,7 +108,7 @@ const KitchenKOT = () => {
         return (
             <div style={{ height: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '20px' }}>
                 <div style={{ width: '50px', height: '50px', borderRadius: '50%', border: '4px solid var(--bg-border)', borderTopColor: themeColor, animation: 'spin 1s linear infinite' }}></div>
-                <div style={{ color: 'var(--text-muted)', fontWeight: 800 }}>Loading Kitchen Queue...</div>
+                <div style={{ color: 'var(--text-muted)', fontWeight: 800 }}>{t('loading_kitchen_queue', 'Loading Kitchen Queue...')}</div>
                 <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
             </div>
         );
@@ -118,10 +120,10 @@ const KitchenKOT = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                    <h2 style={{ fontSize: '22px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
-                       <ChefHat style={{ color: themeColor }} size={24} /> Kitchen Display (KOT)
+                       <ChefHat style={{ color: themeColor }} size={24} /> {t('kitchen_display_title', 'Kitchen Display (KOT)')}
                    </h2>
                    <p style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '13px', margin: '4px 0 0 0' }}>
-                       Live orders being prepared by the kitchen crew.
+                       {t('kitchen_display_sub', 'Live orders being prepared by the kitchen crew.')}
                    </p>
                 </div>
                 
@@ -144,7 +146,7 @@ const KitchenKOT = () => {
                     }}
                 >
                     {audioEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
-                    KITCHEN ALERT: {audioEnabled ? 'ON' : 'OFF'}
+                    {audioEnabled ? t('kot_alert_on', 'KITCHEN ALERT: ON') : t('kot_alert_off', 'KITCHEN ALERT: OFF')}
                 </button>
             </div>
 
@@ -153,7 +155,7 @@ const KitchenKOT = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Flame size={18} color={themeColor} />
                     <h3 style={{ margin: 0, fontWeight: 600, fontSize: '16px' }}>
-                        Active Kitchen Orders ({orders.length})
+                        {t('active_kitchen_orders', 'Active Kitchen Orders')} ({orders.length})
                     </h3>
                 </div>
 
@@ -163,8 +165,8 @@ const KitchenKOT = () => {
                             <ChefHat size={30} style={{ color: 'var(--text-muted)' }} />
                         </div>
                         <div>
-                            <h4 style={{margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>All Caught Up!</h4>
-                            <p style={{ color: 'var(--text-muted)', fontWeight: 500, margin: 0, fontSize: '13px' }}>No active waiter KOT orders are waiting in the kitchen.</p>
+                            <h4 style={{margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>{t('all_caught_up', 'All Caught Up!')}</h4>
+                            <p style={{ color: 'var(--text-muted)', fontWeight: 500, margin: 0, fontSize: '13px' }}>{t('no_active_kot_orders', 'No active waiter KOT orders are waiting in the kitchen.')}</p>
                         </div>
                     </div>
                 ) : (
@@ -207,10 +209,10 @@ const KitchenKOT = () => {
                                             }} />
                                             <div>
                                                 <h4 style={{margin: 0, fontWeight: 600, fontSize: '16px', color: 'var(--text-primary)', letterSpacing: '0.02em' }}>
-                                                    TABLE {order.table_number}
+                                                    {t('table', 'TABLE')} {order.table_number}
                                                 </h4>
                                                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                                                    Location: {order.table_floor}
+                                                    {t('location', 'Location')}: {order.table_floor}
                                                 </span>
                                             </div>
                                         </div>
@@ -220,7 +222,7 @@ const KitchenKOT = () => {
 
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500, backgroundColor: 'rgba(255,255,255,0.03)', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--border-rgba-05)' }}>
                                                 <Calendar size={12} style={{ flexShrink: 0 }} />
-                                                <span>Sent: <span style={{color: 'var(--text-primary)' }}>{formatDateTime(order.kot_sent_at)}</span></span>
+                                                <span>{t('sent', 'Sent')}: <span style={{color: 'var(--text-primary)' }}>{formatDateTime(order.kot_sent_at)}</span></span>
                                             </div>
                                             <div style={{ fontSize: '15px', color: '#10b981', fontWeight: 600, marginRight: '4px' }}>
                                                  ₹{parseFloat(order.total_amount || 0).toFixed(0)}
@@ -243,7 +245,7 @@ const KitchenKOT = () => {
                                                     outline: 'none'
                                                 }}
                                             >
-                                                <span>{isExpanded ? 'Hide Details' : 'View Details'}</span>
+                                                <span>{isExpanded ? t('hide_details', 'Hide Details') : t('view_details', 'View Details')}</span>
                                                 {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                                             </button>
                                         </div>
@@ -285,7 +287,7 @@ const KitchenKOT = () => {
                                                 }}>
                                                     <AlertTriangle size={14} color="#10b981" style={{ flexShrink: 0, marginTop: '2px' }} />
                                                     <div>
-                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Instruction: </span>
+                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('instruction_label', 'Instruction: ')}</span>
                                                         <span style={{ fontSize: '12px', color: '#34d399', fontWeight: 500 }}>"{order.guest_note}"</span>
                                                     </div>
                                                 </div>
