@@ -315,6 +315,35 @@ const Login = () => {
               </div>
             )}
 
+            {(blockedInfo.type === 'OFFLINE_SUSPENDED' || blockedInfo.type === 'OFFLINE_LIMIT_REACHED') && (
+              <div style={{ marginTop: '16px' }}>
+                <button 
+                  onClick={async () => {
+                    const loadingId = toast.loading('Verifying with server...');
+                    try {
+                      const res = await licenseService.syncLicenseWithSupabase();
+                      if (res.success && res.is_active !== false) {
+                        toast.success('License verified successfully!', { id: loadingId });
+                        setTimeout(() => window.location.reload(), 1000);
+                      } else if (res.success && res.is_active === false) {
+                        toast.error('License is still revoked by Super Admin.', { id: loadingId });
+                      } else {
+                        toast.error('Could not connect to server. Check internet.', { id: loadingId });
+                      }
+                    } catch (e) {
+                      toast.error('Verification failed.', { id: loadingId });
+                    }
+                  }}
+                  style={{
+                    width: '100%', backgroundColor: '#0ea5e9', color: '#ffffff', border: 'none', padding: '14px',
+                    borderRadius: '14px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s', fontSize: '15px'
+                  }}
+                >
+                  Verify Connection
+                </button>
+              </div>
+            )}
+
             <button
               onClick={() => setBlockedInfo(null)}
               style={{

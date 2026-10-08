@@ -695,7 +695,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                       <div key={s.id} onClick={() => { addToOrder(s); setSearchQuery(''); setSuggestions([]); }} style={{ padding: '12px 18px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', color: 'var(--text-primary)', fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <Plus size={14} color="#0ea5e9" />
-                          <span>{s.name}</span>
+                          <span>{language === 'mr' && s.marathi_name ? s.marathi_name : s.name}</span>
                         </div>
                         <span style={{ color: '#10b981' }}>₹{s.price}</span>
                       </div>
@@ -766,7 +766,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                       transition: 'all 0.15s'
                     }}
                   >
-                    {cat.name.toUpperCase()}
+                    {(language === 'mr' && cat.marathi_name ? cat.marathi_name : cat.name).toUpperCase()}
                   </button>
                 ))}
               </div>
@@ -797,9 +797,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, paddingRight: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{item.name}</span>
+                        <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</span>
                         <span style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: 800, backgroundColor: 'var(--bg-base)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
-                          {item.category_name || 'Item'}
+                          {language === 'mr' && item.marathi_category ? item.marathi_category : item.category_name || 'Item'}
                         </span>
                       </div>
                       {item.description && (
@@ -993,7 +993,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   {orderItems.map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'rgba(15, 23, 42, 0.9)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
-                        <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', wordBreak: 'break-word' }}>{item.name}</div>
+                        <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', wordBreak: 'break-word' }}>{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</div>
                         <div style={{ color: '#10b981', fontSize: '11px', fontWeight: 800, marginTop: '1px' }}>
                            ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '9px' }}>(₹{Math.round(item.price)} each)</span>}
                         </div>
@@ -1081,7 +1081,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   orderItems.map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
-                        <div style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                        <div style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</div>
                         <div style={{ color: '#10b981', fontSize: '12px', fontWeight: 900, marginTop: '1px' }}>
                           ₹{item.price}
                         </div>

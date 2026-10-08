@@ -391,7 +391,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
       const order = orderRes.rows[0];
       const itemsRes = await db.query(
-        `SELECT oi.id, oi.order_id, oi.menu_item_id, oi.quantity, mi.name, mi.price
+        `SELECT oi.id, oi.order_id, oi.menu_item_id, oi.quantity, mi.name, mi.marathi_name, mi.price
          FROM order_items oi
          JOIN menu_items mi ON oi.menu_item_id = mi.id
          WHERE oi.order_id = $1
@@ -436,7 +436,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       }
 
       const updatedItems = await db.query(
-        `SELECT oi.*, mi.name, mi.price FROM order_items oi 
+        `SELECT oi.*, mi.name, mi.marathi_name, mi.price FROM order_items oi 
          JOIN menu_items mi ON oi.menu_item_id = mi.id 
          WHERE oi.order_id = $1 ORDER BY oi.created_at ASC`,
         [orderId]
@@ -520,7 +520,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
       // Fetch remaining active items AFTER deletion
       const activeItemsRes = await db.query(`
-        SELECT oi.quantity, mi.name, mi.price 
+        SELECT oi.quantity, mi.name, mi.marathi_name, mi.price 
         FROM order_items oi 
         JOIN menu_items mi ON oi.menu_item_id = mi.id 
         WHERE oi.order_id = $1 AND oi.quantity > 0
@@ -584,7 +584,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         db.query('SELECT billing_method FROM hotels WHERE id = $1', [user.hotel_id]),
         db.query('SELECT table_number, floor FROM tables WHERE id = $1', [tableId]),
         db.query(`
-          SELECT o.id as order_id, oi.quantity, oi.printed_quantity, mi.name
+          SELECT o.id as order_id, oi.quantity, oi.printed_quantity, mi.name, mi.marathi_name
           FROM orders o
           JOIN order_items oi ON oi.order_id = o.id
           JOIN menu_items mi ON oi.menu_item_id = mi.id
@@ -600,6 +600,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         .filter(item => item.quantity > (item.printed_quantity || 0))
         .map(item => ({
           name: item.name,
+          marathi_name: item.marathi_name,
           quantity: item.quantity - (item.printed_quantity || 0)
         }));
 
@@ -1078,7 +1079,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         }
 
         const itemsRes = await db.query(`
-          SELECT oi.quantity, mi.name, mi.price 
+          SELECT oi.quantity, mi.name, mi.marathi_name, mi.price 
           FROM order_items oi 
           JOIN menu_items mi ON oi.menu_item_id = mi.id 
           WHERE oi.order_id = $1`,
@@ -1101,7 +1102,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         gst: bill.gst,
         finalAmount: bill.final_amount,
         discountPercentage: bill.discount_percentage,
-        items: items.map(i => ({ name: i.name, price: i.price, qty: i.quantity || i.qty || 1 })),
+        items: items.map(i => ({ name: i.name, marathi_name: i.marathi_name, price: i.price, qty: i.quantity || i.qty || 1 })),
         hotelName: hotel.name || user?.hotel_name || '',
         hotelPhone: hotel.phone || '',
         hotelLocation: hotel.location || '',
@@ -1877,7 +1878,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
         const tableRes = await db.query('SELECT table_number, floor FROM tables WHERE id = $1', [tableId]);
         const itemsRes = await db.query(`
-          SELECT oi.quantity, oi.printed_quantity, mi.name, mi.price
+          SELECT oi.quantity, oi.printed_quantity, mi.name, mi.marathi_name, mi.price
           FROM order_items oi
           JOIN menu_items mi ON oi.menu_item_id = mi.id
           WHERE oi.order_id = $1
@@ -1885,6 +1886,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
         let activeItems = itemsRes.rows.map(i => ({
           name: i.name,
+          marathi_name: i.marathi_name,
           price: Number(i.price || 0),
           quantity: Number(i.quantity || 1)
         }));
@@ -1899,6 +1901,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         if (allOriginalItems.length === 0 && Array.isArray(body?.items) && body.items.length > 0) {
           allOriginalItems = body.items.map(i => ({
             name: i.name || 'Item',
+            marathi_name: i.marathi_name || '',
             price: Number(i.price || 0),
             quantity: Number(i.quantity || i.qty || 1)
           }));
@@ -1943,6 +1946,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
           
           const items = body.items.map(i => ({
             name: i.name || 'Item',
+            marathi_name: i.marathi_name || '',
             price: Number(i.price || 0),
             quantity: Number(i.quantity || i.qty || 1)
           }));

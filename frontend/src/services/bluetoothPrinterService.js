@@ -303,7 +303,7 @@ export async function formatKOT(data, printerSize = '58mm') {
 
   (data.items || []).forEach(item => {
     const qty = item.quantity || item.qty || 1;
-    const itemName = String(item.name || '');
+    const itemName = String((isMarathi && item.marathi_name) ? item.marathi_name : (item.name || ''));
 
     if (containsDevanagari(itemName)) {
       builder.appendBytes(renderKOTItemRowToRaster({ name: itemName, qty }, { paperSize: printerSize }));
@@ -422,7 +422,7 @@ export async function formatBill(data, printerSize = '58mm') {
     const qty = item.quantity || item.qty || 1;
     const rate = formatAmount(item.price);
     const amt = formatAmount((item.price || 0) * qty);
-    const itemName = String(item.name || '');
+    const itemName = String((isMarathi && item.marathi_name) ? item.marathi_name : (item.name || ''));
 
     if (containsDevanagari(itemName)) {
       builder.appendBytes(renderItemRowToRaster({ name: itemName, qty, rate, amt }, { paperSize: printerSize }));

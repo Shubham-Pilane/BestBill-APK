@@ -268,7 +268,7 @@ const KitchenKOT = () => {
                                                         fontWeight: 600,
                                                         color: 'var(--text-primary)'
                                                     }}>
-                                                        <span>{item.name}</span>
+                                                        <span style={{ fontSize: '14px', fontWeight: 700 }}>{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</span>
                                                         <span style={{ color: themeColor, fontWeight: 800 }}>x{item.quantity}</span>
                                                     </div>
                                                 ))}

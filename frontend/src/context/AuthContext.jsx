@@ -23,7 +23,8 @@ export const AuthProvider = ({ children }) => {
         import('../services/localLicenseService').then(ls => {
           ls.getLicenseDetails().then(details => {
             if (!details.isValid && details.type === 'revoked') {
-              window.location.reload();
+              localStorage.removeItem('user');
+              setUser(null);
             } else {
               const freshUser = {
                 ...parsed,
@@ -61,7 +62,8 @@ export const AuthProvider = ({ children }) => {
             if (res.success) {
               localStorage.setItem('LAST_SUPABASE_PING_DATE', todayStr);
               if (res.is_active === false) {
-                window.location.reload(); // Instantly lock out if revoked
+                localStorage.removeItem('user');
+                setUser(null);
               } else {
                 checkLicenseLocally(); // Refresh UI warnings/offline days if successful
               }
