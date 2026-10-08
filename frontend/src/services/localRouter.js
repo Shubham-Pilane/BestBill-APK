@@ -814,15 +814,19 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/menu/categories' && methodUpper === 'POST') {
-      const { name } = body;
-      await db.query('INSERT INTO categories (hotel_id, name) VALUES ($1, $2)', [user.hotel_id, name]);
+      const { name, marathi_name = '' } = body;
+      await db.query('INSERT INTO categories (hotel_id, name, marathi_name) VALUES ($1, $2, $3)', [user.hotel_id, name, marathi_name]);
       return { status: 201, data: { message: 'Category added' } };
     }
 
     if (path.startsWith('/menu/categories/') && methodUpper === 'PUT') {
       const id = parseInt(path.split('/')[3]);
-      const { name } = body;
-      await db.query('UPDATE categories SET name = $1 WHERE id = $2 AND hotel_id = $3', [name, id, user.hotel_id]);
+      const { name, marathi_name } = body;
+      if (marathi_name !== undefined) {
+        await db.query('UPDATE categories SET name = $1, marathi_name = $2 WHERE id = $3 AND hotel_id = $4', [name, marathi_name, id, user.hotel_id]);
+      } else {
+        await db.query('UPDATE categories SET name = $1 WHERE id = $2 AND hotel_id = $3', [name, id, user.hotel_id]);
+      }
       return { status: 200, data: { message: 'Category updated' } };
     }
 
@@ -833,38 +837,25 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/menu/items' && methodUpper === 'GET') {
-      const { page, limit = 10, search = '', lang } = queryParams;
+      const { page, limit = 10, search = '' } = queryParams;
       const hotelId = user.hotel_id;
-      const targetLang = lang || (typeof window !== 'undefined' ? localStorage.getItem('app_language') : 'en') || 'en';
       
       let itemsRes;
       if (search) {
         itemsRes = await db.query(
-          `SELECT mi.*, c.name as category_name 
+          `SELECT mi.*, c.name as category_name, c.marathi_name as marathi_category
            FROM menu_items mi 
            LEFT JOIN categories c ON mi.category_id = c.id
-           WHERE mi.hotel_id = $1 AND mi.is_deleted = 0 AND (COALESCE(mi.lang, 'en') = $2) AND (mi.name LIKE $3 OR c.name LIKE $4)
+           WHERE mi.hotel_id = $1 AND mi.is_deleted = 0 AND (mi.name LIKE $2 OR mi.marathi_name LIKE $3 OR c.name LIKE $4 OR c.marathi_name LIKE $5)
            ORDER BY c.name ASC, mi.name ASC`,
-          [hotelId, targetLang, `%${search}%`, `%${search}%`]
+          [hotelId, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`]
         );
       } else {
         itemsRes = await db.query(
-          `SELECT mi.*, c.name as category_name 
+          `SELECT mi.*, c.name as category_name, c.marathi_name as marathi_category
            FROM menu_items mi 
            LEFT JOIN categories c ON mi.category_id = c.id
-           WHERE mi.hotel_id = $1 AND mi.is_deleted = 0 AND (COALESCE(mi.lang, 'en') = $2)
-           ORDER BY c.name ASC, mi.name ASC`,
-          [hotelId, targetLang]
-        );
-      }
-
-      // If Marathi menu requested but no items uploaded yet in Marathi, fallback to English menu
-      if (itemsRes.rows.length === 0 && targetLang === 'mr' && !search) {
-        itemsRes = await db.query(
-          `SELECT mi.*, c.name as category_name 
-           FROM menu_items mi 
-           LEFT JOIN categories c ON mi.category_id = c.id
-           WHERE mi.hotel_id = $1 AND mi.is_deleted = 0 AND (COALESCE(mi.lang, 'en') = 'en')
+           WHERE mi.hotel_id = $1 AND mi.is_deleted = 0
            ORDER BY c.name ASC, mi.name ASC`,
           [hotelId]
         );
@@ -893,20 +884,20 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/menu/items' && methodUpper === 'POST') {
-      const { category_id, name, price, description, is_available, lang = 'en' } = body;
+      const { category_id, name, marathi_name = '', price, description, is_available } = body;
       await db.query(
-        'INSERT INTO menu_items (hotel_id, category_id, name, price, description, is_available, lang) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-        [user.hotel_id, category_id, name, price, description, is_available ? 1 : 0, lang || 'en']
+        'INSERT INTO menu_items (hotel_id, category_id, name, marathi_name, price, description, is_available) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [user.hotel_id, category_id, name, marathi_name, price, description, is_available ? 1 : 0]
       );
       return { status: 201, data: { message: 'Item created' } };
     }
 
     if (path.startsWith('/menu/items/') && methodUpper === 'PUT') {
       const id = parseInt(path.split('/')[3]);
-      const { category_id, name, price, description, is_available, lang = 'en' } = body;
+      const { category_id, name, marathi_name = '', price, description, is_available } = body;
       await db.query(
-        'UPDATE menu_items SET category_id = $1, name = $2, price = $3, description = $4, is_available = $5, lang = $6 WHERE id = $7 AND hotel_id = $8',
-        [category_id, name, price, description, is_available ? 1 : 0, lang || 'en', id, user.hotel_id]
+        'UPDATE menu_items SET category_id = $1, name = $2, marathi_name = $3, price = $4, description = $5, is_available = $6 WHERE id = $7 AND hotel_id = $8',
+        [category_id, name, marathi_name, price, description, is_available ? 1 : 0, id, user.hotel_id]
       );
       return { status: 200, data: { message: 'Item updated' } };
     }
@@ -918,36 +909,33 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/menu/items/bulk' && methodUpper === 'POST') {
-      const { items, lang = 'en' } = body;
-      const targetLang = lang || 'en';
+      const { items } = body;
       for (const item of items) {
         // Find or create category
         let catId;
-        const catRes = await db.query('SELECT id FROM categories WHERE name = $1 AND hotel_id = $2 AND is_deleted = 0', [item.category, user.hotel_id]);
+        const catRes = await db.query('SELECT id, marathi_name FROM categories WHERE name = $1 AND hotel_id = $2 AND is_deleted = 0', [item.category, user.hotel_id]);
         if (catRes.rows.length > 0) {
           catId = catRes.rows[0].id;
+          if (!catRes.rows[0].marathi_name && item.marathi_category) {
+            await db.query('UPDATE categories SET marathi_name = $1 WHERE id = $2', [item.marathi_category, catId]);
+          }
         } else {
-          const insertCat = await db.query('INSERT INTO categories (hotel_id, name) VALUES ($1, $2) RETURNING id', [user.hotel_id, item.category]);
+          const insertCat = await db.query('INSERT INTO categories (hotel_id, name, marathi_name) VALUES ($1, $2, $3) RETURNING id', [user.hotel_id, item.category, item.marathi_category || '']);
           catId = insertCat.rows[0].id;
         }
 
-        // Insert item with lang
+        // Insert item
         await db.query(
-          'INSERT INTO menu_items (hotel_id, category_id, name, price, description, lang) VALUES ($1, $2, $3, $4, $5, $6)',
-          [user.hotel_id, catId, item.name, item.price, item.description || '', targetLang]
+          'INSERT INTO menu_items (hotel_id, category_id, name, marathi_name, price, description) VALUES ($1, $2, $3, $4, $5, $6)',
+          [user.hotel_id, catId, item.name, item.marathi_name || '', item.price, item.description || '']
         );
       }
-      return { status: 200, data: { message: `Items bulk imported for ${targetLang === 'mr' ? 'Marathi' : 'English'} menu` } };
+      return { status: 200, data: { message: `Items bulk imported successfully` } };
     }
 
     if (path === '/menu/purge-all' && methodUpper === 'DELETE') {
-      const targetLang = queryParams?.lang || body?.lang;
-      if (targetLang) {
-        await db.query('UPDATE menu_items SET is_deleted = 1 WHERE hotel_id = $1 AND COALESCE(lang, "en") = $2', [user.hotel_id, targetLang]);
-      } else {
-        await db.query('UPDATE menu_items SET is_deleted = 1 WHERE hotel_id = $1', [user.hotel_id]);
-        await db.query('UPDATE categories SET is_deleted = 1 WHERE hotel_id = $1', [user.hotel_id]);
-      }
+      await db.query('UPDATE menu_items SET is_deleted = 1 WHERE hotel_id = $1', [user.hotel_id]);
+      await db.query('UPDATE categories SET is_deleted = 1 WHERE hotel_id = $1', [user.hotel_id]);
       return { status: 200, data: { message: 'Menu purged' } };
     }
 

@@ -101,6 +101,9 @@ CREATE TABLE IF NOT EXISTS users (
     password TEXT NOT NULL,
     role TEXT DEFAULT 'owner',
     hotel_id INTEGER,
+    app_language TEXT DEFAULT 'en',
+    print_lang_kot TEXT DEFAULT 'en',
+    print_lang_bill TEXT DEFAULT 'en',
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
 );
 
@@ -136,6 +139,7 @@ CREATE TABLE IF NOT EXISTS categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    marathi_name TEXT,
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
     is_deleted BOOLEAN DEFAULT 0
 );
@@ -150,6 +154,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
     description TEXT,
     is_available BOOLEAN DEFAULT 1,
     lang TEXT DEFAULT 'en',
+    marathi_name TEXT,
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
     is_deleted BOOLEAN DEFAULT 0
 );
@@ -443,6 +448,17 @@ export const initDb = async () => {
     } catch (e) {}
     try {
       db.run("ALTER TABLE menu_items ADD COLUMN lang TEXT DEFAULT 'en';");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE menu_items ADD COLUMN marathi_name TEXT;");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE categories ADD COLUMN marathi_name TEXT;");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE users ADD COLUMN app_language TEXT DEFAULT 'en';");
+      db.run("ALTER TABLE users ADD COLUMN print_lang_kot TEXT DEFAULT 'en';");
+      db.run("ALTER TABLE users ADD COLUMN print_lang_bill TEXT DEFAULT 'en';");
     } catch (e) {}
     saveDbFileNow();
     
