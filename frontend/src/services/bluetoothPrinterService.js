@@ -256,7 +256,7 @@ export async function formatKOT(data, printerSize = '58mm') {
   const LINE_WIDTH = is58mm ? 32 : 48;
   const builder = new EscposBuilder(is58mm);
   const dateStr = new Date().toLocaleString();
-  const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr' || /[\u0900-\u097F]/.test(JSON.stringify(data));
+  const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr';
 
   builder.alignCenter();
 
@@ -345,7 +345,7 @@ export async function formatBill(data, printerSize = '58mm') {
   const LINE_WIDTH = is58mm ? 32 : 48;
   const builder = new EscposBuilder(is58mm);
   const dateStr = new Date().toLocaleString();
-  const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr' || /[\u0900-\u097F]/.test(JSON.stringify(data));
+  const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr';
 
   builder.alignCenter();
 
