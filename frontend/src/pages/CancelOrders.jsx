@@ -12,7 +12,7 @@ import { useLanguage } from '../context/LanguageContext';
 
 const CancelOrders = () => {
     const { user } = useAuth();
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
 
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -362,7 +362,7 @@ const CancelOrders = () => {
                                                     const price = parseFloat(item.price || 0);
                                                     return (
                                                         <tr key={idx} style={{ borderBottom: '1px solid var(--border-rgba-05)' }}>
-                                                            <td style={{ padding: '12px 16px', fontWeight: 800, color: 'var(--text-primary)' }}>{item.name}</td>
+                                                            <td style={{ padding: '12px 16px', fontWeight: 800, color: 'var(--text-primary)' }}>{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</td>
                                                             <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 800, color: 'var(--text-primary)' }}>{qty}</td>
                                                             <td style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)' }}>₹{price.toFixed(2)}</td>
                                                             <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 900, color: 'var(--text-primary)' }}>₹{(price * qty).toFixed(2)}</td>

@@ -563,7 +563,7 @@ const MenuManagement = () => {
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                           <h4 style={{fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, textTransform: 'uppercase' }}>{item.name}</h4>
                           {language === 'mr' && item.marathi_name && (
-                            <span style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>{item.marathi_name}</span>
+                            <span style={{ fontSize: '15px', color: 'var(--text-primary)', fontWeight: 700, marginTop: '2px' }}>{item.marathi_name}</span>
                           )}
                         </div>
                       )}

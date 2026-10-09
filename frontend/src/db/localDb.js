@@ -450,6 +450,9 @@ export const initDb = async () => {
       db.run("ALTER TABLE menu_items ADD COLUMN lang TEXT DEFAULT 'en';");
     } catch (e) {}
     try {
+      db.run("ALTER TABLE hotels ADD COLUMN settle_without_print BOOLEAN DEFAULT 0;");
+    } catch (e) {}
+    try {
       db.run("ALTER TABLE menu_items ADD COLUMN marathi_name TEXT;");
     } catch (e) {}
     try {

@@ -28,7 +28,7 @@ const safeDate = (dateString) => {
 
 const BillingHistory = () => {
     const { user } = useAuth();
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [bills, setBills] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -179,7 +179,7 @@ const BillingHistory = () => {
             if (b.parsedItems) {
                 b.parsedItems.forEach(item => {
                     if (!itemMap[item.name]) {
-                        itemMap[item.name] = { name: item.name, quantity: 0, revenue: 0 };
+                        itemMap[item.name] = { name: item.name, marathi_name: item.marathi_name, quantity: 0, revenue: 0 };
                     }
                     itemMap[item.name].quantity += item.quantity;
                     itemMap[item.name].revenue += (item.price * item.quantity);
@@ -687,7 +687,7 @@ const BillingHistory = () => {
                                         ) : (
                                             itemSales.map((item, i) => (
                                                 <tr key={i}>
-                                                    <td style={tdStyle}>{item.name}</td>
+                                                    <td style={tdStyle}>{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</td>
                                                     <td style={tdStyle}>{item.quantity}</td>
                                                     <td style={{...tdStyle, color: '#10b981', fontWeight: 800}}>₹{item.revenue.toFixed(2)}</td>
                                                 </tr>
@@ -737,7 +737,7 @@ const BillingHistory = () => {
                         ) : (
                             (selectedBill.items || []).map((i, idx) => (
                                 <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 40px 75px', fontSize: isMobile ? '13px' : '15px', fontWeight: 800, marginBottom: '6px', color: selectedBill.is_paid ? 'white' : 'var(--text-primary)' }}>
-                                <span>{i.name}</span><span style={{ textAlign: 'right' }}>₹{Math.round(i.price)}</span><span style={{ textAlign: 'right' }}>{i.quantity}</span><span style={{ textAlign: 'right' }}>₹{(i.price * i.quantity).toFixed(2)}</span>
+                                <span>{language === 'mr' && i.marathi_name ? i.marathi_name : i.name}</span><span style={{ textAlign: 'right' }}>₹{Math.round(i.price)}</span><span style={{ textAlign: 'right' }}>{i.quantity}</span><span style={{ textAlign: 'right' }}>₹{(i.price * i.quantity).toFixed(2)}</span>
                                 </div>
                             ))
                         )}

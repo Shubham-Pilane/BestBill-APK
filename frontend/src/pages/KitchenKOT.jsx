@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 const KitchenKOT = () => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [audioEnabled, setAudioEnabled] = useState(() => {

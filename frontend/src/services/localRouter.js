@@ -1022,7 +1022,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const hotel = hotelRes.rows[0] || {};
 
       const itemsRes = await db.query(
-        `SELECT oi.quantity, mi.name, mi.price 
+        `SELECT oi.quantity, mi.name, mi.marathi_name, mi.price 
          FROM order_items oi 
          JOIN menu_items mi ON oi.menu_item_id = mi.id 
          WHERE oi.order_id = $1`,
@@ -1614,6 +1614,43 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 200, data: { success: true, enabled: Boolean(enabled) } };
     }
 
+    if (path === '/hotel/settle-without-print-status' && methodUpper === 'GET') {
+      const res = await db.query('SELECT settle_without_print FROM hotels WHERE id = $1', [user.hotel_id]);
+      return { status: 200, data: { settleWithoutPrintEnabled: res.rows[0]?.settle_without_print === 1 || res.rows[0]?.settle_without_print === true } };
+    }
+
+    if (path === '/hotel/toggle-settle-without-print' && methodUpper === 'POST') {
+      const { enabled } = body;
+      await db.query('UPDATE hotels SET settle_without_print = $1 WHERE id = $2', [enabled ? 1 : 0, user.hotel_id]);
+      return { status: 200, data: { success: true } };
+    }
+
+    if (path === '/hotel/clear-test-data' && methodUpper === 'DELETE') {
+      const { targetDate } = body;
+      if (!targetDate) return { status: 400, data: { message: 'Target date is required' } };
+      
+      try {
+        // Delete bills that match the date directly
+        await db.query(`DELETE FROM bills WHERE created_at LIKE $1 || '%'`, [targetDate]);
+        
+        // Find orders matching the date and delete their items and the orders themselves
+        const oRes = await db.query(`SELECT id FROM orders WHERE created_at LIKE $1 || '%'`, [targetDate]);
+        if (oRes.rows.length > 0) {
+          const idsList = oRes.rows.map(r => r.id).join(',');
+          await db.query(`DELETE FROM order_items WHERE order_id IN (${idsList})`);
+          await db.query(`DELETE FROM orders WHERE id IN (${idsList})`);
+        }
+
+        await db.query(`DELETE FROM cancelled_orders WHERE created_at LIKE $1 || '%'`, [targetDate]);
+        await db.query(`DELETE FROM expenses WHERE expense_date LIKE $1 || '%'`, [targetDate]);
+        await db.query(`DELETE FROM credits WHERE created_at LIKE $1 || '%'`, [targetDate]);
+      } catch (e) {
+        console.error('Error clearing test data:', e);
+      }
+      
+      return { status: 200, data: { message: 'Test data cleared successfully' } };
+    }
+
     // ----------------------------------------
     // CANCEL ORDERS ROUTES
     // ----------------------------------------
@@ -1631,6 +1668,26 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         'SELECT * FROM cancelled_orders ORDER BY id DESC LIMIT $1 OFFSET $2',
         [limitNum, offset]
       );
+
+      const menuRes = await db.query('SELECT name, marathi_name FROM menu_items');
+      const menuLookup = {};
+      menuRes.rows.forEach(m => {
+        menuLookup[m.name] = m.marathi_name;
+      });
+
+      for (let row of dataRes.rows) {
+        if (row.items_json) {
+          try {
+            let items = JSON.parse(row.items_json);
+            for (let item of items) {
+              if (menuLookup[item.name]) {
+                item.marathi_name = menuLookup[item.name];
+              }
+            }
+            row.items_json = JSON.stringify(items);
+          } catch(e) {}
+        }
+      }
 
       return {
         status: 200,
@@ -1683,6 +1740,15 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const cancelledOrder = dataRes.rows[0];
       let items = [];
       try { items = JSON.parse(cancelledOrder.items_json); } catch (e) {}
+
+      for (let item of items) {
+        if (!item.marathi_name) {
+          const miRes = await db.query('SELECT marathi_name FROM menu_items WHERE name = $1 LIMIT 1', [item.name]);
+          if (miRes.rows.length > 0) {
+            item.marathi_name = miRes.rows[0].marathi_name;
+          }
+        }
+      }
 
       const hotelRes = await db.query('SELECT name, phone, location FROM hotels LIMIT 1');
       const hotel = hotelRes.rows[0] || {};
