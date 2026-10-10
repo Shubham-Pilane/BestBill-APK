@@ -82,7 +82,7 @@ export function renderDevanagariLineToRaster(text, options = {}) {
 
   const paperSize = options.paperSize || '58mm';
   const totalWidth = paperSize === '80mm' ? 576 : 384;
-  const fontSize = options.fontSize || (options.isDouble ? 42 : 34);
+  const fontSize = options.fontSize || (paperSize === '58mm' ? (options.isDouble ? 34 : 26) : (options.isDouble ? 42 : 34));
   const fontWeight = options.fontWeight || (options.isDouble || options.bold ? 'bold' : 'normal');
   const align = options.align || 'left';
   const lineHeight = options.lineHeight || Math.ceil(fontSize * 1.4);
@@ -157,7 +157,7 @@ export function renderHeaderRowToRaster(options = {}) {
   const paperSize = options.paperSize || '58mm';
   const is58mm = paperSize === '58mm';
   const totalWidth = is58mm ? 384 : 576;
-  const fontSize = options.fontSize || 32;
+  const fontSize = options.fontSize || (is58mm ? 26 : 32);
   const lineHeight = Math.ceil(fontSize * 1.4);
 
   const itemColWidth = is58mm ? 160 : 260;
@@ -225,7 +225,7 @@ export function renderItemRowToRaster(itemData, options = {}) {
   const paperSize = options.paperSize || '58mm';
   const is58mm = paperSize === '58mm';
   const totalWidth = is58mm ? 384 : 576;
-  const fontSize = options.fontSize || 32;
+  const fontSize = options.fontSize || (is58mm ? 26 : 32);
   const lineHeight = Math.ceil(fontSize * 1.4);
 
   // Column dot widths allocation
@@ -322,7 +322,7 @@ export function renderKOTHeaderRowToRaster(options = {}) {
   const paperSize = options.paperSize || '58mm';
   const is58mm = paperSize === '58mm';
   const totalWidth = is58mm ? 384 : 576;
-  const fontSize = options.fontSize || 32;
+  const fontSize = options.fontSize || (is58mm ? 26 : 32);
   const lineHeight = Math.ceil(fontSize * 1.4);
 
   const qtyColWidth = is58mm ? 64 : 80;
@@ -371,7 +371,7 @@ export function renderKOTItemRowToRaster(itemData, options = {}) {
   const paperSize = options.paperSize || '58mm';
   const is58mm = paperSize === '58mm';
   const totalWidth = is58mm ? 384 : 576;
-  const fontSize = options.fontSize || 32;
+  const fontSize = options.fontSize || (is58mm ? 26 : 32);
   const lineHeight = Math.ceil(fontSize * 1.4);
 
   const qtyColWidth = is58mm ? 64 : 80;

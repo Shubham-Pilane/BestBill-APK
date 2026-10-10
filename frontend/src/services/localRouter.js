@@ -697,7 +697,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const { discount_percentage } = body;
 
       const [hotelRes, tableRes, orderRes] = await Promise.all([
-        db.query('SELECT name, phone, location, gst_percentage FROM hotels WHERE id = $1', [user.hotel_id]),
+        db.query('SELECT name, phone, location, gst_percentage, fssai_number FROM hotels WHERE id = $1', [user.hotel_id]),
         db.query('SELECT table_number FROM tables WHERE id = $1', [tableId]),
         db.query(`
           SELECT o.id as order_id, oi.quantity, mi.name, mi.price, mi.id as menu_item_id
@@ -747,7 +747,8 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         items: orderRes.rows,
         hotel_name: hotel.name || user?.hotel_name || '',
         hotel_phone: hotel.phone || '',
-        hotel_location: hotel.location || ''
+        hotel_location: hotel.location || '',
+        hotel_fssai: hotel.fssai_number || ''
       };
 
       notifyUpdate('table-update');
@@ -848,7 +849,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
            FROM menu_items mi 
            LEFT JOIN categories c ON mi.category_id = c.id
            WHERE mi.hotel_id = $1 AND mi.is_deleted = 0 AND (mi.name LIKE $2 OR mi.marathi_name LIKE $3 OR c.name LIKE $4 OR c.marathi_name LIKE $5)
-           ORDER BY c.name ASC, mi.name ASC`,
+           ORDER BY COALESCE(mi.is_pinned, 0) DESC, c.name ASC, mi.name ASC`,
           [hotelId, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`]
         );
       } else {
@@ -857,7 +858,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
            FROM menu_items mi 
            LEFT JOIN categories c ON mi.category_id = c.id
            WHERE mi.hotel_id = $1 AND mi.is_deleted = 0
-           ORDER BY c.name ASC, mi.name ASC`,
+           ORDER BY COALESCE(mi.is_pinned, 0) DESC, c.name ASC, mi.name ASC`,
           [hotelId]
         );
       }
@@ -893,9 +894,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       return { status: 201, data: { message: 'Item created' } };
     }
 
-    if (path.startsWith('/menu/items/') && methodUpper === 'PUT') {
+    if (path.startsWith('/menu/items/') && !path.endsWith('/pin') && methodUpper === 'PUT') {
       const id = parseInt(path.split('/')[3]);
-      const { category_id, name, marathi_name = '', price, description, is_available } = body;
+      const { category_id, name, marathi_name = '', price, description, is_available } = body || {};
       await db.query(
         'UPDATE menu_items SET category_id = $1, name = $2, marathi_name = $3, price = $4, description = $5, is_available = $6 WHERE id = $7 AND hotel_id = $8',
         [category_id, name, marathi_name, price, description, is_available ? 1 : 0, id, user.hotel_id]
@@ -907,6 +908,19 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const id = parseInt(path.split('/')[3]);
       await db.query('UPDATE menu_items SET is_deleted = 1 WHERE id = $2 AND hotel_id = $3', [id, user.hotel_id]);
       return { status: 200, data: { message: 'Item deleted' } };
+    }
+
+    if (path.startsWith('/menu/items/') && path.endsWith('/pin') && (methodUpper === 'PUT' || methodUpper === 'POST' || methodUpper === 'PATCH')) {
+      const id = parseInt(path.split('/')[3]);
+      const existing = await db.query('SELECT is_pinned FROM menu_items WHERE id = $1 AND hotel_id = $2', [id, user.hotel_id]);
+      if (existing.rows.length === 0) return { status: 404, data: { message: 'Item not found' } };
+      
+      const currentPinned = existing.rows[0].is_pinned === 1 || existing.rows[0].is_pinned === true || existing.rows[0].is_pinned === '1';
+      const targetPinned = body?.is_pinned !== undefined ? body.is_pinned : !currentPinned;
+      const pinVal = targetPinned ? 1 : 0;
+      
+      await db.query('UPDATE menu_items SET is_pinned = $1 WHERE id = $2', [pinVal, id]);
+      return { status: 200, data: { is_pinned: targetPinned } };
     }
 
     if (path === '/menu/items/bulk' && methodUpper === 'POST') {
@@ -1106,6 +1120,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         hotelName: hotel.name || user?.hotel_name || '',
         hotelPhone: hotel.phone || '',
         hotelLocation: hotel.location || '',
+        hotelFssai: hotel.fssai_number || '',
         upiId: showUPI ? (hotel.upi_id || '') : '',
         isPaid: bill.is_paid === 1 || bill.is_paid === true,
         gst_percentage: hotel.gst_percentage || 0,

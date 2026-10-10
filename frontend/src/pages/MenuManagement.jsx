@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import ConfirmModal from '../components/ConfirmModal';
 import { toast } from 'react-hot-toast';
-import { Plus, Utensils, Tag, IndianRupee, Layers, ListChecks, Trash2, Edit2, X, Check, Save, Search, UploadCloud, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Utensils, Tag, IndianRupee, Layers, ListChecks, Trash2, Edit2, X, Check, Save, Search, UploadCloud, ChevronDown, ChevronUp, Pin } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
 const MenuManagement = () => {
@@ -223,6 +223,19 @@ const MenuManagement = () => {
         }
       }
     });
+  };
+
+  const togglePinItem = async (item) => {
+    try {
+      const res = await api.put(`/menu/items/${item.id}/pin`);
+      const newPinned = Boolean(res.data?.is_pinned);
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, is_pinned: newPinned } : i));
+      fetchData(currentPage, searchTerm);
+      toast.success(newPinned ? `Pinned ${item.name} to top!` : `Unpinned ${item.name}`);
+    } catch (err) {
+      console.error('Toggle pin error:', err);
+      toast.error(err.response?.data?.message || 'Failed to toggle pin status');
+    }
   };
 
   const startEditItem = (item) => {
@@ -619,6 +632,7 @@ const MenuManagement = () => {
                         </>
                       ) : (
                         <>
+                          <button onClick={() => togglePinItem(item)} style={{ padding: '8px', color: item.is_pinned ? '#f59e0b' : 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', transition: 'all 0.2s', borderRadius: '10px' }} title={item.is_pinned ? "Unpin item" : "Pin item to top"}><Pin size={18} fill={item.is_pinned ? '#f59e0b' : 'none'} /></button>
                           <button onClick={() => startEditItem(item)} style={{ padding: '8px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', transition: 'all 0.2s', borderRadius: '10px' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(100, 116, 139, 0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}><Edit2 size={18} /></button>
                           <button onClick={() => deleteItem(item.id)} style={{ padding: '8px', color: '#f43f5e', background: 'none', border: 'none', cursor: 'pointer', transition: 'all 0.2s', borderRadius: '10px' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(244, 63, 94, 0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}><Trash2 size={18} /></button>
                         </>

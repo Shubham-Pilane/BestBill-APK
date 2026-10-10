@@ -156,7 +156,8 @@ CREATE TABLE IF NOT EXISTS menu_items (
     lang TEXT DEFAULT 'en',
     marathi_name TEXT,
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
-    is_deleted BOOLEAN DEFAULT 0
+    is_deleted BOOLEAN DEFAULT 0,
+    is_pinned BOOLEAN DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS tables (
@@ -457,6 +458,9 @@ export const initDb = async () => {
     } catch (e) {}
     try {
       db.run("ALTER TABLE categories ADD COLUMN marathi_name TEXT;");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE menu_items ADD COLUMN is_pinned BOOLEAN DEFAULT 0;");
     } catch (e) {}
     try {
       db.run("ALTER TABLE users ADD COLUMN app_language TEXT DEFAULT 'en';");

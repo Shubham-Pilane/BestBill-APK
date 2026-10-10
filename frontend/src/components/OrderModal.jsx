@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
-import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, ChevronsDown, Ticket, Ban, Edit2 } from 'lucide-react';
+import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, ChevronsDown, Ticket, Ban, Edit2, Pin } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -186,6 +186,18 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table?.id]);
 
+  const togglePinItem = async (e, item) => {
+    e.stopPropagation();
+    try {
+      const res = await api.put(`/menu/items/${item.id}/pin`);
+      const isPinned = Boolean(res.data.is_pinned);
+      setAllItems(prev => prev.map(i => i.id === item.id ? { ...i, is_pinned: isPinned } : i));
+      toast.success(isPinned ? `Pinned ${item.name} to top!` : `Unpinned ${item.name}`);
+    } catch (err) {
+      toast.error('Failed to update pin status');
+    }
+  };
+
   useEffect(() => {
     if (!table?.id) return;
     const unsubscribe = onUpdate(async () => {
@@ -226,6 +238,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     }
 
     filtered.sort((a, b) => {
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
+
       const aInOrder = orderItems.some(i => i.menu_item_id === a.id);
       const bInOrder = orderItems.some(i => i.menu_item_id === b.id);
       if (aInOrder && !bInOrder) return -1;
@@ -797,7 +812,14 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, paddingRight: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</span>
+                        <button
+                          onClick={(e) => togglePinItem(e, item)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.is_pinned ? '#f59e0b' : 'var(--text-muted)' }}
+                          title={item.is_pinned ? "Unpin item" : "Pin item to top"}
+                        >
+                          <Pin size={16} fill={item.is_pinned ? '#f59e0b' : 'none'} />
+                        </button>
+                        <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.02em', marginTop: '2px' }}>{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</span>
                         <span style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: 800, backgroundColor: 'var(--bg-base)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
                           {language === 'mr' && item.marathi_category ? item.marathi_category : item.category_name || 'Item'}
                         </span>

@@ -408,14 +408,14 @@ const InventoryManagement = () => {
         try {
             // Fetch existing recipe for this specific menu item
             const res = await api.get(`/inventory/recipes/product/${menuItem.id}`);
-            if (res.data && res.data.items) {
-                setRecipeIngredients(res.data.items.map(item => {
+            if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+                setRecipeIngredients(res.data.map(item => {
                     const matchedItem = items.find(i => i.id === item.inventory_item_id);
                     let displayQty = Number(item.quantity_required) || 0;
                     let displayUnit = matchedItem ? matchedItem.unit : 'KG';
 
                     if (matchedItem) {
-                        const baseUnitLower = matchedItem.unit.toLowerCase();
+                        const baseUnitLower = matchedItem.unit?.toLowerCase() || '';
                         if (baseUnitLower === 'kg' && displayQty < 1) {
                             displayQty = displayQty * 1000;
                             displayUnit = 'Gram';
@@ -499,6 +499,44 @@ const InventoryManagement = () => {
             return q;
         }
         return q;
+    };
+
+    const handleSaveRecipe = async () => {
+        if (recipeIngredients.some(row => !row.inventory_item_id)) {
+            return toast.error('Please select ingredients for all mapped rows');
+        }
+
+        try {
+            const mappedItems = recipeIngredients.map(row => {
+                const selectedItem = items.find(item => String(item.id) === String(row.inventory_item_id));
+                if (!selectedItem) {
+                    throw new Error(`Ingredient for ID ${row.inventory_item_id} not found in catalog.`);
+                }
+                const convertedQty = convertToItemDisplayUnit(
+                    row.quantity_required,
+                    row.unit || selectedItem.unit,
+                    selectedItem.unit
+                );
+                return {
+                    inventory_item_id: Number(row.inventory_item_id),
+                    quantity_required: convertedQty
+                };
+            });
+
+            await api.post('/inventory/recipes', {
+                product_id: selectedMenuItem.id,
+                items: mappedItems
+            });
+
+            toast.success(`Recipe saved for ${selectedMenuItem.name}!`);
+            setShowRecipeModal(false);
+            setSelectedMenuItem(null);
+            setRecipeIngredients([]);
+            fetchData();
+        } catch (err) {
+            const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to map recipe';
+            toast.error(errorMsg);
+        }
     };
 
     // --- FILTERED & PAGINATED LISTS ---
@@ -1304,7 +1342,7 @@ const InventoryManagement = () => {
                                                         style={{ width: '100%', padding: '12px 0', border: 'none', background: 'none', color: 'var(--text-primary)', fontWeight: 700, fontSize: '14px', outline: 'none' }}
                                                     />
                                                     {selectedItemObj && (
-                                                        ['kg', 'gram', 'g', 'gm', 'grams'].includes(selectedItemObj.unit.toLowerCase()) ? (
+                                                        ['kg', 'gram', 'g', 'gm', 'grams'].includes(selectedItemObj.unit?.toLowerCase() || '') ? (
                                                             <select
                                                                 value={row.unit}
                                                                 onChange={e => updateIngredientRow(index, 'unit', e.target.value)}
@@ -1313,7 +1351,7 @@ const InventoryManagement = () => {
                                                                 <option value="KG">KG</option>
                                                                 <option value="Gram">Gram</option>
                                                             </select>
-                                                        ) : ['litre', 'l', 'ml', 'litres'].includes(selectedItemObj.unit.toLowerCase()) ? (
+                                                        ) : ['litre', 'l', 'ml', 'litres'].includes(selectedItemObj.unit?.toLowerCase() || '') ? (
                                                             <select
                                                                 value={row.unit}
                                                                 onChange={e => updateIngredientRow(index, 'unit', e.target.value)}
