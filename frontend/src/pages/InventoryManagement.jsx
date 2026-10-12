@@ -1317,51 +1317,53 @@ const InventoryManagement = () => {
                                         const selectedItemObj = items.find(i => String(i.id) === String(row.inventory_item_id));
                                         
                                         return (
-                                            <div key={index} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                            <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
                                                 
                                                 {/* Ingredient select */}
-                                                <select 
-                                                    value={row.inventory_item_id}
-                                                    onChange={e => updateIngredientRow(index, 'inventory_item_id', e.target.value)}
-                                                    style={{ flex: 2, padding: '12px', borderRadius: '12px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700, fontSize: '14px', outline: 'none' }}
-                                                >
-                                                    <option value="">Choose Raw Ingredient...</option>
-                                                    {items.map(item => (
-                                                        <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
-                                                    ))}
-                                                </select>
+                                                <div style={{ flex: '1.2', minWidth: 0 }}>
+                                                    <select 
+                                                        value={row.inventory_item_id}
+                                                        onChange={e => updateIngredientRow(index, 'inventory_item_id', e.target.value)}
+                                                        style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px', outline: 'none', textOverflow: 'ellipsis' }}
+                                                    >
+                                                        <option value="">Ingredient...</option>
+                                                        {items.map(item => (
+                                                            <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
 
                                                 {/* Quantity required input with unit dropdown */}
-                                                <div style={{ flex: 1.5, display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-base)', padding: '0 12px', borderRadius: '12px', border: '1px solid var(--bg-border)' }}>
+                                                <div style={{ flex: '1', minWidth: 0, display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-base)', padding: '0 8px', borderRadius: '10px', border: '1px solid var(--bg-border)' }}>
                                                     <input 
                                                         type="number"
                                                         step="any"
                                                         value={row.quantity_required}
                                                         placeholder="Qty"
                                                         onChange={e => updateIngredientRow(index, 'quantity_required', e.target.value)}
-                                                        style={{ width: '100%', padding: '12px 0', border: 'none', background: 'none', color: 'var(--text-primary)', fontWeight: 700, fontSize: '14px', outline: 'none' }}
+                                                        style={{ flex: 1, minWidth: 0, padding: '10px 0', border: 'none', background: 'none', color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px', outline: 'none' }}
                                                     />
                                                     {selectedItemObj && (
                                                         ['kg', 'gram', 'g', 'gm', 'grams'].includes(selectedItemObj.unit?.toLowerCase() || '') ? (
                                                             <select
                                                                 value={row.unit}
                                                                 onChange={e => updateIngredientRow(index, 'unit', e.target.value)}
-                                                                style={{ border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-card)', padding: '4px 8px', borderRadius: '8px', color: 'var(--text-primary)', fontWeight: 800, fontSize: '12px', cursor: 'pointer', outline: 'none' }}
+                                                                style={{ border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-card)', padding: '4px 6px', borderRadius: '6px', color: 'var(--text-primary)', fontWeight: 800, fontSize: '11px', cursor: 'pointer', outline: 'none' }}
                                                             >
                                                                 <option value="KG">KG</option>
-                                                                <option value="Gram">Gram</option>
+                                                                <option value="Gram">G</option>
                                                             </select>
                                                         ) : ['litre', 'l', 'ml', 'litres'].includes(selectedItemObj.unit?.toLowerCase() || '') ? (
                                                             <select
                                                                 value={row.unit}
                                                                 onChange={e => updateIngredientRow(index, 'unit', e.target.value)}
-                                                                style={{ border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-card)', padding: '4px 8px', borderRadius: '8px', color: 'var(--text-primary)', fontWeight: 800, fontSize: '12px', cursor: 'pointer', outline: 'none' }}
+                                                                style={{ border: '1px solid var(--bg-border)', backgroundColor: 'var(--bg-card)', padding: '4px 6px', borderRadius: '6px', color: 'var(--text-primary)', fontWeight: 800, fontSize: '11px', cursor: 'pointer', outline: 'none' }}
                                                             >
-                                                                <option value="Litre">Litre</option>
+                                                                <option value="Litre">L</option>
                                                                 <option value="ML">ML</option>
                                                             </select>
                                                         ) : (
-                                                            <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>
+                                                            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)' }}>
                                                                 {selectedItemObj.unit}
                                                             </span>
                                                         )
@@ -1371,7 +1373,7 @@ const InventoryManagement = () => {
                                                 {/* Delete row */}
                                                 <button 
                                                     onClick={() => removeIngredientRow(index)}
-                                                    style={{ padding: '10px', borderRadius: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                                    style={{ padding: '8px', borderRadius: '10px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
