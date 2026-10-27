@@ -327,6 +327,8 @@ export const shareBillPDFViaWhatsApp = (billData, hotelInfo = {}, customerPhone 
       const gstVal = parseFloat(billData.gst || 0);
       const gstPercent = billData.gst_percentage !== undefined ? billData.gst_percentage : (hotelInfo.gst_percentage || 0);
 
+      const gstLine = (gstPercent > 0) ? `*GST (${gstPercent}%):* ₹${formatAmount(gstVal)}\n` : '';
+
       const whatsappText = `*--- ${hotelName.toUpperCase()} ---*\n` +
         (address ? `*Address:* ${address}\n` : '') +
         (phone ? `*Phone:* ${phone}\n` : '') +
@@ -338,7 +340,7 @@ export const shareBillPDFViaWhatsApp = (billData, hotelInfo = {}, customerPhone 
         `*------------------------*\n` +
         `*Subtotal:* ₹${formatAmount(subtotalVal)}` +
         `${discountText}\n` +
-        `*GST (${gstPercent}%):* ₹${formatAmount(gstVal)}\n` +
+        `${gstLine}` +
         `*GRAND TOTAL:* ₹${formatAmount(totalVal)}\n\n` +
         `*Thank You! Visit Again!*`;
 
