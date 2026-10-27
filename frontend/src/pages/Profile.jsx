@@ -614,7 +614,7 @@ const Profile = () => {
                 { name: 'Cold Coffee', price: 70.00, qty: 2 }
             ];
             const subtotal = sampleItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            const gstPct = hotelData.gst_percentage !== undefined ? Number(hotelData.gst_percentage) : 5;
+            const gstPct = hotelData.gst_percentage !== undefined ? Number(hotelData.gst_percentage) : 0;
             const gst = (subtotal * gstPct) / 100;
             const finalAmount = subtotal + gst;
 
