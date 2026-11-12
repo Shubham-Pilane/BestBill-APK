@@ -3,10 +3,11 @@ import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
 import { exportAnalyticsPdf } from '../utils/pdfExporter';
-import { Receipt, History, IndianRupee, Calendar, Search, Ban, CheckCircle, Phone, Printer, MessageCircle, BarChart2, Download, ArrowLeft, ArrowUp, ArrowDown } from 'lucide-react';
+import { Receipt, History, IndianRupee, Calendar, Search, Ban, CheckCircle, Phone, Printer, MessageCircle, BarChart2, Download, ArrowLeft, ArrowUp, ArrowDown, Edit2 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import EditBillModal from '../components/EditBillModal';
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import { Capacitor } from '@capacitor/core';
@@ -33,6 +34,7 @@ const BillingHistory = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedBill, setSelectedBill] = useState(null);
+    const [editingBill, setEditingBill] = useState(null);
     const [customerPhone, setCustomerPhone] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 15;
@@ -273,6 +275,50 @@ const BillingHistory = () => {
         }
     };
 
+    const handleEditBillClick = async (billOrId) => {
+        const targetId = typeof billOrId === 'object' ? billOrId.id : billOrId;
+        const existingBill = typeof billOrId === 'object'
+            ? billOrId
+            : bills.find(b => Number(b.id) === Number(targetId));
+
+        try {
+            const res = await api.get(`/bills/${targetId}`);
+            const mergedItems = (res.data?.items && res.data.items.length > 0)
+                ? res.data.items
+                : (existingBill?.items || existingBill?.parsedItems || []);
+
+            setEditingBill({
+                ...existingBill,
+                ...res.data,
+                items: mergedItems,
+                parsedItems: mergedItems
+            });
+        } catch (err) {
+            if (existingBill) {
+                const fallbackItems = existingBill.items || existingBill.parsedItems || [];
+                setEditingBill({
+                    ...existingBill,
+                    items: fallbackItems,
+                    parsedItems: fallbackItems
+                });
+            } else {
+                toast.error('Failed to load bill for editing');
+            }
+        }
+    };
+
+    const handleBillUpdated = async (updatedBill) => {
+        await fetchHistory();
+        if (updatedBill && selectedBill && Number(selectedBill.id) === Number(updatedBill.id)) {
+            setSelectedBill(prev => ({
+                ...prev,
+                ...updatedBill,
+                items: updatedBill.items || prev?.items || [],
+                parsedItems: updatedBill.items || prev?.parsedItems || []
+            }));
+        }
+    };
+
     const printBill = async () => {
         if (!selectedBill) return;
         try {
@@ -462,9 +508,14 @@ const BillingHistory = () => {
                                                 )}
                                             </td>
                                             <td style={tdStyle}>
-                                                <button onClick={() => handleBillClick(bill)} style={{ padding: '6px 12px', backgroundColor: 'var(--bg-border)', border: 'none', borderRadius: '6px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}>
-                                                    {t('view_details', 'View Details')}
-                                                </button>
+                                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'nowrap' }}>
+                                                    <button onClick={() => handleBillClick(bill)} style={{ padding: '6px 12px', backgroundColor: 'var(--bg-border)', border: 'none', borderRadius: '6px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 700, fontSize: '12px', whiteSpace: 'nowrap' }}>
+                                                        {t('view_details', 'View Details')}
+                                                    </button>
+                                                    <button onClick={() => handleEditBillClick(bill)} style={{ padding: '6px 12px', backgroundColor: 'rgba(245, 158, 11, 0.14)', border: '1px solid rgba(245, 158, 11, 0.45)', borderRadius: '6px', color: '#d97706', cursor: 'pointer', fontWeight: 700, fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                                                        <Edit2 size={12} /> {t('edit_bill', 'Edit Bill')}
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -737,7 +788,7 @@ const BillingHistory = () => {
                         ) : (
                             (selectedBill.items || []).map((i, idx) => (
                                 <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 40px 75px', fontSize: isMobile ? '13px' : '15px', fontWeight: 800, marginBottom: '6px', color: selectedBill.is_paid ? 'white' : 'var(--text-primary)' }}>
-                                <span>{language === 'mr' && i.marathi_name ? i.marathi_name : i.name}</span><span style={{ textAlign: 'right' }}>₹{Math.round(i.price)}</span><span style={{ textAlign: 'right' }}>{i.quantity}</span><span style={{ textAlign: 'right' }}>₹{(i.price * i.quantity).toFixed(2)}</span>
+                                <span>{language === 'mr' && i.marathi_name ? i.marathi_name : i.name}</span><span style={{ textAlign: 'right' }}>₹{Number.isInteger(Number(i.price)) ? Math.round(i.price) : Number(i.price || 0).toFixed(2)}</span><span style={{ textAlign: 'right' }}>{i.quantity}</span><span style={{ textAlign: 'right' }}>₹{(i.price * i.quantity).toFixed(2)}</span>
                                 </div>
                             ))
                         )}
@@ -746,6 +797,12 @@ const BillingHistory = () => {
                         <div style={{ borderTop: '1px dashed var(--text-muted)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('subtotal', 'SUBTOTAL')}</span><span>₹{parseFloat(selectedBill.subtotal || 0).toFixed(2)}</span></div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('gst', 'GST')}</span><span>₹{parseFloat(selectedBill.gst || 0).toFixed(2)}</span></div>
+                        {parseFloat(selectedBill.discount_percentage || 0) > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800, color: selectedBill.is_paid ? 'white' : '#ef4444' }}>
+                            <span>{t('discount', 'DISCOUNT')} ({parseFloat(selectedBill.discount_percentage)}%)</span>
+                            <span>-₹{(parseFloat(selectedBill.discount_amount ?? ((parseFloat(selectedBill.subtotal || 0) + parseFloat(selectedBill.gst || 0)) * (parseFloat(selectedBill.discount_percentage || 0) / 100)))).toFixed(2)}</span>
+                        </div>
+                        )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: isMobile ? '24px' : '42px', fontWeight: 1000, color: selectedBill.is_paid ? 'white' : '#10b981', borderTop: '4px double var(--text-muted)', marginTop: '8px', paddingTop: '8px' }}><span>{t('grand_total', 'TOTAL')}</span><span>₹{parseFloat(selectedBill.final_amount).toFixed(2)}</span></div>
                         </div>
 
@@ -776,10 +833,21 @@ const BillingHistory = () => {
                                 <MessageCircle size={16} /> WhatsApp
                             </button>
                         </div>
+                        <button onClick={() => setEditingBill(selectedBill)} style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: 'rgba(245, 158, 11, 0.14)', color: '#d97706', border: '1px solid rgba(245, 158, 11, 0.45)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '800', fontSize: '14px' }}>
+                            <Edit2 size={16} /> {t('edit_bill', 'Edit Bill')}
+                        </button>
                         <button onClick={() => setSelectedBill(null)} style={{ width: '100%', padding: '16px', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', fontSize: '14px' }}>{t('close', 'CLOSE')}</button>
                     </div>
                 </div>
                 </div>
+            )}
+
+            {editingBill && (
+                <EditBillModal
+                    bill={editingBill}
+                    onClose={() => setEditingBill(null)}
+                    onBillUpdated={handleBillUpdated}
+                />
             )}
         </div>
     );

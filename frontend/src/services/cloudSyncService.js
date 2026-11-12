@@ -114,6 +114,7 @@ export async function getDailyAnalyticsData(targetDateStr) {
        JOIN orders o ON oi.order_id = o.id
        JOIN bills b ON b.order_id = o.id
        WHERE date(b.created_at) = date($1)
+         AND oi.quantity > 0
        GROUP BY COALESCE(oi.custom_name, mi.name)
        ORDER BY qty DESC
        LIMIT 10`,

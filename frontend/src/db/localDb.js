@@ -205,6 +205,9 @@ CREATE TABLE IF NOT EXISTS order_items (
     menu_item_id INTEGER REFERENCES menu_items(id),
     quantity INTEGER NOT NULL,
     printed_quantity INTEGER DEFAULT 0,
+    is_manual BOOLEAN DEFAULT 0,
+    custom_name TEXT,
+    custom_price REAL,
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
     UNIQUE (order_id, menu_item_id)
 );
@@ -466,6 +469,15 @@ export const initDb = async () => {
       db.run("ALTER TABLE users ADD COLUMN app_language TEXT DEFAULT 'en';");
       db.run("ALTER TABLE users ADD COLUMN print_lang_kot TEXT DEFAULT 'en';");
       db.run("ALTER TABLE users ADD COLUMN print_lang_bill TEXT DEFAULT 'en';");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE order_items ADD COLUMN is_manual BOOLEAN DEFAULT 0;");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE order_items ADD COLUMN custom_name TEXT;");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE order_items ADD COLUMN custom_price REAL;");
     } catch (e) {}
     saveDbFileNow();
     

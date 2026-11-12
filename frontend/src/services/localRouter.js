@@ -74,7 +74,7 @@ async function deductStockForOrder(orderId, hotelId) {
     `SELECT oi.quantity, oi.menu_item_id, mi.name as product_name
      FROM order_items oi
      JOIN menu_items mi ON oi.menu_item_id = mi.id
-     WHERE oi.order_id = $1`,
+     WHERE oi.order_id = $1 AND oi.quantity > 0`,
     [orderId]
   );
 
@@ -776,24 +776,29 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if ((path === '/bills/history' || path === '/bills') && methodUpper === 'GET') {
       try {
         const billsRes = await db.query(`
-          SELECT b.*, t.table_number
+          SELECT b.*, COALESCE(t.table_number, 'Counter') as table_number
           FROM bills b
-          JOIN orders o ON b.order_id = o.id
-          JOIN tables t ON o.table_id = t.id
+          LEFT JOIN orders o ON b.order_id = o.id
+          LEFT JOIN tables t ON o.table_id = t.id
           ORDER BY b.id DESC
         `);
 
         const formattedBills = [];
         for (const bill of billsRes.rows) {
           const itemsRes = await db.query(`
-            SELECT oi.id, mi.name, oi.quantity, mi.price
+            SELECT oi.id, oi.menu_item_id, oi.quantity, oi.is_manual, oi.custom_name, oi.custom_price,
+                   COALESCE(oi.custom_name, mi.name, 'Other') as name, mi.marathi_name,
+                   COALESCE(oi.custom_price, mi.price, 0) as price
             FROM order_items oi
-            JOIN menu_items mi ON oi.menu_item_id = mi.id
-            WHERE oi.order_id = $1
+            LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
+            WHERE oi.order_id = $1 AND oi.quantity > 0
+            ORDER BY oi.created_at ASC, oi.id ASC
           `, [bill.order_id]);
 
           formattedBills.push({
             ...bill,
+            subtotal: bill.total_amount,
+            is_paid: bill.is_paid === 1 || bill.is_paid === true,
             items: itemsRes.rows,
             items_json: JSON.stringify(itemsRes.rows),
             parsedItems: itemsRes.rows
@@ -957,62 +962,20 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     // ----------------------------------------
     // BILLS HISTORICAL ROUTES
     // ----------------------------------------
-    // ----------------------------------------
-    // BILLS HISTORICAL ROUTES
-    // ----------------------------------------
-    if (path === '/bills/history' && methodUpper === 'GET') {
-      const result = await db.query('SELECT * FROM bills ORDER BY id DESC');
-      
-      const bills = [];
-      for (let b of result.rows) {
-        let tableNumber = 'Counter';
-        if (b.order_id) {
-          const orderRes = await db.query(
-            `SELECT COALESCE(t.table_number, 'Parcel Counter') as table_number 
-             FROM orders o 
-             LEFT JOIN tables t ON o.table_id = t.id 
-             WHERE o.id = $1`,
-            [b.order_id]
-          );
-          if (orderRes.rows.length > 0 && orderRes.rows[0].table_number) {
-            tableNumber = orderRes.rows[0].table_number;
-          }
-        }
-
-        const itemsRes = await db.query(
-          `SELECT oi.quantity, mi.name, mi.price 
-           FROM order_items oi 
-           JOIN menu_items mi ON oi.menu_item_id = mi.id 
-           WHERE oi.order_id = $1`,
-          [b.order_id]
-        );
-
-        bills.push({
-          ...b,
-          table_number: tableNumber,
-          subtotal: b.total_amount,
-          items_json: JSON.stringify(itemsRes.rows),
-          items: itemsRes.rows,
-          parsedItems: itemsRes.rows,
-          is_paid: b.is_paid === 1 || b.is_paid === true
-        });
+    const resolveMobileEffectiveGstRate = (bill, hotel) => {
+      const hotelGstRate = Number(hotel?.gst_percentage || 0);
+      const oldTotalAmt = Number(bill?.total_amount || 0);
+      const oldGst = Number(bill?.gst || 0);
+      if (oldTotalAmt > 0 && oldGst === 0) return 0;
+      if (oldGst > 0 && oldTotalAmt > 0 && hotelGstRate === 0) {
+        return Number(((oldGst / oldTotalAmt) * 100).toFixed(2));
       }
+      return hotelGstRate;
+    };
 
-      return { status: 200, data: bills };
-    }
-
-    if (path.startsWith('/bills/') && methodUpper === 'GET' && !path.endsWith('/history') && !path.includes('/print') && !path.includes('/pay')) {
-      const parts = path.split('/');
-      const billId = parseInt(parts[2]);
-      if (isNaN(billId)) {
-        return { status: 400, data: { message: 'Invalid Bill ID' } };
-      }
-
+    const getMobileFullBillById = async (billId) => {
       const billRes = await db.query('SELECT * FROM bills WHERE id = $1', [billId]);
-      if (billRes.rows.length === 0) {
-        return { status: 404, data: { message: 'Bill not found' } };
-      }
-
+      if (billRes.rows.length === 0) return null;
       const bill = billRes.rows[0];
 
       let tableNumber = 'Counter';
@@ -1036,38 +999,199 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const hotel = hotelRes.rows[0] || {};
 
       const itemsRes = await db.query(
-        `SELECT oi.quantity, mi.name, mi.marathi_name, mi.price 
+        `SELECT oi.id, oi.menu_item_id, oi.quantity, oi.is_manual, oi.custom_name, oi.custom_price,
+                COALESCE(oi.custom_name, mi.name, 'Other') as name, mi.marathi_name, COALESCE(oi.custom_price, mi.price, 0) as price 
          FROM order_items oi 
-         JOIN menu_items mi ON oi.menu_item_id = mi.id 
-         WHERE oi.order_id = $1`,
+         LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
+         WHERE oi.order_id = $1 AND oi.quantity > 0
+         ORDER BY oi.created_at ASC, oi.id ASC`,
         [bill.order_id]
       );
 
+      const itemsSubtotal = itemsRes.rows.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+      const subtotal = itemsRes.rows.length > 0 ? Number(itemsSubtotal.toFixed(2)) : Number(bill.total_amount || 0);
+      const effectiveGstRate = resolveMobileEffectiveGstRate(bill, hotel);
+      const discountAmount = Math.max(0, Number(((subtotal + Number(bill.gst || 0)) - Number(bill.final_amount || 0)).toFixed(2)));
+
       return {
-        status: 200,
-        data: {
-          id: bill.id,
-          order_id: bill.order_id,
-          total_amount: bill.total_amount,
-          subtotal: bill.total_amount,
-          gst: bill.gst,
-          final_amount: bill.final_amount,
-          discount_percentage: bill.discount_percentage,
-          is_paid: bill.is_paid === 1 || bill.is_paid === true,
-          payment_method: bill.payment_method,
-          created_at: bill.created_at,
-          table_number: tableNumber,
-          hotel_name: hotel.name || user?.hotel_name || '',
-          hotel_phone: hotel.phone || '',
-          hotel_location: hotel.location || '',
-          gst_percentage: hotel.gst_percentage || 0,
-          upi_id: hotel.upi_id || '',
-          fssai_number: hotel.fssai_number || '',
-          email: hotel.email || '',
-          items: itemsRes.rows,
-          parsedItems: itemsRes.rows
-        }
+        id: bill.id,
+        order_id: bill.order_id,
+        total_amount: bill.total_amount,
+        subtotal,
+        gst: bill.gst,
+        final_amount: bill.final_amount,
+        discount_percentage: bill.discount_percentage,
+        discount_amount: discountAmount,
+        effective_gst_percentage: effectiveGstRate,
+        is_paid: bill.is_paid === 1 || bill.is_paid === true,
+        payment_method: bill.payment_method,
+        created_at: bill.created_at,
+        table_number: tableNumber,
+        hotel_name: hotel.name || user?.hotel_name || '',
+        hotel_phone: hotel.phone || '',
+        hotel_location: hotel.location || '',
+        gst_percentage: hotel.gst_percentage || 0,
+        upi_id: hotel.upi_id || '',
+        fssai_number: hotel.fssai_number || '',
+        email: hotel.email || '',
+        items: itemsRes.rows,
+        parsedItems: itemsRes.rows
       };
+    };
+
+    if (path.startsWith('/bills/') && methodUpper === 'GET' && !path.endsWith('/history') && !path.includes('/print') && !path.includes('/pay')) {
+      const parts = path.split('/');
+      const billId = parseInt(parts[2]);
+      if (isNaN(billId)) {
+        return { status: 400, data: { message: 'Invalid Bill ID' } };
+      }
+
+      const fullBill = await getMobileFullBillById(billId);
+      if (!fullBill) {
+        return { status: 404, data: { message: 'Bill not found' } };
+      }
+
+      return { status: 200, data: fullBill };
+    }
+
+    if (path.startsWith('/bills/') && path.split('/').length === 3 && methodUpper === 'PUT' && !path.endsWith('/pay') && !path.endsWith('/print')) {
+      const billId = parseInt(path.split('/')[2], 10);
+      if (isNaN(billId)) {
+        return { status: 400, data: { message: 'Invalid Bill ID' } };
+      }
+
+      const { items, discount_percentage } = body || {};
+      if (!Array.isArray(items)) {
+        return { status: 400, data: { message: 'Items array is required' } };
+      }
+
+      const normalizedItems = items
+        .map(item => ({
+          menu_item_id: item.menu_item_id ? parseInt(item.menu_item_id, 10) : null,
+          name: String(item.name || 'Other').trim() || 'Other',
+          price: Math.max(0, parseFloat(item.price) || 0),
+          quantity: parseInt(item.quantity, 10) || 0,
+          is_manual: Boolean(item.is_manual)
+        }))
+        .filter(item => item.quantity > 0);
+
+      if (normalizedItems.length === 0) {
+        return { status: 400, data: { message: 'Bill must contain at least one item' } };
+      }
+
+      const billRes = await db.query('SELECT * FROM bills WHERE id = $1', [billId]);
+      if (billRes.rows.length === 0) {
+        return { status: 404, data: { message: 'Bill not found' } };
+      }
+      const bill = billRes.rows[0];
+      const orderId = bill.order_id;
+
+      const hotelRes = await db.query(
+        'SELECT name, phone, location, gst_percentage, upi_id, fssai_number, email FROM hotels WHERE id = $1 OR owner_id = $2',
+        [user?.hotel_id, user?.id]
+      );
+      const hotel = hotelRes.rows[0] || {};
+
+      if (orderId) {
+        // Reverse prior inventory SALE deductions for this order if any exist
+        const oldSaleTxs = await db.query(
+          `SELECT id, inventory_item_id, quantity
+           FROM stock_transactions
+           WHERE hotel_id = $1 AND reference_type = 'orders' AND reference_id = $2 AND transaction_type = 'SALE'`,
+          [user.hotel_id, orderId]
+        );
+        for (const tx of oldSaleTxs.rows) {
+          await db.query(
+            'UPDATE inventory_items SET current_stock = current_stock + $1 WHERE id = $2 AND hotel_id = $3',
+            [-Number(tx.quantity), tx.inventory_item_id, user.hotel_id]
+          );
+        }
+        if (oldSaleTxs.rows.length > 0) {
+          await db.query(
+            `DELETE FROM stock_transactions
+             WHERE hotel_id = $1 AND reference_type = 'orders' AND reference_id = $2 AND transaction_type = 'SALE'`,
+            [user.hotel_id, orderId]
+          );
+        }
+
+        // Replace order_items cleanly while respecting UNIQUE(order_id, menu_item_id)
+        await db.query('DELETE FROM order_items WHERE order_id = $1', [orderId]);
+
+        const dedupedItems = [];
+        const seenMenuIdx = new Map();
+        for (const item of normalizedItems) {
+          if (!item.is_manual && item.menu_item_id) {
+            if (seenMenuIdx.has(item.menu_item_id)) {
+              const existingIdx = seenMenuIdx.get(item.menu_item_id);
+              if (Math.abs(dedupedItems[existingIdx].price - item.price) < 0.001) {
+                dedupedItems[existingIdx].quantity += item.quantity;
+              } else {
+                dedupedItems.push({ ...item, menu_item_id: null, is_manual: true });
+              }
+            } else {
+              seenMenuIdx.set(item.menu_item_id, dedupedItems.length);
+              dedupedItems.push({ ...item });
+            }
+          } else {
+            dedupedItems.push({ ...item, menu_item_id: null, is_manual: true });
+          }
+        }
+
+        for (const item of dedupedItems) {
+          if (!item.is_manual && item.menu_item_id) {
+            const menuRes = await db.query('SELECT id, name, price FROM menu_items WHERE id = $1', [item.menu_item_id]);
+            if (menuRes.rows.length > 0) {
+              const menuRow = menuRes.rows[0];
+              const customName = item.name !== String(menuRow.name || '').trim() ? item.name : null;
+              await db.query(
+                `INSERT INTO order_items (order_id, menu_item_id, quantity, printed_quantity, is_manual, custom_name, custom_price)
+                 VALUES ($1, $2, $3, $4, 0, $5, $6)`,
+                [orderId, menuRow.id, item.quantity, item.quantity, customName, item.price]
+              );
+              continue;
+            }
+          }
+
+          await db.query(
+            `INSERT INTO order_items (order_id, menu_item_id, quantity, printed_quantity, is_manual, custom_name, custom_price)
+             VALUES ($1, NULL, $2, $3, 1, $4, $5)`,
+            [orderId, item.quantity, item.quantity, item.name, item.price]
+          );
+        }
+
+        try {
+          await deductStockForOrder(orderId, user.hotel_id);
+        } catch (e) {
+          console.warn('[STOCK DEDUCTION NOTE]', e.message);
+        }
+      }
+
+      const subtotal = Number(normalizedItems.reduce((sum, i) => sum + (i.price * i.quantity), 0).toFixed(2));
+      const effectiveGstRate = resolveMobileEffectiveGstRate(bill, hotel);
+      const gst = Number((subtotal * (effectiveGstRate / 100)).toFixed(2));
+      const initialTotal = subtotal + gst;
+      const discountPct = discount_percentage !== undefined
+        ? Math.max(0, Math.min(100, parseFloat(discount_percentage) || 0))
+        : Number(bill.discount_percentage || 0);
+      const discountAmount = Number((initialTotal * (discountPct / 100)).toFixed(2));
+      const finalAmount = Math.max(0, Number((initialTotal - discountAmount).toFixed(2)));
+
+      await db.query(
+        'UPDATE bills SET total_amount = $1, gst = $2, final_amount = $3, discount_percentage = $4 WHERE id = $5',
+        [subtotal, gst, finalAmount, discountPct, billId]
+      );
+
+      // Sync linked credit record if present
+      await db.query(
+        `UPDATE credits SET amount = $1, updated_at = (datetime('now', 'localtime')) WHERE bill_id = $2`,
+        [finalAmount, billId]
+      );
+
+      await db.saveDbFileNow();
+
+      const updatedBill = await getMobileFullBillById(billId);
+      notifyUpdate('table-update');
+      return { status: 200, data: updatedBill };
     }
 
     if (path.startsWith('/bills/') && path.endsWith('/print') && methodUpper === 'POST') {
@@ -1093,10 +1217,12 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         }
 
         const itemsRes = await db.query(`
-          SELECT oi.quantity, mi.name, mi.marathi_name, mi.price 
-          FROM order_items oi 
-          JOIN menu_items mi ON oi.menu_item_id = mi.id 
-          WHERE oi.order_id = $1`,
+          SELECT oi.quantity, COALESCE(oi.custom_name, mi.name, 'Other') as name, mi.marathi_name,
+                 COALESCE(oi.custom_price, mi.price, 0) as price
+          FROM order_items oi
+          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
+          WHERE oi.order_id = $1 AND oi.quantity > 0
+          ORDER BY oi.created_at ASC, oi.id ASC`,
           [bill.order_id]
         );
         items = itemsRes.rows;
@@ -1107,23 +1233,24 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       }
 
       const showUPI = (bill.is_paid === 0 || bill.is_paid === false) && (paymentMethod === 'upi' || bill.payment_method === 'upi');
+      const effectiveGstPct = resolveMobileEffectiveGstRate(bill, hotel);
 
       const printPayload = {
         type: 'FINAL_BILL',
         billId: bill.id,
         table: tableName,
-        subtotal: bill.total_amount,
-        gst: bill.gst,
-        finalAmount: bill.final_amount,
-        discountPercentage: bill.discount_percentage,
-        items: items.map(i => ({ name: i.name, marathi_name: i.marathi_name, price: i.price, qty: i.quantity || i.qty || 1 })),
+        subtotal: Number(bill.total_amount || 0),
+        gst: Number(bill.gst || 0),
+        finalAmount: Number(bill.final_amount || 0),
+        discountPercentage: Number(bill.discount_percentage || 0),
+        items: items.map(i => ({ name: i.name, marathi_name: i.marathi_name, price: Number(i.price || 0), qty: i.quantity || i.qty || 1 })),
         hotelName: hotel.name || user?.hotel_name || '',
         hotelPhone: hotel.phone || '',
         hotelLocation: hotel.location || '',
         hotelFssai: hotel.fssai_number || '',
         upiId: showUPI ? (hotel.upi_id || '') : '',
         isPaid: bill.is_paid === 1 || bill.is_paid === true,
-        gst_percentage: hotel.gst_percentage || 0,
+        gst_percentage: effectiveGstPct,
         printerSize: localStorage.getItem('cfg_printer_size') || '58mm',
         isCreditSettlement: body?.isCreditSettlement || false,
         settlementPaymentMethod: body?.settlementPaymentMethod || body?.paymentMethod || '',
@@ -1239,10 +1366,10 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         if (billRes.rows.length > 0) {
           bill = billRes.rows[0];
           const itemsRes = await db.query(
-            `SELECT oi.quantity, mi.name, mi.price 
+            `SELECT oi.quantity, COALESCE(oi.custom_name, mi.name, 'Other') as name, COALESCE(oi.custom_price, mi.price, 0) as price 
              FROM order_items oi 
-             JOIN menu_items mi ON oi.menu_item_id = mi.id 
-             WHERE oi.order_id = $1`, 
+             LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
+             WHERE oi.order_id = $1 AND oi.quantity > 0`, 
              [bill.order_id]
           );
           items = itemsRes.rows;
