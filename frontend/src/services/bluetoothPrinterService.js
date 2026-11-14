@@ -459,9 +459,18 @@ export async function formatBill(data, printerSize = '58mm') {
   builder.line('-', LINE_WIDTH);
 
   const labelLen = LINE_WIDTH - amtLen - 1;
+
+  if (data.subtotal !== undefined && data.subtotal !== null) {
+    const subtotalAmt = Number(data.subtotal) || 0;
+    if (isMarathi) {
+      builder.appendBytes(renderDevanagariLineToRaster(`उपएकूण: ₹${formatAmount(subtotalAmt)}`, { paperSize: printerSize, align: 'right' }));
+    } else {
+      builder.text(padText('Subtotal:', labelLen) + ' ' + padText(formatAmount(subtotalAmt), amtLen, 'right'));
+    }
+  }
+
   const gstPct = Number(data.gst_percentage) || 0;
   const gstAmt = Number(data.gst) || 0;
-
   if (gstPct > 0 || gstAmt > 0) {
     if (isMarathi) {
       builder.appendBytes(renderDevanagariLineToRaster(`जीएसटी (${gstPct}%): ₹${formatAmount(gstAmt)}`, { paperSize: printerSize, align: 'right' }));
@@ -470,13 +479,42 @@ export async function formatBill(data, printerSize = '58mm') {
     }
   }
 
+  const cgstPct = Number(data.cgst_percentage) || 0;
+  const cgstAmt = Number(data.cgst) || 0;
+  if (cgstPct > 0 || cgstAmt > 0) {
+    if (isMarathi) {
+      builder.appendBytes(renderDevanagariLineToRaster(`सीजीएसटी (${cgstPct}%): ₹${formatAmount(cgstAmt)}`, { paperSize: printerSize, align: 'right' }));
+    } else {
+      builder.text(padText(`CGST (${cgstPct}%):`, labelLen) + ' ' + padText(formatAmount(cgstAmt), amtLen, 'right'));
+    }
+  }
+
+  const sgstPct = Number(data.sgst_percentage) || 0;
+  const sgstAmt = Number(data.sgst) || 0;
+  if (sgstPct > 0 || sgstAmt > 0) {
+    if (isMarathi) {
+      builder.appendBytes(renderDevanagariLineToRaster(`एसजीएसटी (${sgstPct}%): ₹${formatAmount(sgstAmt)}`, { paperSize: printerSize, align: 'right' }));
+    } else {
+      builder.text(padText(`SGST (${sgstPct}%):`, labelLen) + ' ' + padText(formatAmount(sgstAmt), amtLen, 'right'));
+    }
+  }
+
   if (data.discountPercentage > 0) {
-    const preVal = Number(data.subtotal || 0) + Number(data.gst || 0);
+    const preVal = Number(data.subtotal || 0) + Number(data.gst || 0) + Number(data.cgst || 0) + Number(data.sgst || 0);
     const discAmt = preVal * (data.discountPercentage / 100);
     if (isMarathi) {
       builder.appendBytes(renderDevanagariLineToRaster(`सवलत (${data.discountPercentage}%): -₹${formatAmount(discAmt)}`, { paperSize: printerSize, align: 'right' }));
     } else {
       builder.text(padText(`Discount (${data.discountPercentage}%):`, labelLen) + ' ' + padText(`-${formatAmount(discAmt)}`, amtLen, 'right'));
+    }
+  }
+
+  const roundOffAmt = Number(data.round_off !== undefined ? data.round_off : (data.roundOff || 0));
+  if (roundOffAmt > 0) {
+    if (isMarathi) {
+      builder.appendBytes(renderDevanagariLineToRaster(`राउंड ऑफ: +₹${formatAmount(roundOffAmt)}`, { paperSize: printerSize, align: 'right' }));
+    } else {
+      builder.text(padText('Round Off:', labelLen) + ' ' + padText(`+${formatAmount(roundOffAmt)}`, amtLen, 'right'));
     }
   }
 
@@ -493,7 +531,7 @@ export async function formatBill(data, printerSize = '58mm') {
   } else {
     builder.line('-', LINE_WIDTH)
       .bold(true)
-      .text(padText('GRAND TOTAL:', labelLen) + ' ' + padText(formatAmount(finalAmountToDisplay), amtLen, 'right'))
+      .text(padText('TOTAL AMOUNT:', labelLen) + ' ' + padText(formatAmount(finalAmountToDisplay), amtLen, 'right'))
       .bold(false)
       .line('=', LINE_WIDTH);
   }

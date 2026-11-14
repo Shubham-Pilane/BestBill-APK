@@ -551,10 +551,21 @@ const CreditManagement = () => {
                       </div>
 
                       <div style={{ borderTop: '1px dashed var(--bg-border)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}><span>SUBTOTAL</span><span>₹{parseFloat(txDetails.bill.total_amount).toFixed(2)}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}><span>GST ({txDetails.bill.gst_percentage || 0}%)</span><span>₹{parseFloat(txDetails.bill.gst).toFixed(2)}</span></div>
-                        {txDetails.bill.discount_percentage > 0 && (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#f43f5e' }}><span>DISCOUNT ({txDetails.bill.discount_percentage}%)</span><span>-₹{( (parseFloat(txDetails.bill.total_amount) + parseFloat(txDetails.bill.gst)) * txDetails.bill.discount_percentage / 100).toFixed(2)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}><span>SUBTOTAL</span><span>₹{parseFloat(txDetails.bill.subtotal || txDetails.bill.total_amount || 0).toFixed(2)}</span></div>
+                        {parseFloat(txDetails.bill.gst || 0) > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}><span>GST ({txDetails.bill.gst_percentage || 0}%)</span><span>₹{parseFloat(txDetails.bill.gst).toFixed(2)}</span></div>
+                        )}
+                        {parseFloat(txDetails.bill.cgst || 0) > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}><span>CGST ({txDetails.bill.cgst_percentage || 0}%)</span><span>₹{parseFloat(txDetails.bill.cgst).toFixed(2)}</span></div>
+                        )}
+                        {parseFloat(txDetails.bill.sgst || 0) > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}><span>SGST ({txDetails.bill.sgst_percentage || 0}%)</span><span>₹{parseFloat(txDetails.bill.sgst).toFixed(2)}</span></div>
+                        )}
+                        {parseFloat(txDetails.bill.discount_percentage || 0) > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#f43f5e' }}><span>DISCOUNT ({txDetails.bill.discount_percentage}%)</span><span>-₹{( (parseFloat(txDetails.bill.subtotal || txDetails.bill.total_amount || 0) + parseFloat(txDetails.bill.gst || 0) + parseFloat(txDetails.bill.cgst || 0) + parseFloat(txDetails.bill.sgst || 0)) * txDetails.bill.discount_percentage / 100).toFixed(2)}</span></div>
+                        )}
+                        {parseFloat(txDetails.bill.round_off || txDetails.bill.roundOff || 0) > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#10b981' }}><span>ROUND OFF</span><span>+₹{parseFloat(txDetails.bill.round_off || txDetails.bill.roundOff).toFixed(2)}</span></div>
                         )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '20px', fontWeight: 1000, color: '#10b981', borderTop: '2px double var(--bg-border)', marginTop: '6px', paddingTop: '6px' }}><span>TOTAL DUE</span><span>₹{parseFloat(txDetails.bill.final_amount).toFixed(2)}</span></div>
                       </div>

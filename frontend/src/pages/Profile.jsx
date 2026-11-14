@@ -33,6 +33,8 @@ const Profile = () => {
         address: user?.hotel_address || '',
         upi_id: user?.upi_id || '',
         gst_percentage: user?.gst_percentage || 0,
+        cgst_percentage: user?.cgst_percentage || 0,
+        sgst_percentage: user?.sgst_percentage || 0,
         billing_method: user?.billing_method || 'qz',
         logo_url: user?.logo_url || localStorage.getItem('cfg_hotel_logo_url') || '',
         fssai_number: '',
@@ -615,14 +617,20 @@ const Profile = () => {
             ];
             const subtotal = sampleItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
             const gstPct = hotelData.gst_percentage !== undefined ? Number(hotelData.gst_percentage) : 0;
-            const gst = (subtotal * gstPct) / 100;
-            const finalAmount = subtotal + gst;
+            const cgstPct = hotelData.cgst_percentage !== undefined ? Number(hotelData.cgst_percentage) : 0;
+            const sgstPct = hotelData.sgst_percentage !== undefined ? Number(hotelData.sgst_percentage) : 0;
+            const gst = Number(((subtotal * gstPct) / 100).toFixed(2));
+            const cgst = Number(((subtotal * cgstPct) / 100).toFixed(2));
+            const sgst = Number(((subtotal * sgstPct) / 100).toFixed(2));
+            const unroundedTotal = subtotal + gst + cgst + sgst;
+            const finalAmount = Math.ceil(unroundedTotal);
+            const roundOff = Number((finalAmount - unroundedTotal).toFixed(2));
 
             const testPayload = {
                 type: 'FINAL_BILL',
                 billId: 9999,
                 table: 'Table 1 (Billing Test)',
-                subtotal, gst, finalAmount,
+                subtotal, gst, cgst, sgst, round_off: roundOff, roundOff, finalAmount,
                 discountPercentage: 0,
                 items: sampleItems,
                 hotelName: hotelData.name || 'Sample Hotel',
@@ -630,7 +638,9 @@ const Profile = () => {
                 hotelLocation: hotelData.address || 'Sample Location',
                 upiId: hotelData.upi_id || '',
                 isPaid: false,
-                gst_percentage: gstPct
+                gst_percentage: gstPct,
+                cgst_percentage: cgstPct,
+                sgst_percentage: sgstPct
             };
 
             const size = printerConfig.billing.paperSize || '58mm';
@@ -692,6 +702,8 @@ const Profile = () => {
                 address: data.location || prev.address || '',
                 upi_id: data.upi_id || prev.upi_id || '',
                 gst_percentage: data.gst_percentage !== undefined ? data.gst_percentage : prev.gst_percentage,
+                cgst_percentage: data.cgst_percentage !== undefined ? data.cgst_percentage : (prev.cgst_percentage || 0),
+                sgst_percentage: data.sgst_percentage !== undefined ? data.sgst_percentage : (prev.sgst_percentage || 0),
                 billing_method: data.billing_method || prev.billing_method || 'qz',
                 logo_url: data.logo_url || prev.logo_url || '',
                 fssai_number: data.fssai_number || prev.fssai_number || '',
@@ -764,14 +776,22 @@ const Profile = () => {
         setLoading(true);
         const t = toast.loading('Persisting hotel configuration...');
         try {
-            const res = await api.put('/hotel', hotelData);
+            const payload = {
+                ...hotelData,
+                gst_percentage: parseFloat(hotelData.gst_percentage) || 0,
+                cgst_percentage: parseFloat(hotelData.cgst_percentage) || 0,
+                sgst_percentage: parseFloat(hotelData.sgst_percentage) || 0
+            };
+            const res = await api.put('/hotel', payload);
             updateUser({ 
                 ...user, 
                 hotel_name: hotelData.name, 
                 hotel_phone: hotelData.phone,
                 hotel_location: hotelData.address,
                 upi_id: hotelData.upi_id, 
-                gst_percentage: hotelData.gst_percentage,
+                gst_percentage: parseFloat(hotelData.gst_percentage) || 0,
+                cgst_percentage: parseFloat(hotelData.cgst_percentage) || 0,
+                sgst_percentage: parseFloat(hotelData.sgst_percentage) || 0,
                 printer_size: hotelData.printer_size || user?.printer_size,
                 billing_method: hotelData.billing_method || user?.billing_method
             });
@@ -911,14 +931,24 @@ const Profile = () => {
                     {showHotelProfile && (
                         <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-rgba-05)' }}>
                             <form onSubmit={handleHotelSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                         <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>{t('profile_hotel_legal_name', 'HOTEL LEGAL NAME')}</label>
                                         <input value={hotelData.name} onChange={e => setHotelData({...hotelData, name: e.target.value})} style={{padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontWeight: 500 }} />
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>{t('profile_gst_pct', 'GST %')}</label>
-                                        <input type="number" value={hotelData.gst_percentage} onChange={e => setHotelData({...hotelData, gst_percentage: e.target.value})} style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: '#10b981', fontWeight: 600 }} />
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '12px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>{t('profile_gst_pct', 'GST %')}</label>
+                                            <input type="number" step="0.01" min="0" value={hotelData.gst_percentage} onChange={e => setHotelData({...hotelData, gst_percentage: e.target.value})} style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: '#10b981', fontWeight: 600 }} />
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>{t('profile_cgst_pct', 'CGST %')}</label>
+                                            <input type="number" step="0.01" min="0" value={hotelData.cgst_percentage} onChange={e => setHotelData({...hotelData, cgst_percentage: e.target.value})} style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: '#10b981', fontWeight: 600 }} />
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>{t('profile_sgst_pct', 'SGST %')}</label>
+                                            <input type="number" step="0.01" min="0" value={hotelData.sgst_percentage} onChange={e => setHotelData({...hotelData, sgst_percentage: e.target.value})} style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: '#10b981', fontWeight: 600 }} />
+                                        </div>
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

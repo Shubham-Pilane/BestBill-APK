@@ -120,9 +120,15 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
   const subtotal = parseFloat(billData.subtotal || billData.total_amount || 0);
   const gstPercentage = parseFloat(billData.gst_percentage || hotelInfo.gst_percentage || 0);
   const gstAmount = parseFloat(billData.gst || 0);
+  const cgstPercentage = parseFloat(billData.cgst_percentage || hotelInfo.cgst_percentage || 0);
+  const cgstAmount = parseFloat(billData.cgst || 0);
+  const sgstPercentage = parseFloat(billData.sgst_percentage || hotelInfo.sgst_percentage || 0);
+  const sgstAmount = parseFloat(billData.sgst || 0);
+  const roundOff = parseFloat(billData.round_off !== undefined ? billData.round_off : (billData.roundOff || 0));
   const discountPercentage = parseFloat(billData.discount_percentage || 0);
-  const finalAmount = parseFloat(billData.final_amount || subtotal + gstAmount);
-  const discountVal = (subtotal + gstAmount) * (discountPercentage / 100);
+  const preDiscount = subtotal + gstAmount + cgstAmount + sgstAmount;
+  const discountVal = preDiscount * (discountPercentage / 100);
+  const finalAmount = parseFloat(billData.final_amount !== undefined ? billData.final_amount : (preDiscount - discountVal + roundOff));
 
   const partnerName = billData.delivery_partner || billData.deliveryPartner || billData.selectedDeliveryPartner || '';
   const isOnlineOrder = String(tableOrRoom || '').toLowerCase().includes('online') || 
@@ -244,8 +250,11 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
               widths: ['*', 'auto'],
               body: [
                 [isMarathi ? 'उपएकूण (Subtotal):' : 'Subtotal:', { text: `₹${formatAmount(subtotal)}`, alignment: 'right' }],
-                gstPercentage > 0 ? [isMarathi ? `जीएसटी (${gstPercentage}%):` : `GST (${gstPercentage}%):`, { text: `₹${formatAmount(gstAmount)}`, alignment: 'right' }] : null,
+                (gstPercentage > 0 || gstAmount > 0) ? [isMarathi ? `जीएसटी (${gstPercentage}%):` : `GST (${gstPercentage}%):`, { text: `₹${formatAmount(gstAmount)}`, alignment: 'right' }] : null,
+                (cgstPercentage > 0 || cgstAmount > 0) ? [isMarathi ? `सीजीएसटी (${cgstPercentage}%):` : `CGST (${cgstPercentage}%):`, { text: `₹${formatAmount(cgstAmount)}`, alignment: 'right' }] : null,
+                (sgstPercentage > 0 || sgstAmount > 0) ? [isMarathi ? `एसजीएसटी (${sgstPercentage}%):` : `SGST (${sgstPercentage}%):`, { text: `₹${formatAmount(sgstAmount)}`, alignment: 'right' }] : null,
                 discountPercentage > 0 ? [isMarathi ? `सवलत (${discountPercentage}%):` : `Discount (${discountPercentage}%):`, { text: `-₹${formatAmount(discountVal)}`, alignment: 'right' }] : null,
+                roundOff > 0 ? [isMarathi ? 'राउंड ऑफ (Round Off):' : 'Round Off:', { text: `+₹${formatAmount(roundOff)}`, alignment: 'right' }] : null,
                 [
                   { text: isMarathi ? 'एकूण देय (Grand Total):' : 'Grand Total:', bold: true, fontSize: 13, color: '#0f172a' },
                   { text: `₹${formatAmount(finalAmount)}`, bold: true, fontSize: 14, color: '#0ea5e9', alignment: 'right' }
@@ -326,8 +335,16 @@ export const shareBillPDFViaWhatsApp = (billData, hotelInfo = {}, customerPhone 
       const subtotalVal = parseFloat(billData.subtotal || billData.total_amount || 0);
       const gstVal = parseFloat(billData.gst || 0);
       const gstPercent = billData.gst_percentage !== undefined ? billData.gst_percentage : (hotelInfo.gst_percentage || 0);
+      const cgstVal = parseFloat(billData.cgst || 0);
+      const cgstPercent = billData.cgst_percentage !== undefined ? billData.cgst_percentage : (hotelInfo.cgst_percentage || 0);
+      const sgstVal = parseFloat(billData.sgst || 0);
+      const sgstPercent = billData.sgst_percentage !== undefined ? billData.sgst_percentage : (hotelInfo.sgst_percentage || 0);
+      const roundOffVal = parseFloat(billData.round_off !== undefined ? billData.round_off : (billData.roundOff || 0));
 
-      const gstLine = (gstPercent > 0) ? `*GST (${gstPercent}%):* ₹${formatAmount(gstVal)}\n` : '';
+      const gstLine = (gstPercent > 0 || gstVal > 0) ? `*GST (${gstPercent}%):* ₹${formatAmount(gstVal)}\n` : '';
+      const cgstLine = (cgstPercent > 0 || cgstVal > 0) ? `*CGST (${cgstPercent}%):* ₹${formatAmount(cgstVal)}\n` : '';
+      const sgstLine = (sgstPercent > 0 || sgstVal > 0) ? `*SGST (${sgstPercent}%):* ₹${formatAmount(sgstVal)}\n` : '';
+      const roundOffLine = (roundOffVal > 0) ? `*Round Off:* +₹${formatAmount(roundOffVal)}\n` : '';
 
       const whatsappText = `*--- ${hotelName.toUpperCase()} ---*\n` +
         (address ? `*Address:* ${address}\n` : '') +
@@ -338,10 +355,13 @@ export const shareBillPDFViaWhatsApp = (billData, hotelInfo = {}, customerPhone 
         `Date: ${formatDate(billData.created_at || Date.now())}\n` +
         `${itemsText}\n` +
         `*------------------------*\n` +
-        `*Subtotal:* ₹${formatAmount(subtotalVal)}` +
-        `${discountText}\n` +
+        `*Subtotal:* ₹${formatAmount(subtotalVal)}\n` +
         `${gstLine}` +
-        `*GRAND TOTAL:* ₹${formatAmount(totalVal)}\n\n` +
+        `${cgstLine}` +
+        `${sgstLine}` +
+        `${discountText ? discountText + '\n' : ''}` +
+        `${roundOffLine}` +
+        `*TOTAL AMOUNT:* ₹${formatAmount(totalVal)}\n\n` +
         `*Thank You! Visit Again!*`;
 
       if (finalPhone) {

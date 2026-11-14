@@ -255,6 +255,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
             hotel_phone: hotel.phone || '',
             hotel_location: hotel.location || '',
             upi_id: hotel.upi_id || '',
+            gst_percentage: Number(hotel.gst_percentage || 0),
+            cgst_percentage: Number(hotel.cgst_percentage || 0),
+            sgst_percentage: Number(hotel.sgst_percentage || 0),
+            printer_size: hotel.printer_size || '58mm',
+            billing_method: hotel.billing_method || 'qz',
             subscription_valid_until: details.expiresAt,
             lodgingEnabled: false, // Desktop only - disabled on mobile
             kotEnabled: false, // Desktop only - disabled on mobile
@@ -697,13 +702,15 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const { discount_percentage } = body;
 
       const [hotelRes, tableRes, orderRes] = await Promise.all([
-        db.query('SELECT name, phone, location, gst_percentage, fssai_number FROM hotels WHERE id = $1', [user.hotel_id]),
+        db.query('SELECT name, phone, location, gst_percentage, cgst_percentage, sgst_percentage, fssai_number FROM hotels WHERE id = $1', [user.hotel_id]),
         db.query('SELECT table_number FROM tables WHERE id = $1', [tableId]),
         db.query(`
-          SELECT o.id as order_id, oi.quantity, mi.name, mi.price, mi.id as menu_item_id
+          SELECT oi.id, oi.menu_item_id, oi.quantity, oi.is_manual, oi.custom_name, oi.custom_price,
+                 COALESCE(oi.custom_name, mi.name, 'Other') as name, mi.marathi_name, COALESCE(oi.custom_price, mi.price, 0) as price,
+                 o.id as order_id
           FROM orders o
           JOIN order_items oi ON oi.order_id = o.id
-          JOIN menu_items mi ON oi.menu_item_id = mi.id
+          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
           WHERE o.table_id = $1 AND o.status = 'active'
         `, [tableId])
       ]);
@@ -715,12 +722,24 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const orderId = orderRes.rows[0].order_id;
       const hotel = hotelRes.rows[0] || {};
       const gstRate = parseFloat(hotel.gst_percentage || 0);
+      const cgstRate = parseFloat(hotel.cgst_percentage || 0);
+      const sgstRate = parseFloat(hotel.sgst_percentage || 0);
 
-      const subtotal = orderRes.rows.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      const gst = subtotal * (gstRate / 100);
-      const initialTotal = subtotal + gst;
-      const discount = parseFloat(discount_percentage) || 0;
-      const finalAmount = initialTotal - (initialTotal * (discount / 100));
+      const subtotal = Number(orderRes.rows.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0).toFixed(2));
+      const gst = Number(((subtotal * gstRate) / 100).toFixed(2));
+      const cgst = Number(((subtotal * cgstRate) / 100).toFixed(2));
+      const sgst = Number(((subtotal * sgstRate) / 100).toFixed(2));
+
+      const preDiscount = Number((subtotal + gst + cgst + sgst).toFixed(2));
+      const discount = Math.max(0, Math.min(100, parseFloat(discount_percentage) || 0));
+      const discountAmount = Number(((preDiscount * discount) / 100).toFixed(2));
+      const unroundedTotal = Math.max(0, Number((preDiscount - discountAmount).toFixed(2)));
+
+      const finalAmount = Math.ceil(unroundedTotal);
+      let roundOff = Number((finalAmount - unroundedTotal).toFixed(2));
+      if (roundOff < 0.001 || roundOff >= 1) {
+        roundOff = 0;
+      }
 
       // Deduct stock from inventory
       try {
@@ -730,20 +749,31 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       }
 
       const billRes = await db.query(
-        `INSERT INTO bills (order_id, total_amount, gst, final_amount, discount_percentage) 
-         VALUES ($1, $2, $3, $4, $5) RETURNING id, order_id, total_amount, gst, final_amount, discount_percentage`,
-        [orderId, subtotal, gst, finalAmount, discount]
+        `INSERT INTO bills (order_id, total_amount, gst, cgst, sgst, round_off, final_amount, discount_percentage) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, order_id, total_amount, gst, cgst, sgst, round_off, final_amount, discount_percentage`,
+        [orderId, subtotal, gst, cgst, sgst, roundOff, finalAmount, discount]
       );
 
       const newBill = billRes.rows[0] || {};
 
       await db.query("UPDATE orders SET status = 'completed' WHERE id = $1", [orderId]);
+      await db.saveDbFileNow();
 
       const responsePayload = {
         ...newBill,
         subtotal: subtotal,
         total_amount: finalAmount,
+        final_amount: finalAmount,
+        gst: gst,
+        cgst: cgst,
+        sgst: sgst,
+        round_off: roundOff,
+        roundOff: roundOff,
         gst_percentage: gstRate,
+        cgst_percentage: cgstRate,
+        sgst_percentage: sgstRate,
+        discount_percentage: discount,
+        discount_amount: discountAmount,
         items: orderRes.rows,
         hotel_name: hotel.name || user?.hotel_name || '',
         hotel_phone: hotel.phone || '',
@@ -962,15 +992,19 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     // ----------------------------------------
     // BILLS HISTORICAL ROUTES
     // ----------------------------------------
-    const resolveMobileEffectiveGstRate = (bill, hotel) => {
-      const hotelGstRate = Number(hotel?.gst_percentage || 0);
-      const oldTotalAmt = Number(bill?.total_amount || 0);
-      const oldGst = Number(bill?.gst || 0);
-      if (oldTotalAmt > 0 && oldGst === 0) return 0;
-      if (oldGst > 0 && oldTotalAmt > 0 && hotelGstRate === 0) {
-        return Number(((oldGst / oldTotalAmt) * 100).toFixed(2));
+    const resolveMobileEffectiveTaxRate = (oldTaxAmt, oldTotalAmt, hotelTaxRate) => {
+      const hRate = Number(hotelTaxRate || 0);
+      const total = Number(oldTotalAmt || 0);
+      const tax = Number(oldTaxAmt || 0);
+      if (total > 0 && tax === 0) return 0;
+      if (tax > 0 && total > 0 && hRate === 0) {
+        return Number(((tax / total) * 100).toFixed(2));
       }
-      return hotelGstRate;
+      return hRate;
+    };
+
+    const resolveMobileEffectiveGstRate = (bill, hotel) => {
+      return resolveMobileEffectiveTaxRate(bill?.gst, bill?.total_amount, hotel?.gst_percentage);
     };
 
     const getMobileFullBillById = async (billId) => {
@@ -993,7 +1027,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       }
 
       const hotelRes = await db.query(
-        'SELECT name, phone, location, gst_percentage, upi_id, fssai_number, email FROM hotels WHERE id = $1 OR owner_id = $2',
+        'SELECT name, phone, location, gst_percentage, cgst_percentage, sgst_percentage, upi_id, fssai_number, email FROM hotels WHERE id = $1 OR owner_id = $2',
         [user?.hotel_id, user?.id]
       );
       const hotel = hotelRes.rows[0] || {};
@@ -1010,19 +1044,31 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
       const itemsSubtotal = itemsRes.rows.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
       const subtotal = itemsRes.rows.length > 0 ? Number(itemsSubtotal.toFixed(2)) : Number(bill.total_amount || 0);
-      const effectiveGstRate = resolveMobileEffectiveGstRate(bill, hotel);
-      const discountAmount = Math.max(0, Number(((subtotal + Number(bill.gst || 0)) - Number(bill.final_amount || 0)).toFixed(2)));
+      const effectiveGstRate = resolveMobileEffectiveTaxRate(bill.gst, subtotal, hotel.gst_percentage);
+      const effectiveCgstRate = resolveMobileEffectiveTaxRate(bill.cgst, subtotal, hotel.cgst_percentage);
+      const effectiveSgstRate = resolveMobileEffectiveTaxRate(bill.sgst, subtotal, hotel.sgst_percentage);
+      const preDiscount = subtotal + Number(bill.gst || 0) + Number(bill.cgst || 0) + Number(bill.sgst || 0);
+      const discountAmount = Math.max(0, Number((preDiscount - (Number(bill.final_amount || 0) - Number(bill.round_off || 0))).toFixed(2)));
 
       return {
         id: bill.id,
         order_id: bill.order_id,
         total_amount: bill.total_amount,
         subtotal,
-        gst: bill.gst,
+        gst: Number(bill.gst || 0),
+        cgst: Number(bill.cgst || 0),
+        sgst: Number(bill.sgst || 0),
+        round_off: Number(bill.round_off || 0),
+        roundOff: Number(bill.round_off || 0),
         final_amount: bill.final_amount,
         discount_percentage: bill.discount_percentage,
         discount_amount: discountAmount,
         effective_gst_percentage: effectiveGstRate,
+        effective_cgst_percentage: effectiveCgstRate,
+        effective_sgst_percentage: effectiveSgstRate,
+        gst_percentage: effectiveGstRate,
+        cgst_percentage: effectiveCgstRate,
+        sgst_percentage: effectiveSgstRate,
         is_paid: bill.is_paid === 1 || bill.is_paid === true,
         payment_method: bill.payment_method,
         created_at: bill.created_at,
@@ -1030,7 +1076,6 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         hotel_name: hotel.name || user?.hotel_name || '',
         hotel_phone: hotel.phone || '',
         hotel_location: hotel.location || '',
-        gst_percentage: hotel.gst_percentage || 0,
         upi_id: hotel.upi_id || '',
         fssai_number: hotel.fssai_number || '',
         email: hotel.email || '',
@@ -1167,18 +1212,30 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       }
 
       const subtotal = Number(normalizedItems.reduce((sum, i) => sum + (i.price * i.quantity), 0).toFixed(2));
-      const effectiveGstRate = resolveMobileEffectiveGstRate(bill, hotel);
-      const gst = Number((subtotal * (effectiveGstRate / 100)).toFixed(2));
-      const initialTotal = subtotal + gst;
+      const effectiveGstRate = resolveMobileEffectiveTaxRate(bill.gst, bill.total_amount, hotel.gst_percentage);
+      const effectiveCgstRate = resolveMobileEffectiveTaxRate(bill.cgst, bill.total_amount, hotel.cgst_percentage);
+      const effectiveSgstRate = resolveMobileEffectiveTaxRate(bill.sgst, bill.total_amount, hotel.sgst_percentage);
+
+      const gst = Number(((subtotal * effectiveGstRate) / 100).toFixed(2));
+      const cgst = Number(((subtotal * effectiveCgstRate) / 100).toFixed(2));
+      const sgst = Number(((subtotal * effectiveSgstRate) / 100).toFixed(2));
+
+      const preDiscount = Number((subtotal + gst + cgst + sgst).toFixed(2));
       const discountPct = discount_percentage !== undefined
         ? Math.max(0, Math.min(100, parseFloat(discount_percentage) || 0))
         : Number(bill.discount_percentage || 0);
-      const discountAmount = Number((initialTotal * (discountPct / 100)).toFixed(2));
-      const finalAmount = Math.max(0, Number((initialTotal - discountAmount).toFixed(2)));
+      const discountAmount = Number(((preDiscount * discountPct) / 100).toFixed(2));
+      const unroundedTotal = Math.max(0, Number((preDiscount - discountAmount).toFixed(2)));
+
+      const finalAmount = Math.ceil(unroundedTotal);
+      let roundOff = Number((finalAmount - unroundedTotal).toFixed(2));
+      if (roundOff < 0.001 || roundOff >= 1) {
+        roundOff = 0;
+      }
 
       await db.query(
-        'UPDATE bills SET total_amount = $1, gst = $2, final_amount = $3, discount_percentage = $4 WHERE id = $5',
-        [subtotal, gst, finalAmount, discountPct, billId]
+        'UPDATE bills SET total_amount = $1, gst = $2, cgst = $3, sgst = $4, round_off = $5, final_amount = $6, discount_percentage = $7 WHERE id = $8',
+        [subtotal, gst, cgst, sgst, roundOff, finalAmount, discountPct, billId]
       );
 
       // Sync linked credit record if present
@@ -1233,7 +1290,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       }
 
       const showUPI = (bill.is_paid === 0 || bill.is_paid === false) && (paymentMethod === 'upi' || bill.payment_method === 'upi');
-      const effectiveGstPct = resolveMobileEffectiveGstRate(bill, hotel);
+      const effectiveGstPct = resolveMobileEffectiveTaxRate(bill.gst, bill.total_amount, hotel.gst_percentage);
+      const effectiveCgstPct = resolveMobileEffectiveTaxRate(bill.cgst, bill.total_amount, hotel.cgst_percentage);
+      const effectiveSgstPct = resolveMobileEffectiveTaxRate(bill.sgst, bill.total_amount, hotel.sgst_percentage);
 
       const printPayload = {
         type: 'FINAL_BILL',
@@ -1241,6 +1300,10 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         table: tableName,
         subtotal: Number(bill.total_amount || 0),
         gst: Number(bill.gst || 0),
+        cgst: Number(bill.cgst || 0),
+        sgst: Number(bill.sgst || 0),
+        round_off: Number(bill.round_off || 0),
+        roundOff: Number(bill.round_off || 0),
         finalAmount: Number(bill.final_amount || 0),
         discountPercentage: Number(bill.discount_percentage || 0),
         items: items.map(i => ({ name: i.name, marathi_name: i.marathi_name, price: Number(i.price || 0), qty: i.quantity || i.qty || 1 })),
@@ -1251,6 +1314,8 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         upiId: showUPI ? (hotel.upi_id || '') : '',
         isPaid: bill.is_paid === 1 || bill.is_paid === true,
         gst_percentage: effectiveGstPct,
+        cgst_percentage: effectiveCgstPct,
+        sgst_percentage: effectiveSgstPct,
         printerSize: localStorage.getItem('cfg_printer_size') || '58mm',
         isCreditSettlement: body?.isCreditSettlement || false,
         settlementPaymentMethod: body?.settlementPaymentMethod || body?.paymentMethod || '',
@@ -1364,7 +1429,19 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       if (credit.bill_id) {
         const billRes = await db.query('SELECT * FROM bills WHERE id = $1', [credit.bill_id]);
         if (billRes.rows.length > 0) {
-          bill = billRes.rows[0];
+          const rawBill = billRes.rows[0];
+          const hotelRes = await db.query('SELECT gst_percentage, cgst_percentage, sgst_percentage FROM hotels WHERE id = $1', [user.hotel_id]);
+          const hotel = hotelRes.rows[0] || {};
+          const effGst = resolveMobileEffectiveTaxRate(rawBill.gst, rawBill.total_amount, hotel.gst_percentage);
+          const effCgst = resolveMobileEffectiveTaxRate(rawBill.cgst, rawBill.total_amount, hotel.cgst_percentage);
+          const effSgst = resolveMobileEffectiveTaxRate(rawBill.sgst, rawBill.total_amount, hotel.sgst_percentage);
+          bill = {
+            ...rawBill,
+            subtotal: rawBill.total_amount,
+            gst_percentage: effGst,
+            cgst_percentage: effCgst,
+            sgst_percentage: effSgst
+          };
           const itemsRes = await db.query(
             `SELECT oi.quantity, COALESCE(oi.custom_name, mi.name, 'Other') as name, COALESCE(oi.custom_price, mi.price, 0) as price 
              FROM order_items oi 
@@ -1601,26 +1678,30 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/hotel' && methodUpper === 'PUT') {
-      const { name, phone, location, address, upi_id, gst_percentage, fssai_number, email } = body;
+      const { name, phone, location, address, upi_id, gst_percentage, cgst_percentage, sgst_percentage, fssai_number, email } = body;
       const loc = location || address || '';
+      const safeGst = parseFloat(gst_percentage) || 0;
+      const safeCgst = parseFloat(cgst_percentage) || 0;
+      const safeSgst = parseFloat(sgst_percentage) || 0;
       
       const existing = await db.query('SELECT id FROM hotels WHERE id = $1 OR owner_id = $2', [user.hotel_id, user.id]);
       if (existing.rows.length > 0) {
         const hotelId = existing.rows[0].id;
         await db.query(
-          'UPDATE hotels SET name = $1, phone = $2, location = $3, upi_id = $4, gst_percentage = $5, fssai_number = $6, email = $7 WHERE id = $8',
-          [name, phone, loc, upi_id, gst_percentage, fssai_number || null, email || null, hotelId]
+          'UPDATE hotels SET name = $1, phone = $2, location = $3, upi_id = $4, gst_percentage = $5, cgst_percentage = $6, sgst_percentage = $7, fssai_number = $8, email = $9 WHERE id = $10',
+          [name, phone, loc, upi_id, safeGst, safeCgst, safeSgst, fssai_number || null, email || null, hotelId]
         );
       } else {
         const newH = await db.query(
-          'INSERT INTO hotels (owner_id, name, phone, location, upi_id, gst_percentage, fssai_number, email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
-          [user.id, name, phone, loc, upi_id, gst_percentage, fssai_number || null, email || null]
+          'INSERT INTO hotels (owner_id, name, phone, location, upi_id, gst_percentage, cgst_percentage, sgst_percentage, fssai_number, email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
+          [user.id, name, phone, loc, upi_id, safeGst, safeCgst, safeSgst, fssai_number || null, email || null]
         );
         if (newH.rows[0]?.id) {
           await db.query('UPDATE users SET hotel_id = $1 WHERE id = $2', [newH.rows[0].id, user.id]);
         }
       }
-      return { status: 200, data: { success: true, name, phone, location: loc, upi_id, gst_percentage, fssai_number, email } };
+      await db.saveDbFileNow();
+      return { status: 200, data: { success: true, name, phone, location: loc, upi_id, gst_percentage: safeGst, cgst_percentage: safeCgst, sgst_percentage: safeSgst, fssai_number, email } };
     }
 
     if (path === '/hotel/waiters' && methodUpper === 'GET') {

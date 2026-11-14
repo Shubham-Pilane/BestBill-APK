@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
@@ -75,6 +75,47 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [partnerToDelete, setPartnerToDelete] = useState(null);
   const [partnerToRename, setPartnerToRename] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+
+  const orderCalculations = useMemo(() => {
+    const subtotal = Number(
+      orderItems
+        .reduce((acc, i) => acc + ((parseFloat(i.price) || 0) * (parseInt(i.quantity, 10) || 0)), 0)
+        .toFixed(2)
+    );
+    const gstRate = Number(user?.gst_percentage || 0);
+    const cgstRate = Number(user?.cgst_percentage || 0);
+    const sgstRate = Number(user?.sgst_percentage || 0);
+
+    const gstAmount = Number(((subtotal * gstRate) / 100).toFixed(2));
+    const cgstAmount = Number(((subtotal * cgstRate) / 100).toFixed(2));
+    const sgstAmount = Number(((subtotal * sgstRate) / 100).toFixed(2));
+
+    const preDiscount = Number((subtotal + gstAmount + cgstAmount + sgstAmount).toFixed(2));
+    const discountPct = Math.max(0, Math.min(100, parseFloat(discount) || 0));
+    const discountAmount = Number(((preDiscount * discountPct) / 100).toFixed(2));
+    const unroundedTotal = Math.max(0, Number((preDiscount - discountAmount).toFixed(2)));
+
+    const grandTotal = Math.ceil(unroundedTotal);
+    let roundOff = Number((grandTotal - unroundedTotal).toFixed(2));
+    if (roundOff < 0.001 || roundOff >= 1) {
+      roundOff = 0;
+    }
+
+    return {
+      subtotal,
+      gstRate,
+      gstAmount,
+      cgstRate,
+      cgstAmount,
+      sgstRate,
+      sgstAmount,
+      discountPct,
+      discountAmount,
+      unroundedTotal,
+      roundOff,
+      grandTotal
+    };
+  }, [orderItems, user?.gst_percentage, user?.cgst_percentage, user?.sgst_percentage, discount]);
 
   const translateFloorName = (floorName) => {
     if (!floorName) return '';
@@ -954,7 +995,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                     {orderItems.reduce((acc, i) => acc + i.quantity, 0)} {t('items_added', 'Items Added')}
                   </span>
                   <span style={{ fontSize: '18px', fontWeight: 1000, color: '#ffffff' }}>
-                    ₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}
+                    ₹{orderCalculations.grandTotal.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -1053,7 +1094,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>{t('final_due', 'Final Due')}</span>
-                    <span style={{ color: '#10b981', fontSize: '18px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
+                    <span style={{ color: '#10b981', fontSize: '18px', fontWeight: 1000 }}>₹{orderCalculations.grandTotal.toFixed(2)}</span>
                   </div>
 
                   {showKotButton ? (
@@ -1125,13 +1166,27 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
               <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>{t('subtotal', 'Subtotal')}</span>
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px' }}>₹{orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px' }}>₹{orderCalculations.subtotal.toFixed(2)}</span>
                 </div>
                 
-                {Boolean(user?.gst_percentage) && (
+                {orderCalculations.gstRate > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>{t('gst', 'GST')} ({user.gst_percentage}%)</span>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px' }}>₹{(orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (user.gst_percentage / 100)).toFixed(2)}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>{t('gst', 'GST')} ({orderCalculations.gstRate}%)</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px' }}>₹{orderCalculations.gstAmount.toFixed(2)}</span>
+                  </div>
+                )}
+
+                {orderCalculations.cgstRate > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>{t('cgst', 'CGST')} ({orderCalculations.cgstRate}%)</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px' }}>₹{orderCalculations.cgstAmount.toFixed(2)}</span>
+                  </div>
+                )}
+
+                {orderCalculations.sgstRate > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>{t('sgst', 'SGST')} ({orderCalculations.sgstRate}%)</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '14px' }}>₹{orderCalculations.sgstAmount.toFixed(2)}</span>
                   </div>
                 )}
 
@@ -1145,11 +1200,18 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   />
                 </div>
 
+                {orderCalculations.roundOff > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>{t('round_off', 'Round Off')}</span>
+                    <span style={{ color: '#10b981', fontWeight: 900, fontSize: '14px' }}>+₹{orderCalculations.roundOff.toFixed(2)}</span>
+                  </div>
+                )}
+
                 <div style={{ height: '1px', backgroundColor: 'var(--border-color)' }}></div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)' }}>{t('final_due', 'Grand Total')}</span>
-                  <span style={{ color: '#10b981', fontSize: '18px', fontWeight: 1000 }}>₹{((orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) * (1 + (user?.gst_percentage || 0)/100)) * (1 - discount/100)).toFixed(2)}</span>
+                  <span style={{ color: '#10b981', fontSize: '18px', fontWeight: 1000 }}>₹{orderCalculations.grandTotal.toFixed(2)}</span>
                 </div>
 
                 {showKotButton ? (
@@ -1272,8 +1334,28 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 </div>
  
                 <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '6px', color: billData.is_paid ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)' }}>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('subtotal', 'SUBTOTAL')}</span><span>₹{parseFloat(billData.subtotal).toFixed(2)}</span></div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('gst', 'GST')}</span><span>₹{parseFloat(billData.gst).toFixed(2)}</span></div>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('subtotal', 'SUBTOTAL')}</span><span>₹{parseFloat(billData.subtotal || billData.total_amount || 0).toFixed(2)}</span></div>
+                   {parseFloat(billData.gst || 0) > 0 && (
+                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('gst', 'GST')} {billData.gst_percentage ? `(${billData.gst_percentage}%)` : ''}</span><span>₹{parseFloat(billData.gst).toFixed(2)}</span></div>
+                   )}
+                   {parseFloat(billData.cgst || 0) > 0 && (
+                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('cgst', 'CGST')} {billData.cgst_percentage ? `(${billData.cgst_percentage}%)` : ''}</span><span>₹{parseFloat(billData.cgst).toFixed(2)}</span></div>
+                   )}
+                   {parseFloat(billData.sgst || 0) > 0 && (
+                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('sgst', 'SGST')} {billData.sgst_percentage ? `(${billData.sgst_percentage}%)` : ''}</span><span>₹{parseFloat(billData.sgst).toFixed(2)}</span></div>
+                   )}
+                   {parseFloat(billData.discount_percentage || 0) > 0 && (
+                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800, color: '#f59e0b' }}>
+                       <span>{t('loyalty_discount', 'DISCOUNT')} ({parseFloat(billData.discount_percentage)}%)</span>
+                       <span>-₹{parseFloat(billData.discount_amount || ((parseFloat(billData.subtotal || 0) + parseFloat(billData.gst || 0) + parseFloat(billData.cgst || 0) + parseFloat(billData.sgst || 0)) * (parseFloat(billData.discount_percentage || 0) / 100))).toFixed(2)}</span>
+                     </div>
+                   )}
+                   {parseFloat(billData.round_off || billData.roundOff || 0) > 0 && (
+                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800, color: '#10b981' }}>
+                       <span>{t('round_off', 'ROUND OFF')}</span>
+                       <span>+₹{parseFloat(billData.round_off || billData.roundOff).toFixed(2)}</span>
+                     </div>
+                   )}
                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '32px', fontWeight: 1000, color: '#10b981', borderTop: '2px double var(--border-color)', marginTop: '10px', paddingTop: '10px' }}><span>{t('total', 'TOTAL')}</span><span>₹{parseFloat(billData.final_amount).toFixed(2)}</span></div>
                 </div>
 

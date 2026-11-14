@@ -119,6 +119,8 @@ CREATE TABLE IF NOT EXISTS hotels (
     subscription_valid_until TIMESTAMP,
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
     gst_percentage REAL DEFAULT 0,
+    cgst_percentage REAL DEFAULT 0,
+    sgst_percentage REAL DEFAULT 0,
     is_service_stopped BOOLEAN DEFAULT 0,
     printer_size TEXT DEFAULT '58mm',
     billing_method TEXT DEFAULT 'qz',
@@ -192,6 +194,9 @@ CREATE TABLE IF NOT EXISTS bills (
     order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
     total_amount REAL DEFAULT 0,
     gst REAL DEFAULT 0,
+    cgst REAL DEFAULT 0,
+    sgst REAL DEFAULT 0,
+    round_off REAL DEFAULT 0,
     final_amount REAL DEFAULT 0,
     discount_percentage REAL DEFAULT 0,
     is_paid BOOLEAN DEFAULT 0,
@@ -478,6 +483,21 @@ export const initDb = async () => {
     } catch (e) {}
     try {
       db.run("ALTER TABLE order_items ADD COLUMN custom_price REAL;");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE hotels ADD COLUMN cgst_percentage REAL DEFAULT 0;");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE hotels ADD COLUMN sgst_percentage REAL DEFAULT 0;");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE bills ADD COLUMN cgst REAL DEFAULT 0;");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE bills ADD COLUMN sgst REAL DEFAULT 0;");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE bills ADD COLUMN round_off REAL DEFAULT 0;");
     } catch (e) {}
     saveDbFileNow();
     

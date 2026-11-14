@@ -795,12 +795,26 @@ const BillingHistory = () => {
                         </div>
 
                         <div style={{ borderTop: '1px dashed var(--text-muted)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('subtotal', 'SUBTOTAL')}</span><span>₹{parseFloat(selectedBill.subtotal || 0).toFixed(2)}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('gst', 'GST')}</span><span>₹{parseFloat(selectedBill.gst || 0).toFixed(2)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('subtotal', 'SUBTOTAL')}</span><span>₹{parseFloat(selectedBill.subtotal || selectedBill.total_amount || 0).toFixed(2)}</span></div>
+                        {parseFloat(selectedBill.gst || 0) > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('gst', 'GST')} {selectedBill.gst_percentage ? `(${selectedBill.gst_percentage}%)` : ''}</span><span>₹{parseFloat(selectedBill.gst).toFixed(2)}</span></div>
+                        )}
+                        {parseFloat(selectedBill.cgst || 0) > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('cgst', 'CGST')} {selectedBill.cgst_percentage ? `(${selectedBill.cgst_percentage}%)` : ''}</span><span>₹{parseFloat(selectedBill.cgst).toFixed(2)}</span></div>
+                        )}
+                        {parseFloat(selectedBill.sgst || 0) > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('sgst', 'SGST')} {selectedBill.sgst_percentage ? `(${selectedBill.sgst_percentage}%)` : ''}</span><span>₹{parseFloat(selectedBill.sgst).toFixed(2)}</span></div>
+                        )}
                         {parseFloat(selectedBill.discount_percentage || 0) > 0 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800, color: selectedBill.is_paid ? 'white' : '#ef4444' }}>
                             <span>{t('discount', 'DISCOUNT')} ({parseFloat(selectedBill.discount_percentage)}%)</span>
-                            <span>-₹{(parseFloat(selectedBill.discount_amount ?? ((parseFloat(selectedBill.subtotal || 0) + parseFloat(selectedBill.gst || 0)) * (parseFloat(selectedBill.discount_percentage || 0) / 100)))).toFixed(2)}</span>
+                            <span>-₹{(parseFloat(selectedBill.discount_amount ?? ((parseFloat(selectedBill.subtotal || 0) + parseFloat(selectedBill.gst || 0) + parseFloat(selectedBill.cgst || 0) + parseFloat(selectedBill.sgst || 0)) * (parseFloat(selectedBill.discount_percentage || 0) / 100)))).toFixed(2)}</span>
+                        </div>
+                        )}
+                        {parseFloat(selectedBill.round_off || selectedBill.roundOff || 0) > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800, color: selectedBill.is_paid ? 'white' : '#10b981' }}>
+                            <span>{t('round_off', 'ROUND OFF')}</span>
+                            <span>+₹{parseFloat(selectedBill.round_off || selectedBill.roundOff).toFixed(2)}</span>
                         </div>
                         )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: isMobile ? '24px' : '42px', fontWeight: 1000, color: selectedBill.is_paid ? 'white' : '#10b981', borderTop: '4px double var(--text-muted)', marginTop: '8px', paddingTop: '8px' }}><span>{t('grand_total', 'TOTAL')}</span><span>₹{parseFloat(selectedBill.final_amount).toFixed(2)}</span></div>
