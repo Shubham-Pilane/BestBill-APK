@@ -805,6 +805,12 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if ((path === '/bills/history' || path === '/bills') && methodUpper === 'GET') {
       try {
+        const hotelRes = await db.query(
+          'SELECT gst_percentage, cgst_percentage, sgst_percentage FROM hotels WHERE id = $1 OR owner_id = $2',
+          [user?.hotel_id, user?.id]
+        );
+        const hotel = hotelRes.rows[0] || {};
+
         const billsRes = await db.query(`
           SELECT b.*, COALESCE(t.table_number, 'Counter') as table_number
           FROM bills b
@@ -825,10 +831,20 @@ export async function handleRequest(method, url, body = null, headers = {}) {
             ORDER BY oi.created_at ASC, oi.id ASC
           `, [bill.order_id]);
 
+          const effGst = resolveMobileEffectiveTaxRate(bill.gst, bill.total_amount, hotel.gst_percentage);
+          const effCgst = resolveMobileEffectiveTaxRate(bill.cgst, bill.total_amount, hotel.cgst_percentage);
+          const effSgst = resolveMobileEffectiveTaxRate(bill.sgst, bill.total_amount, hotel.sgst_percentage);
+
           formattedBills.push({
             ...bill,
             subtotal: bill.total_amount,
             is_paid: bill.is_paid === 1 || bill.is_paid === true,
+            effective_gst_percentage: effGst,
+            effective_cgst_percentage: effCgst,
+            effective_sgst_percentage: effSgst,
+            gst_percentage: effGst,
+            cgst_percentage: effCgst,
+            sgst_percentage: effSgst,
             items: itemsRes.rows,
             items_json: JSON.stringify(itemsRes.rows),
             parsedItems: itemsRes.rows
@@ -1129,10 +1145,21 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         return { status: 404, data: { message: 'Bill not found' } };
       }
       const bill = billRes.rows[0];
-      const orderId = bill.order_id;
+      let orderId = bill.order_id;
+
+      if (!orderId) {
+        const newOrd = await db.query(
+          `INSERT INTO orders (table_id, status, created_at) VALUES (NULL, 'completed', $1) RETURNING id`,
+          [bill.created_at || new Date().toISOString()]
+        );
+        if (newOrd.rows.length > 0) {
+          orderId = newOrd.rows[0].id;
+          await db.query('UPDATE bills SET order_id = $1 WHERE id = $2', [orderId, billId]);
+        }
+      }
 
       const hotelRes = await db.query(
-        'SELECT name, phone, location, gst_percentage, upi_id, fssai_number, email FROM hotels WHERE id = $1 OR owner_id = $2',
+        'SELECT name, phone, location, gst_percentage, cgst_percentage, sgst_percentage, upi_id, fssai_number, email FROM hotels WHERE id = $1 OR owner_id = $2',
         [user?.hotel_id, user?.id]
       );
       const hotel = hotelRes.rows[0] || {};
@@ -1307,11 +1334,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         finalAmount: Number(bill.final_amount || 0),
         discountPercentage: Number(bill.discount_percentage || 0),
         items: items.map(i => ({ name: i.name, marathi_name: i.marathi_name, price: Number(i.price || 0), qty: i.quantity || i.qty || 1 })),
-        hotelName: hotel.name || user?.hotel_name || '',
-        hotelPhone: hotel.phone || '',
-        hotelLocation: hotel.location || '',
-        hotelFssai: hotel.fssai_number || '',
-        upiId: showUPI ? (hotel.upi_id || '') : '',
+        hotelName: String(hotel.name || user?.hotel_name || '').trim(),
+        hotelPhone: String(hotel.phone || '').trim(),
+        hotelLocation: String(hotel.location || '').trim(),
+        hotelFssai: String(hotel.fssai_number || '').trim(),
+        upiId: showUPI ? String(hotel.upi_id || '').trim() : '',
         isPaid: bill.is_paid === 1 || bill.is_paid === true,
         gst_percentage: effectiveGstPct,
         cgst_percentage: effectiveCgstPct,

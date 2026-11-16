@@ -58,7 +58,7 @@ const formatAmount = (amt) => {
 class EscposBuilder {
   constructor(is58mm = true) {
     this.is58mm = is58mm;
-    this.bytes = [0x1B, 0x40]; // ESC @ (Initialize printer)
+    this.bytes = [0x1B, 0x40, 0x1B, 0x21, 0x00, 0x1D, 0x21, 0x00]; // ESC @ (Initialize printer) + reset text modes
   }
 
   appendBytes(bytesArr) {
@@ -90,12 +90,13 @@ class EscposBuilder {
   }
 
   setFontDouble() {
-    this.bytes.push(0x1D, 0x21, 0x11);
+    // Both ESC ! 0x30 (select print modes: double height + double width) and GS ! 0x11 for maximum printer compatibility
+    this.bytes.push(0x1B, 0x21, 0x30, 0x1D, 0x21, 0x11);
     return this;
   }
 
   setFontNormal() {
-    this.bytes.push(0x1D, 0x21, 0x00);
+    this.bytes.push(0x1B, 0x21, 0x00, 0x1D, 0x21, 0x00);
     return this;
   }
 
@@ -118,7 +119,12 @@ class EscposBuilder {
   }
 
   cut() {
-    this.bytes.push(0x1D, 0x56, 0x41, 0x03);
+    if (this.is58mm) {
+      // 58mm portable Bluetooth thermal printers do not have physical cutters; feed extra lines for clean manual tear-off
+      this.bytes.push(0x1B, 0x64, 0x02);
+    } else {
+      this.bytes.push(0x1D, 0x56, 0x41, 0x03);
+    }
     return this;
   }
 
@@ -258,13 +264,12 @@ export async function formatKOT(data, printerSize = '58mm') {
   const dateStr = new Date().toLocaleString();
   const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr';
 
-  builder.alignCenter();
-
   const titleText = isMarathi ? 'किचन ऑर्डर (KOT)' : 'KITCHEN ORDER';
   if (containsDevanagari(titleText)) {
     builder.appendBytes(renderDevanagariLineToRaster(titleText, { paperSize: printerSize, align: 'center', isDouble: true }));
+    builder.alignCenter();
   } else {
-    builder.setFontDouble().bold().text(titleText).setFontNormal().bold(false);
+    builder.setFontDouble().bold().alignCenter().text(titleText).setFontNormal().bold(false).alignCenter();
   }
 
   builder.line('=', LINE_WIDTH).alignLeft();
@@ -347,27 +352,28 @@ export async function formatBill(data, printerSize = '58mm') {
   const dateStr = new Date().toLocaleString();
   const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr';
 
-  builder.alignCenter();
-
-  const hotelName = data.hotelName || 'BestBill POS';
+  const hotelName = String(data.hotelName || 'BestBill POS').trim();
   if (containsDevanagari(hotelName)) {
     builder.appendBytes(renderDevanagariLineToRaster(hotelName, { paperSize: printerSize, align: 'center', isDouble: true }));
+    builder.alignCenter();
   } else {
-    builder.setFontDouble().bold();
+    builder.setFontDouble().bold().alignCenter();
     const hotelNameLines = wordWrap(hotelName, Math.floor(LINE_WIDTH / 2));
     hotelNameLines.forEach(l => builder.text(l));
-    builder.setFontNormal().bold(false);
+    builder.setFontNormal().bold(false).alignCenter();
   }
 
   if (data.hotelLocation) {
-    if (containsDevanagari(data.hotelLocation)) {
-      builder.appendBytes(renderDevanagariLineToRaster(data.hotelLocation, { paperSize: printerSize, align: 'center' }));
+    const locStr = String(data.hotelLocation).trim();
+    if (containsDevanagari(locStr)) {
+      builder.appendBytes(renderDevanagariLineToRaster(locStr, { paperSize: printerSize, align: 'center' }));
+      builder.alignCenter();
     } else {
-      wordWrap(data.hotelLocation, LINE_WIDTH).forEach(l => builder.text(l));
+      wordWrap(locStr, LINE_WIDTH).forEach(l => builder.text(l));
     }
   }
-  if (data.hotelPhone) builder.text(`Phone: ${data.hotelPhone}`);
-  if (data.hotelFssai) builder.text(`FSSAI: ${data.hotelFssai}`);
+  if (data.hotelPhone) builder.text(`Phone: ${String(data.hotelPhone).trim()}`);
+  if (data.hotelFssai) builder.text(`FSSAI: ${String(data.hotelFssai).trim()}`);
 
   const isCancelOrder = data.type === 'CANCEL_ORDER' || data.isCancelOrder;
   const billNoStr = data.billId || data.orderNumber || data.order_number || data.id || 'N/A';
@@ -584,6 +590,7 @@ export async function convertImageToEscpos(url, maxWidth = 300) {
 
         resolve(Array.from(convertCanvasToEscpos(canvas)));
       } catch (e) {
+        console.warn('[IMAGE ERROR]', e);
         resolve([]);
       }
     };
@@ -676,6 +683,7 @@ export class BluetoothPrinterService {
           () => resolve(false)
         );
       } catch (err) {
+        console.warn('[BT ENABLED CHECK ERR]', err);
         resolve(false);
       }
     });
@@ -688,6 +696,7 @@ export class BluetoothPrinterService {
       try {
         window.bluetoothSerial.isConnected(() => resolve(true), () => resolve(false));
       } catch (e) {
+        console.warn('[BT CONNECT CHECK ERR]', e);
         resolve(true);
       }
     });
@@ -730,7 +739,9 @@ export class BluetoothPrinterService {
               console.error('[BT CONNECT ERR]', err);
               try {
                 if (window.bluetoothSerial.disconnect) window.bluetoothSerial.disconnect();
-              } catch (e) {}
+              } catch (e) {
+                console.warn('[BT DISCONNECT ERR]', e);
+              }
               setTimeout(() => {
                 window.bluetoothSerial.connect(
                   macAddress,
@@ -762,6 +773,7 @@ export class BluetoothPrinterService {
             }
           );
         } catch (e) {
+          console.warn('[BT CONNECT RETRY ERR]', e);
           connectAndWrite().then(resolve);
         }
       });
