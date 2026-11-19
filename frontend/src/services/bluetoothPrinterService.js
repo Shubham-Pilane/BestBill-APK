@@ -547,18 +547,6 @@ export async function formatBill(data, printerSize = '58mm') {
       .line('=', LINE_WIDTH);
   }
 
-  if (data.paymentMethod) {
-    const pm = String(data.paymentMethod).toLowerCase();
-    if (pm === 'partial') {
-      const cAmt = Number(data.cashAmount || data.cash_amount || 0);
-      const oAmt = Number(data.onlineAmount || data.online_amount || 0);
-      builder.bold(true).text(padText('PAYMENT:', labelLen) + ' ' + padText('PARTIAL', amtLen, 'right')).bold(false);
-      builder.text(padText('  Cash:', labelLen) + ' ' + padText(formatAmount(cAmt), amtLen, 'right'));
-      builder.text(padText('  Online:', labelLen) + ' ' + padText(formatAmount(oAmt), amtLen, 'right'));
-      builder.line('-', LINE_WIDTH);
-    }
-  }
-
   if (data.upiId) {
     const upiLink = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.hotelName || '')}&am=${finalAmountToDisplay}&cu=INR`;
     builder.bold(true)
