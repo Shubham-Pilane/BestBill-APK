@@ -61,7 +61,10 @@ $outputApk = "d:\BestBill-apk\frontend\android\app\build\outputs\apk\debug\app-d
 $targetName = "d:\BestBill-apk\BestBill_Setup_v1.0.1.apk"
 if (Test-Path $outputApk) {
     Copy-Item -Path $outputApk -Destination $targetName -Force
-    (Get-Item $targetName).LastWriteTime = Get-Date
+    $now = Get-Date
+    $item = Get-Item $targetName
+    $item.CreationTime = $now
+    $item.LastWriteTime = $now
     Write-Host "----------------------------------------"
     Write-Host "UPDATED BESTBILL APK COMPILED SUCCESSFULLY!"
     Write-Host "Location: $targetName"
