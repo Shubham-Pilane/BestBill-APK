@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   Ban,
   Receipt,
+  Users,
   Globe
 } from 'lucide-react';
 
@@ -68,6 +69,7 @@ const Layout = ({ children }) => {
       case '/menu': return t('nav_menu_management', defaultName);
       case '/kitchen-kot': return t('nav_kitchen_kot', defaultName);
       case '/history': return t('nav_billing_history', defaultName);
+      case '/customers': return t('nav_customers', defaultName);
       case '/cancel-orders': return t('nav_cancel_orders', defaultName);
       case '/expenses': return t('nav_expense', defaultName);
       case '/credit': return t('nav_credit_management', defaultName);
@@ -121,6 +123,7 @@ const Layout = ({ children }) => {
           { name: 'Manage Menu', path: '/menu', icon: <UtensilsCrossed size={20} /> },
           { name: 'Kitchen KOT', path: '/kitchen-kot', icon: <ChefHat size={20} /> },
           { name: 'Billing History', path: '/history', icon: <History size={20} /> },
+          { name: 'Customers', path: '/customers', icon: <Users size={20} /> },
           { name: 'Cancel Orders', path: '/cancel-orders', icon: <Ban size={20} /> },
           { name: 'Expense Management', path: '/expenses', icon: <Receipt size={20} /> },
           { name: 'Credit Management', path: '/credit', icon: <Wallet size={20} /> },

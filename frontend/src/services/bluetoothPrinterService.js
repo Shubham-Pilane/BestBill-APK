@@ -391,11 +391,63 @@ export async function formatBill(data, printerSize = '58mm') {
     }
   }
 
-  const dateLabelStr = isMarathi ? `तारीख: ${dateStr}` : `Date: ${dateStr}`;
+    const dateLabelStr = isMarathi ? `तारीख: ${dateStr}` : `Date: ${dateStr}`;
   if (containsDevanagari(dateLabelStr)) {
     builder.appendBytes(renderDevanagariLineToRaster(dateLabelStr, { paperSize: printerSize, align: 'left' }));
   } else {
     builder.bold(false).text(dateLabelStr);
+  }
+
+  // Online Counter Platform & Order ID
+  const platform = String(data.deliveryPartner || data.delivery_partner || data.selectedDeliveryPartner || '').trim();
+  const onlineOrderId = String(data.onlineOrderId || data.online_order_id || data.orderId || data.order_id || '').trim();
+  if (platform) {
+    const platStr = isMarathi ? `प्लॅटफॉर्म: ${platform}` : `Platform: ${platform}`;
+    if (containsDevanagari(platStr)) {
+      builder.appendBytes(renderDevanagariLineToRaster(platStr, { paperSize: printerSize, align: 'left', fontWeight: 'bold' }));
+    } else {
+      builder.bold(true).text(platStr).bold(false);
+    }
+  }
+  if (onlineOrderId) {
+    const oIdStr = isMarathi ? `ऑर्डर आयडी: ${onlineOrderId}` : `Order ID: ${onlineOrderId}`;
+    if (containsDevanagari(oIdStr)) {
+      builder.appendBytes(renderDevanagariLineToRaster(oIdStr, { paperSize: printerSize, align: 'left', fontWeight: 'bold' }));
+    } else {
+      builder.bold(true).text(oIdStr).bold(false);
+    }
+  }
+
+  // Customer Details (Optional)
+  const custName = String(data.customerName || data.customer_name || '').trim();
+  const custPhone = String(data.customerPhone || data.customer_phone || '').trim();
+  const custAddress = String(data.customerAddress || data.customer_address || '').trim();
+
+  if (custName) {
+    const billToStr = isMarathi ? `बिल: ${custName}` : `Bill To: ${custName}`;
+    if (containsDevanagari(billToStr)) {
+      builder.appendBytes(renderDevanagariLineToRaster(billToStr, { paperSize: printerSize, align: 'left', fontWeight: 'bold' }));
+    } else {
+      builder.bold(true);
+      wordWrap(billToStr, LINE_WIDTH).forEach(l => builder.text(l));
+      builder.bold(false);
+    }
+  }
+  if (custPhone) {
+    const phoneStr = isMarathi ? `मोबाईल: ${custPhone}` : `Phone: ${custPhone}`;
+    if (containsDevanagari(phoneStr)) {
+      builder.appendBytes(renderDevanagariLineToRaster(phoneStr, { paperSize: printerSize, align: 'left' }));
+    } else {
+      wordWrap(phoneStr, LINE_WIDTH).forEach(l => builder.text(l));
+    }
+  }
+  if (custAddress) {
+    const addrStr = isMarathi ? `पत्ता: ${custAddress}` : `Address: ${custAddress}`;
+    if (containsDevanagari(addrStr)) {
+      builder.appendBytes(renderDevanagariLineToRaster(addrStr, { paperSize: printerSize, align: 'left' }));
+    } else {
+      wordWrap(addrStr, LINE_WIDTH).forEach(l => builder.text(l));
+    }
   }
 
   builder.line('-', LINE_WIDTH);

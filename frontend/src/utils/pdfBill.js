@@ -199,8 +199,11 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
               {
                 stack: [
                   { text: isMarathi ? `बिल क्रमांक: #${billId}` : `INVOICE / BILL NO: #${billId}`, bold: true, fontSize: 11, color: '#0f172a' },
-                  { text: isMarathi ? (tableOrRoom.startsWith('टेबल') || tableOrRoom.includes('काउंटर') || tableOrRoom.includes('ऑर्डर') ? tableOrRoom : `टेबल: ${tableOrRoom}`) : `Table / Details: ${tableOrRoom}`, fontSize: 10, color: '#334155', margin: [0, 2, 0, 0] }
-                ]
+                  { text: isMarathi ? (tableOrRoom.startsWith('टेबल') || tableOrRoom.includes('काउंटर') || tableOrRoom.includes('ऑर्डर') ? tableOrRoom : `टेबल: ${tableOrRoom}`) : `Table / Details: ${tableOrRoom}`, fontSize: 10, color: '#334155', margin: [0, 2, 0, 0] },
+                  (billData.online_order_id || billData.onlineOrderId) ? { text: `Order ID: ${billData.online_order_id || billData.onlineOrderId}${billData.delivery_partner || billData.deliveryPartner ? ` (${billData.delivery_partner || billData.deliveryPartner})` : ''}`, fontSize: 10, color: '#0ea5e9', bold: true, margin: [0, 2, 0, 0] } : null,
+                  (billData.customer_name || billData.customerName) ? { text: `Bill To: ${billData.customer_name || billData.customerName}`, fontSize: 10, color: '#0f172a', bold: true, margin: [0, 2, 0, 0] } : null,
+                  (billData.customer_phone || billData.customerPhone || billData.customer_address || billData.customerAddress) ? { text: [billData.customer_phone || billData.customerPhone, billData.customer_address || billData.customerAddress].filter(Boolean).join(' | '), fontSize: 9, color: '#64748b', margin: [0, 1, 0, 0] } : null
+                ].filter(Boolean)
               },
               {
                 stack: [
@@ -349,12 +352,22 @@ export const shareBillPDFViaWhatsApp = (billData, hotelInfo = {}, customerPhone 
       const sgstLine = (sgstPercent > 0 || sgstVal > 0) ? `*SGST (${sgstPercent}%):* ₹${formatAmount(sgstVal)}\n` : '';
       const roundOffLine = (roundOffVal > 0) ? `*Round Off:* +₹${formatAmount(roundOffVal)}\n` : '';
 
+      const custName = billData.customer_name || billData.customerName || '';
+      const custPhone = billData.customer_phone || billData.customerPhone || '';
+      const custAddr = billData.customer_address || billData.customerAddress || '';
+      const orderId = billData.online_order_id || billData.onlineOrderId || '';
+      const delPartner = billData.delivery_partner || billData.deliveryPartner || '';
+
       const whatsappText = `*--- ${hotelName.toUpperCase()} ---*\n` +
         (address ? `*Address:* ${address}\n` : '') +
         (phone ? `*Phone:* ${phone}\n` : '') +
         `\n` +
         `Table No: ${billData.table_number || billData.table || 'N/A'}\n` +
         `Bill No: #${billId}\n` +
+        (orderId ? `Order ID: ${orderId}${delPartner ? ` (${delPartner})` : ''}\n` : '') +
+        (custName ? `Bill To: ${custName}\n` : '') +
+        (custPhone ? `Phone: ${custPhone}\n` : '') +
+        (custAddr ? `Address: ${custAddr}\n` : '') +
         `Date: ${formatDate(billData.created_at || Date.now())}\n` +
         `${itemsText}\n` +
         `*------------------------*\n` +

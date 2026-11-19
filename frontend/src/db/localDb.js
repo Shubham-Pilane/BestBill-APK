@@ -346,6 +346,17 @@ CREATE TABLE IF NOT EXISTS cancelled_orders (
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
 );
 
+CREATE TABLE IF NOT EXISTS customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    phone TEXT,
+    address TEXT,
+    created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
+    updated_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
+    last_used_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
+);
+
 CREATE TABLE IF NOT EXISTS expenses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
@@ -509,6 +520,27 @@ export const initDb = async () => {
     try {
       db.run("ALTER TABLE bills ADD COLUMN round_off REAL DEFAULT 0;");
     } catch (e) {}
+    try {
+      db.run(`CREATE TABLE IF NOT EXISTS customers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        phone TEXT,
+        address TEXT,
+        created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
+        updated_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
+        last_used_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
+      );`);
+    } catch (e) {}
+    try { db.run("ALTER TABLE bills ADD COLUMN customer_id INTEGER;"); } catch (e) {}
+    try { db.run("ALTER TABLE bills ADD COLUMN customer_name TEXT;"); } catch (e) {}
+    try { db.run("ALTER TABLE bills ADD COLUMN customer_phone TEXT;"); } catch (e) {}
+    try { db.run("ALTER TABLE bills ADD COLUMN customer_address TEXT;"); } catch (e) {}
+    try { db.run("ALTER TABLE bills ADD COLUMN online_order_id TEXT;"); } catch (e) {}
+    try { db.run("ALTER TABLE bills ADD COLUMN delivery_partner TEXT;"); } catch (e) {}
+    try { db.run("ALTER TABLE orders ADD COLUMN online_order_id TEXT;"); } catch (e) {}
+    try { db.run("ALTER TABLE orders ADD COLUMN delivery_partner TEXT;"); } catch (e) {}
+    try { db.run("ALTER TABLE customers ADD COLUMN last_used_at TIMESTAMP DEFAULT (datetime('now', 'localtime'));"); } catch (e) {}
     saveDbFileNow();
     
     // Enable Foreign Keys & Seed Defaults

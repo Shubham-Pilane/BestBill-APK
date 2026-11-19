@@ -512,7 +512,19 @@ const BillingHistory = () => {
                                                     {isParcel(bill.table_number) ? t('parcel', 'PARCEL') : t('dine_in', 'DINE-IN')}
                                                 </span>
                                             </td>
-                                            <td style={tdStyle}>{bill.table_number}</td>
+                                            <td style={tdStyle}>
+                                                <div style={{ fontWeight: 800 }}>{bill.table_number}</div>
+                                                {bill.customer_name && (
+                                                    <div style={{ fontSize: '11px', color: '#0ea5e9', fontWeight: 700, marginTop: '2px' }}>
+                                                        👤 {bill.customer_name} {bill.customer_phone ? `(${bill.customer_phone})` : ''}
+                                                    </div>
+                                                )}
+                                                {(bill.delivery_partner || bill.online_order_id) && (
+                                                    <div style={{ fontSize: '11px', color: '#e11d48', fontWeight: 700, marginTop: '2px' }}>
+                                                        {bill.delivery_partner} {bill.online_order_id ? `#${bill.online_order_id}` : ''}
+                                                    </div>
+                                                )}
+                                            </td>
                                             <td style={{...tdStyle, color: '#10b981', fontWeight: 900}}>₹{parseFloat(bill.final_amount ?? bill.total_amount ?? 0).toFixed(2)}</td>
                                             <td style={tdStyle}>
                                                 {bill.is_paid ? (
@@ -793,6 +805,19 @@ const BillingHistory = () => {
                             <span>BILL NO: #{selectedBill.id}</span>
                         </div>
                         <div style={{ fontSize: '12px', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)', marginTop: '4px' }}>DATE: {safeDate(selectedBill.created_at).toLocaleDateString()} {safeDate(selectedBill.created_at).toLocaleTimeString()}</div>
+                        {(selectedBill.delivery_partner || selectedBill.online_order_id) && (
+                            <div style={{ fontSize: '12px', fontWeight: 800, color: '#e11d48', marginTop: '4px' }}>
+                                {selectedBill.delivery_partner && <span>Platform: {selectedBill.delivery_partner} </span>}
+                                {selectedBill.online_order_id && <span>• Order ID: {selectedBill.online_order_id}</span>}
+                            </div>
+                        )}
+                        {selectedBill.customer_name && (
+                            <div style={{ fontSize: '12px', fontWeight: 800, color: selectedBill.is_paid ? 'white' : 'var(--text-primary)', marginTop: '4px' }}>
+                                <span>Bill To: {selectedBill.customer_name}</span>
+                                {selectedBill.customer_phone && <span style={{ color: selectedBill.is_paid ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)', fontWeight: 600, marginLeft: '8px' }}>({selectedBill.customer_phone})</span>}
+                                {selectedBill.customer_address && <div style={{ color: selectedBill.is_paid ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)', fontWeight: 600, fontSize: '11px' }}>{selectedBill.customer_address}</div>}
+                            </div>
+                        )}
                         </div>
 
                         <div style={{ marginBottom: '20px' }}>

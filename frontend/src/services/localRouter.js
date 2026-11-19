@@ -157,6 +157,50 @@ async function deductStockForOrder(orderId, hotelId) {
 }
 
 // Router Request Handler
+
+// Helper: Auto-save or update customer record on bill settlement
+async function handleCustomerSaveOrUpdate(hotelId, { customer_id, customer_name, customer_phone, customer_address, save_customer }) {
+  if (!hotelId) hotelId = 1;
+  if (customer_id) {
+    try {
+      await db.query("UPDATE customers SET last_used_at = datetime('now', 'localtime') WHERE id = $1 AND hotel_id = $2", [customer_id, hotelId]);
+    } catch (e) {}
+    return customer_id;
+  }
+  if (save_customer && customer_name && customer_name.trim()) {
+    try {
+      const name = customer_name.trim();
+      const phone = (customer_phone || '').trim();
+      const address = (customer_address || '').trim();
+      
+      let existingRes;
+      if (phone) {
+        existingRes = await db.query("SELECT id FROM customers WHERE hotel_id = $1 AND (phone = $2 OR name = $3) LIMIT 1", [hotelId, phone, name]);
+      } else {
+        existingRes = await db.query("SELECT id FROM customers WHERE hotel_id = $1 AND name = $2 LIMIT 1", [hotelId, name]);
+      }
+      
+      if (existingRes.rows.length > 0) {
+        const existingId = existingRes.rows[0].id;
+        await db.query(
+          "UPDATE customers SET phone = COALESCE(NULLIF($1, ''), phone), address = COALESCE(NULLIF($2, ''), address), last_used_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE id = $3",
+          [phone, address, existingId]
+        );
+        return existingId;
+      } else {
+        const insRes = await db.query(
+          "INSERT INTO customers (hotel_id, name, phone, address, created_at, updated_at, last_used_at) VALUES ($1, $2, $3, $4, datetime('now', 'localtime'), datetime('now', 'localtime'), datetime('now', 'localtime')) RETURNING id",
+          [hotelId, name, phone, address]
+        );
+        return insRes.rows[0]?.id || null;
+      }
+    } catch (e) {
+      console.warn('[CUSTOMER SAVE NOTE]', e.message);
+    }
+  }
+  return null;
+}
+
 export async function handleRequest(method, url, body = null, headers = {}) {
   const methodUpper = method.toUpperCase();
   const path = url.replace(/^\/api/, '').split('?')[0];
@@ -803,15 +847,26 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if (path.startsWith('/tables/bill/') && path.endsWith('/pay') && methodUpper === 'PUT') {
       const billId = parseInt(path.split('/')[3]);
-      const { method } = body;
+      const { method, customer_id, customer_name, customer_phone, customer_address, online_order_id, delivery_partner, save_customer } = body || {};
+      const hotelId = user?.hotel_id || 1;
+
+      let effectiveCustId = await handleCustomerSaveOrUpdate(hotelId, { customer_id, customer_name, customer_phone, customer_address, save_customer });
 
       const result = await db.query(
-        'UPDATE bills SET is_paid = 1, payment_method = $1 WHERE id = $2 RETURNING *',
-        [method, billId]
+        `UPDATE bills SET
+          is_paid = 1,
+          payment_method = $1,
+          customer_id = COALESCE($2, customer_id),
+          customer_name = COALESCE(NULLIF($3, ''), customer_name),
+          customer_phone = COALESCE(NULLIF($4, ''), customer_phone),
+          customer_address = COALESCE(NULLIF($5, ''), customer_address),
+          online_order_id = COALESCE(NULLIF($6, ''), online_order_id),
+          delivery_partner = COALESCE(NULLIF($7, ''), delivery_partner)
+        WHERE id = $8 RETURNING *`,
+        [method || 'cash', effectiveCustId, customer_name || '', customer_phone || '', customer_address || '', online_order_id || '', delivery_partner || '', billId]
       );
       if (result.rows.length === 0) return { status: 404, data: { message: 'Bill record not found' } };
-
-      const bill = result.rows[0];
+      await db.saveDbFileNow();
       return { status: 200, data: { success: true, bill: result.rows[0] } };
     }
 
@@ -1340,7 +1395,31 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if (path.startsWith('/bills/') && path.endsWith('/print') && methodUpper === 'POST') {
       const billId = parseInt(path.split('/')[2]);
-      const { paymentMethod, items: bodyItems } = body || {};
+      const { paymentMethod, items: bodyItems, customerName, customerPhone, customerAddress, onlineOrderId, deliveryPartner, customerId, saveCustomer } = body || {};
+
+      if (customerName || customerPhone || customerAddress || onlineOrderId || deliveryPartner || customerId) {
+        try {
+          const hotelId = user?.hotel_id || 1;
+          const effectiveCustId = await handleCustomerSaveOrUpdate(hotelId, {
+            customer_id: customerId,
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            customer_address: customerAddress,
+            save_customer: saveCustomer !== false
+          });
+          await db.query(
+            `UPDATE bills SET
+              customer_id = COALESCE($1, customer_id),
+              customer_name = COALESCE(NULLIF($2, ''), customer_name),
+              customer_phone = COALESCE(NULLIF($3, ''), customer_phone),
+              customer_address = COALESCE(NULLIF($4, ''), customer_address),
+              online_order_id = COALESCE(NULLIF($5, ''), online_order_id),
+              delivery_partner = COALESCE(NULLIF($6, ''), delivery_partner)
+            WHERE id = $7`,
+            [effectiveCustId, customerName || '', customerPhone || '', customerAddress || '', onlineOrderId || '', deliveryPartner || '', billId]
+          );
+        } catch (e) {}
+      }
 
       const billRes = await db.query('SELECT * FROM bills WHERE id = $1', [billId]);
       if (billRes.rows.length === 0) return { status: 404, data: { message: 'Bill not found' } };
@@ -1406,7 +1485,12 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         printerSize: localStorage.getItem('cfg_printer_size') || '58mm',
         isCreditSettlement: body?.isCreditSettlement || false,
         settlementPaymentMethod: body?.settlementPaymentMethod || body?.paymentMethod || '',
-        isToken: body?.isToken || false
+        isToken: body?.isToken || false,
+        customerName: customerName || bill.customer_name || '',
+        customerPhone: customerPhone || bill.customer_phone || '',
+        customerAddress: customerAddress || bill.customer_address || '',
+        onlineOrderId: onlineOrderId || bill.online_order_id || '',
+        deliveryPartner: deliveryPartner || bill.delivery_partner || ''
       };
 
       // Trigger Bluetooth receipt spoler
@@ -1418,13 +1502,128 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if ((path.includes('/bill/') || path.includes('/bills/')) && path.endsWith('/pay') && methodUpper === 'PUT') {
       const parts = path.split('/');
       const billId = parseInt(parts[parts.length - 2]);
-      const { method } = body || {};
-      await db.query('UPDATE bills SET is_paid = 1, payment_method = $1 WHERE id = $2', [method || 'cash', billId]);
+      const { method, customer_id, customer_name, customer_phone, customer_address, online_order_id, delivery_partner, save_customer } = body || {};
+      const hotelId = user?.hotel_id || 1;
+
+      let effectiveCustId = await handleCustomerSaveOrUpdate(hotelId, { customer_id, customer_name, customer_phone, customer_address, save_customer });
+
+      await db.query(
+        `UPDATE bills SET
+          is_paid = 1,
+          payment_method = $1,
+          customer_id = COALESCE($2, customer_id),
+          customer_name = COALESCE(NULLIF($3, ''), customer_name),
+          customer_phone = COALESCE(NULLIF($4, ''), customer_phone),
+          customer_address = COALESCE(NULLIF($5, ''), customer_address),
+          online_order_id = COALESCE(NULLIF($6, ''), online_order_id),
+          delivery_partner = COALESCE(NULLIF($7, ''), delivery_partner)
+        WHERE id = $8`,
+        [method || 'cash', effectiveCustId, customer_name || '', customer_phone || '', customer_address || '', online_order_id || '', delivery_partner || '', billId]
+      );
+      await db.saveDbFileNow();
       return { status: 200, data: { success: true } };
     }
 
     // ----------------------------------------
     // ----------------------------------------
+    
+    // ----------------------------------------
+    // CUSTOMER ROUTES
+    // ----------------------------------------
+    if (path === '/customers/recent' && methodUpper === 'GET') {
+      const hotelId = user?.hotel_id || 1;
+      const res = await db.query(
+        'SELECT * FROM customers WHERE hotel_id = $1 ORDER BY last_used_at DESC, id DESC LIMIT 5',
+        [hotelId]
+      );
+      return { status: 200, data: res.rows };
+    }
+
+    if (path === '/customers' && methodUpper === 'GET') {
+      const hotelId = user?.hotel_id || 1;
+      const search = (queryParams.search || queryParams.q || '').trim();
+      const page = Math.max(1, parseInt(queryParams.page) || 1);
+      const limit = Math.max(1, parseInt(queryParams.limit) || 10);
+      const offset = (page - 1) * limit;
+
+      let customersQuery = 'SELECT * FROM customers WHERE hotel_id = $1';
+      let countQuery = 'SELECT COUNT(*) as count FROM customers WHERE hotel_id = $1';
+      let queryArgs = [hotelId];
+
+      if (search) {
+        customersQuery += " AND (name LIKE '%' || $2 || '%' OR phone LIKE '%' || $2 || '%' OR address LIKE '%' || $2 || '%')";
+        countQuery += " AND (name LIKE '%' || $2 || '%' OR phone LIKE '%' || $2 || '%' OR address LIKE '%' || $2 || '%')";
+        queryArgs.push(search);
+      }
+
+      customersQuery += ` ORDER BY last_used_at DESC, id DESC LIMIT ${limit} OFFSET ${offset}`;
+
+      const [customersRes, countRes] = await Promise.all([
+        db.query(customersQuery, queryArgs),
+        db.query(countQuery, queryArgs)
+      ]);
+
+      const totalCount = parseInt(countRes.rows[0]?.count || 0, 10);
+      const totalPages = Math.ceil(totalCount / limit) || 1;
+
+      return {
+        status: 200,
+        data: {
+          customers: customersRes.rows,
+          totalCount,
+          totalPages,
+          currentPage: page
+        }
+      };
+    }
+
+    if (path === '/customers' && methodUpper === 'POST') {
+      const hotelId = user?.hotel_id || 1;
+      const { name, phone, address } = body || {};
+      if (!name || !name.trim()) {
+        return { status: 400, data: { message: 'Customer name is required' } };
+      }
+
+      const res = await db.query(
+        `INSERT INTO customers (hotel_id, name, phone, address, created_at, updated_at, last_used_at)
+         VALUES ($1, $2, $3, $4, datetime('now', 'localtime'), datetime('now', 'localtime'), datetime('now', 'localtime'))
+         RETURNING *`,
+        [hotelId, name.trim(), (phone || '').trim(), (address || '').trim()]
+      );
+      await db.saveDbFileNow();
+      return { status: 201, data: { success: true, customer: res.rows[0] } };
+    }
+
+    if (path.startsWith('/customers/') && methodUpper === 'PUT') {
+      const hotelId = user?.hotel_id || 1;
+      const customerId = parseInt(path.split('/')[2], 10);
+      const { name, phone, address } = body || {};
+      if (!name || !name.trim()) {
+        return { status: 400, data: { message: 'Customer name is required' } };
+      }
+
+      const res = await db.query(
+        `UPDATE customers
+         SET name = $1, phone = $2, address = $3, updated_at = datetime('now', 'localtime')
+         WHERE id = $4 AND hotel_id = $5
+         RETURNING *`,
+        [name.trim(), (phone || '').trim(), (address || '').trim(), customerId, hotelId]
+      );
+      await db.saveDbFileNow();
+      if (res.rows.length === 0) {
+        return { status: 404, data: { message: 'Customer not found' } };
+      }
+      return { status: 200, data: { success: true, customer: res.rows[0] } };
+    }
+
+    if (path.startsWith('/customers/') && methodUpper === 'DELETE') {
+      const hotelId = user?.hotel_id || 1;
+      const customerId = parseInt(path.split('/')[2], 10);
+      await db.query('DELETE FROM customers WHERE id = $1 AND hotel_id = $2', [customerId, hotelId]);
+      await db.saveDbFileNow();
+      return { status: 200, data: { success: true, message: 'Customer deleted successfully' } };
+    }
+
     // CREDIT ROUTES (REWRITTEN FOR MOBILE APP MATCH)
     // ----------------------------------------
     if (path === '/credit/dashboard' && methodUpper === 'GET') {
@@ -1543,16 +1742,34 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if ((path === '/credit/save' || path === '/credit/transactions') && methodUpper === 'POST') {
-      const { bill_id, party_type, amount, vendor_id, customer_name, customer_phone } = body;
+      const { bill_id, party_type, amount, vendor_id, customer_name, customer_phone, customer_address, customer_id, save_customer } = body;
+      const hotelId = user?.hotel_id || 1;
+
+      let effectiveCustId = null;
+      if (party_type === 'customer') {
+        effectiveCustId = await handleCustomerSaveOrUpdate(hotelId, { customer_id, customer_name, customer_phone, customer_address, save_customer });
+      }
+
       await db.query(
         `INSERT INTO credits (hotel_id, bill_id, party_type, vendor_id, customer_name, customer_phone, amount, status) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [user.hotel_id, bill_id || null, party_type, vendor_id || null, customer_name || null, customer_phone || null, amount, 'pending']
+        [hotelId, bill_id || null, party_type, vendor_id || null, customer_name || null, customer_phone || null, amount, 'pending']
       );
 
       if (bill_id) {
-        await db.query('UPDATE bills SET payment_method = \'credit\', is_paid = 0 WHERE id = $1', [bill_id]);
+        await db.query(
+          `UPDATE bills SET
+            payment_method = 'credit',
+            is_paid = 0,
+            customer_id = COALESCE($1, customer_id),
+            customer_name = COALESCE(NULLIF($2, ''), customer_name),
+            customer_phone = COALESCE(NULLIF($3, ''), customer_phone),
+            customer_address = COALESCE(NULLIF($4, ''), customer_address)
+          WHERE id = $5`,
+          [effectiveCustId, customer_name || '', customer_phone || '', customer_address || '', bill_id]
+        );
       }
+      await db.saveDbFileNow();
       return { status: 200, data: { success: true } };
     }
 

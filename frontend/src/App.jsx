@@ -14,6 +14,7 @@ import CreditManagement from './pages/CreditManagement';
 import InventoryManagement from './pages/InventoryManagement';
 import CancelOrders from './pages/CancelOrders';
 import ExpenseManagement from './pages/ExpenseManagement';
+import CustomerManagement from './pages/CustomerManagement';
 import { startCloudSyncScheduler } from './services/cloudSyncService';
 import Layout from './components/Layout';
 import './index.css';
@@ -104,6 +105,13 @@ function App() {
                   <ProtectedRoute>
                     <Layout>
                       <BillingHistory />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/customers" element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <CustomerManagement />
                     </Layout>
                   </ProtectedRoute>
                 } />

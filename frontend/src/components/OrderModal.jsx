@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
-import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, ChevronsDown, Ticket, Ban, Edit2, Pin } from 'lucide-react';
+import { X, Plus, Minus, Receipt, Send, MessageSquare, MessageCircle, Utensils, Trash2, ChevronRight, IndianRupee, Clock, CheckCircle, Phone, ArrowLeft, RefreshCcw, Wallet, Printer, Search, ShoppingBag, ChevronUp, ChevronDown, ChevronsDown, Ticket, Ban, Edit2, Pin, User, Users, MapPin, Check } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -72,9 +72,72 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     }
   });
   const [showAddPartnerInput, setShowAddPartnerInput] = useState(false);
+  const [newPartnerName, setNewPartnerName] = useState('');
   const [partnerToDelete, setPartnerToDelete] = useState(null);
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
+  const [saveCustomerForFuture, setSaveCustomerForFuture] = useState(true);
+  const [onlineOrderId, setOnlineOrderId] = useState('');
+  const [recentCustomers, setRecentCustomers] = useState([]);
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [partnerToRename, setPartnerToRename] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+  const customerDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target)) {
+        setCustomerDropdownOpen(false);
+      }
+    };
+    if (customerDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [customerDropdownOpen]);
+
+  useEffect(() => {
+    const fetchRecentCustomers = async () => {
+      try {
+        const res = await api.get('/customers/recent');
+        setRecentCustomers(res.data || []);
+      } catch (e) {
+        console.warn('Failed to load recent customers', e);
+      }
+    };
+    if (showBill) {
+      fetchRecentCustomers();
+    }
+  }, [showBill]);
+
+  const handleCustomerSearch = async (query) => {
+    setCustomerSearchQuery(query);
+    if (!query.trim()) {
+      setFilteredCustomers([]);
+      return;
+    }
+    try {
+      const res = await api.get('/customers', { params: { search: query, limit: 10 } });
+      setFilteredCustomers(res.data?.customers || []);
+    } catch (e) {
+      console.warn('Failed to search customers', e);
+    }
+  };
+
+  const handleSelectCustomer = (cust) => {
+    setSelectedCustomerId(cust.id);
+    setCustomerName(cust.name || '');
+    setCustomerPhone(cust.phone || '');
+    setCustomerAddress(cust.address || '');
+    setSaveCustomerForFuture(false);
+    setCustomerDropdownOpen(false);
+  };
+
+  const displayCustomers = customerSearchQuery.trim() ? filteredCustomers : recentCustomers;
 
   const orderCalculations = useMemo(() => {
     const subtotal = Number(
@@ -489,7 +552,16 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     if (!billData) return;
     if (!validateCreditDetails()) return;
     try {
-      await api.post(`/bills/${billData.id}/print`, { paymentMethod: selectedPaymentMethod });
+      await api.post(`/bills/${billData.id}/print`, {
+        paymentMethod: selectedPaymentMethod,
+        customerName,
+        customerPhone,
+        customerAddress,
+        customerId: selectedCustomerId,
+        saveCustomer: saveCustomerForFuture,
+        onlineOrderId,
+        deliveryPartner: selectedDeliveryPartner
+      });
       toast.success(t('toast_bill_finalized', 'Bill finalized!'));
       if (!billData.is_paid) {
         await confirmPayment(selectedPaymentMethod);
@@ -556,7 +628,16 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
           }, 1800);
           return;
        }
-       await api.put(`/tables/bill/${billData.id}/pay`, { method });
+       await api.put(`/tables/bill/${billData.id}/pay`, {
+         method,
+         customer_id: selectedCustomerId,
+         customer_name: customerName,
+         customer_phone: customerPhone,
+         customer_address: customerAddress,
+         online_order_id: onlineOrderId,
+         delivery_partner: selectedDeliveryPartner,
+         save_customer: saveCustomerForFuture
+       });
        setBillData(prev => ({ ...prev, is_paid: true }));
        setIsSuccess(true);
        toast.success(t('toast_payment_settled_success', 'Transaction Completed'));
@@ -608,7 +689,15 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     const toastId = toast.loading('Generating WhatsApp PDF bill...');
     try {
       await shareBillPDFViaWhatsApp(
-        { ...billData, table: table.table_numberByFloor || table.table_number, delivery_partner: selectedDeliveryPartner },
+        {
+          ...billData,
+          table: table.table_numberByFloor || table.table_number,
+          delivery_partner: selectedDeliveryPartner,
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          customer_address: customerAddress,
+          online_order_id: onlineOrderId
+        },
         user,
         customerPhone
       );
@@ -1538,6 +1627,289 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                             </div>
                           )}
   
+                          
+                          {/* Online Order ID (Only for Online Counter!) */}
+                          {isOnlineCounter && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }}>
+                              <label style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                {t('online_order_id', 'ORDER ID (OPTIONAL)')}
+                              </label>
+                              <input
+                                type="text"
+                                placeholder={t('enter_order_id', 'e.g. ZMT123456789')}
+                                value={onlineOrderId}
+                                onChange={e => setOnlineOrderId(e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  padding: '12px 14px',
+                                  borderRadius: '12px',
+                                  border: '1px solid var(--border-color)',
+                                  backgroundColor: 'var(--bg-card)',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '13px',
+                                  fontWeight: 700,
+                                  outline: 'none',
+                                  boxSizing: 'border-box'
+                                }}
+                              />
+                            </div>
+                          )}
+
+                          {/* Customer Details Section (Available across Table, Online, Parcel) */}
+                          {selectedPaymentMethod !== 'credit' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <label style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <Users size={14} color="#0ea5e9" />
+                                  <span>{t('customer_details_optional', 'CUSTOMER DETAILS (OPTIONAL)')}</span>
+                                </label>
+                                {(customerName || customerPhone || customerAddress || selectedCustomerId) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedCustomerId(null);
+                                      setCustomerName('');
+                                      setCustomerPhone('');
+                                      setCustomerAddress('');
+                                      setSaveCustomerForFuture(true);
+                                    }}
+                                    style={{ background: 'none', border: 'none', color: '#f43f5e', fontSize: '11px', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                                  >
+                                    {t('clear_customer', 'Clear')}
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Customer Selection Dropdown */}
+                              <div ref={customerDropdownRef} style={{ position: 'relative' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCustomerDropdownOpen(prev => !prev);
+                                    setCustomerSearchQuery('');
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '12px 14px',
+                                    borderRadius: '12px',
+                                    border: '1px solid ' + (selectedCustomerId ? '#0ea5e9' : 'var(--border-color)'),
+                                    backgroundColor: selectedCustomerId ? 'rgba(14, 165, 233, 0.08)' : 'var(--bg-card)',
+                                    color: selectedCustomerId ? '#0ea5e9' : 'var(--text-secondary)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    cursor: 'pointer',
+                                    fontWeight: 800,
+                                    fontSize: '13px',
+                                    textAlign: 'left'
+                                  }}
+                                >
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <User size={16} color={selectedCustomerId ? '#0ea5e9' : 'var(--text-muted)'} />
+                                    {selectedCustomerId ? (
+                                      <span>{t('customer', 'Customer')}: <strong style={{ color: 'var(--text-primary)' }}>{customerName}</strong> {customerPhone ? `(${customerPhone})` : ''}</span>
+                                    ) : (
+                                      <span>{t('select_saved_customer', 'Select Saved Customer')}</span>
+                                    )}
+                                  </span>
+                                  <ChevronDown size={16} color="var(--text-muted)" style={{ transform: customerDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                                </button>
+
+                                {/* Dropdown Card */}
+                                {customerDropdownOpen && (
+                                  <div style={{
+                                    position: 'absolute',
+                                    top: '100%',
+                                    left: 0,
+                                    right: 0,
+                                    zIndex: 250,
+                                    marginTop: '6px',
+                                    backgroundColor: 'var(--bg-card)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '16px',
+                                    boxShadow: '0 16px 40px rgba(0, 0, 0, 0.45)',
+                                    padding: '10px',
+                                    maxHeight: '280px',
+                                    overflowY: 'auto',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px'
+                                  }}>
+                                    {/* Search Bar */}
+                                    <div style={{ position: 'relative' }}>
+                                      <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                                      <input
+                                        type="text"
+                                        placeholder={t('search_customer_placeholder', 'Search by name or mobile...')}
+                                        value={customerSearchQuery}
+                                        onChange={e => handleCustomerSearch(e.target.value)}
+                                        onClick={e => e.stopPropagation()}
+                                        autoFocus
+                                        style={{
+                                          width: '100%',
+                                          padding: '10px 12px 10px 34px',
+                                          borderRadius: '10px',
+                                          border: '1px solid var(--border-color)',
+                                          backgroundColor: 'var(--bg-base)',
+                                          color: 'var(--text-primary)',
+                                          fontSize: '12px',
+                                          fontWeight: 700,
+                                          outline: 'none',
+                                          boxSizing: 'border-box'
+                                        }}
+                                      />
+                                    </div>
+
+                                    <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', padding: '4px 6px 2px', letterSpacing: '0.05em' }}>
+                                      {customerSearchQuery ? 'Search Results' : t('recent_customers', '5 Most Recent Customers')}
+                                    </div>
+
+                                    {displayCustomers.length === 0 ? (
+                                      <div style={{ padding: '14px', fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                                        {t('no_saved_customers', 'No saved customers found')}
+                                      </div>
+                                    ) : (
+                                      displayCustomers.map(cust => (
+                                        <div
+                                          key={cust.id}
+                                          onClick={() => handleSelectCustomer(cust)}
+                                          style={{
+                                            padding: '10px 12px',
+                                            borderRadius: '10px',
+                                            backgroundColor: selectedCustomerId === cust.id ? 'rgba(14, 165, 233, 0.15)' : 'var(--bg-base)',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            transition: 'background-color 0.15s'
+                                          }}
+                                        >
+                                          <div>
+                                            <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-primary)' }}>{cust.name}</div>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
+                                              {cust.phone || 'No phone'} {cust.address ? `• ${cust.address}` : ''}
+                                            </div>
+                                          </div>
+                                          {selectedCustomerId === cust.id && <Check size={16} color="#0ea5e9" />}
+                                        </div>
+                                      ))
+                                    )}
+
+                                    <div
+                                      onClick={() => {
+                                        setSelectedCustomerId(null);
+                                        setCustomerDropdownOpen(false);
+                                      }}
+                                      style={{
+                                        padding: '10px',
+                                        borderRadius: '10px',
+                                        borderTop: '1px dashed var(--border-color)',
+                                        color: '#0ea5e9',
+                                        fontSize: '12px',
+                                        fontWeight: 800,
+                                        cursor: 'pointer',
+                                        textAlign: 'center',
+                                        marginTop: '4px'
+                                      }}
+                                    >
+                                      + {t('enter_new_customer', 'Enter new customer manually')}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Customer Input Fields */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ position: 'relative' }}>
+                                  <User size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+                                  <input
+                                    type="text"
+                                    placeholder={t('customer_name', 'Customer Name')}
+                                    value={customerName}
+                                    onChange={e => {
+                                      setCustomerName(e.target.value);
+                                      if (selectedCustomerId) setSelectedCustomerId(null);
+                                    }}
+                                    style={{
+                                      width: '100%',
+                                      padding: '12px 14px 12px 38px',
+                                      borderRadius: '12px',
+                                      border: '1px solid var(--border-color)',
+                                      backgroundColor: 'var(--bg-card)',
+                                      color: 'var(--text-primary)',
+                                      fontSize: '13px',
+                                      fontWeight: 700,
+                                      outline: 'none',
+                                      boxSizing: 'border-box'
+                                    }}
+                                  />
+                                </div>
+
+                                <div style={{ position: 'relative' }}>
+                                  <Phone size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+                                  <input
+                                    type="tel"
+                                    placeholder={t('mobile_number', 'Mobile Number')}
+                                    value={customerPhone}
+                                    onChange={e => {
+                                      setCustomerPhone(e.target.value);
+                                      if (selectedCustomerId) setSelectedCustomerId(null);
+                                    }}
+                                    style={{
+                                      width: '100%',
+                                      padding: '12px 14px 12px 38px',
+                                      borderRadius: '12px',
+                                      border: '1px solid var(--border-color)',
+                                      backgroundColor: 'var(--bg-card)',
+                                      color: 'var(--text-primary)',
+                                      fontSize: '13px',
+                                      fontWeight: 700,
+                                      outline: 'none',
+                                      boxSizing: 'border-box'
+                                    }}
+                                  />
+                                </div>
+
+                                <div style={{ position: 'relative' }}>
+                                  <MapPin size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+                                  <input
+                                    type="text"
+                                    placeholder={t('address', 'Address')}
+                                    value={customerAddress}
+                                    onChange={e => {
+                                      setCustomerAddress(e.target.value);
+                                      if (selectedCustomerId) setSelectedCustomerId(null);
+                                    }}
+                                    style={{
+                                      width: '100%',
+                                      padding: '12px 14px 12px 38px',
+                                      borderRadius: '12px',
+                                      border: '1px solid var(--border-color)',
+                                      backgroundColor: 'var(--bg-card)',
+                                      color: 'var(--text-primary)',
+                                      fontSize: '13px',
+                                      fontWeight: 700,
+                                      outline: 'none',
+                                      boxSizing: 'border-box'
+                                    }}
+                                  />
+                                </div>
+
+                                {!selectedCustomerId && customerName.trim() && (
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 800, color: 'var(--text-secondary)', paddingLeft: '2px', marginTop: '2px' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={saveCustomerForFuture}
+                                      onChange={e => setSaveCustomerForFuture(e.target.checked)}
+                                      style={{ width: '15px', height: '15px', accentColor: '#0ea5e9', cursor: 'pointer' }}
+                                    />
+                                    <span>{t('save_customer_future', 'Save customer for future use')}</span>
+                                  </label>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                           {selectedPaymentMethod === 'credit' && (
                             <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
                               <div style={{ display: 'flex', gap: '8px' }}>
@@ -1702,17 +2074,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                       )}
                   </div>
   
-                  {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
-                     <div style={{ backgroundColor: 'var(--bg-card)', padding: '14px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid var(--border-color)' }}>
-                        <Phone size={16} color="var(--text-muted)" />
-                        <input 
-                           placeholder={t('enter_mobile_no', 'Enter Mobile No')} 
-                           value={customerPhone} 
-                           onChange={(e) => setCustomerPhone(e.target.value)}
-                           style={{ border: 'none', width: '100%', outline: 'none', fontWeight: 800, fontSize: '13px', backgroundColor: 'transparent', color: 'var(--text-primary)', WebkitAppearance: 'none' }}
-                        />
-                     </div>
-                   )}
+                  
 
                   {String(table.table_number || table.id || '').toLowerCase().includes('token') ? (
                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
