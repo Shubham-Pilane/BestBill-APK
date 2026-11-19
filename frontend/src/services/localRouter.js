@@ -803,15 +803,27 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if (path.startsWith('/tables/bill/') && path.endsWith('/pay') && methodUpper === 'PUT') {
       const billId = parseInt(path.split('/')[3]);
-      const { method } = body;
+      const { method, cash_amount, online_amount } = body || {};
+
+      let cashVal = parseFloat(cash_amount || 0);
+      let onlineVal = parseFloat(online_amount || 0);
+      if (method === 'cash') {
+        const bRes = await db.query('SELECT final_amount FROM bills WHERE id = $1', [billId]);
+        cashVal = parseFloat(bRes.rows[0]?.final_amount || 0);
+        onlineVal = 0;
+      } else if (method === 'upi' || method === 'online') {
+        const bRes = await db.query('SELECT final_amount FROM bills WHERE id = $1', [billId]);
+        cashVal = 0;
+        onlineVal = parseFloat(bRes.rows[0]?.final_amount || 0);
+      }
 
       const result = await db.query(
-        'UPDATE bills SET is_paid = 1, payment_method = $1 WHERE id = $2 RETURNING *',
-        [method, billId]
+        'UPDATE bills SET is_paid = 1, payment_method = $1, cash_amount = $2, online_amount = $3 WHERE id = $4 RETURNING *',
+        [method || 'cash', cashVal, onlineVal, billId]
       );
       if (result.rows.length === 0) return { status: 404, data: { message: 'Bill record not found' } };
 
-      const bill = result.rows[0];
+      await db.saveDbFileNow();
       return { status: 200, data: { success: true, bill: result.rows[0] } };
     }
 
@@ -877,11 +889,17 @@ export async function handleRequest(method, url, body = null, headers = {}) {
               effSgst = resolveMobileEffectiveTaxRate(bill.sgst, bill.total_amount, hotel.sgst_percentage);
             } catch (taxErr) {}
 
+            const bCash = Number(bill.cash_amount ?? (bill.payment_method === 'cash' ? bill.final_amount : 0));
+            const bOnline = Number(bill.online_amount ?? ((bill.payment_method === 'upi' || bill.payment_method === 'online') ? bill.final_amount : 0));
+
             formattedBills.push({
               ...bill,
               subtotal: Number(bill.total_amount || 0),
               final_amount: Number(bill.final_amount ?? bill.total_amount ?? 0),
               is_paid: bill.is_paid === 1 || bill.is_paid === true,
+              payment_method: bill.payment_method || 'cash',
+              cash_amount: bCash,
+              online_amount: bOnline,
               table_number: bill.table_number || 'Counter',
               effective_gst_percentage: effGst,
               effective_cgst_percentage: effCgst,
@@ -1146,7 +1164,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         cgst_percentage: effectiveCgstRate,
         sgst_percentage: effectiveSgstRate,
         is_paid: bill.is_paid === 1 || bill.is_paid === true,
-        payment_method: bill.payment_method,
+        payment_method: bill.payment_method || 'cash',
+        cash_amount: Number(bill.cash_amount ?? (bill.payment_method === 'cash' ? bill.final_amount : 0)),
+        online_amount: Number(bill.online_amount ?? ((bill.payment_method === 'upi' || bill.payment_method === 'online') ? bill.final_amount : 0)),
         created_at: bill.created_at,
         table_number: tableNumber,
         hotel_name: hotel.name || user?.hotel_name || '',
@@ -1340,7 +1360,24 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if (path.startsWith('/bills/') && path.endsWith('/print') && methodUpper === 'POST') {
       const billId = parseInt(path.split('/')[2]);
-      const { paymentMethod, items: bodyItems } = body || {};
+      const { paymentMethod, items: bodyItems, cashAmount, onlineAmount } = body || {};
+
+      if (paymentMethod) {
+        let cashVal = parseFloat(cashAmount || 0);
+        let onlineVal = parseFloat(onlineAmount || 0);
+        if (paymentMethod === 'cash') {
+          const bRes = await db.query('SELECT final_amount FROM bills WHERE id = $1', [billId]);
+          cashVal = parseFloat(bRes.rows[0]?.final_amount || 0);
+          onlineVal = 0;
+        } else if (paymentMethod === 'upi' || paymentMethod === 'online') {
+          const bRes = await db.query('SELECT final_amount FROM bills WHERE id = $1', [billId]);
+          cashVal = 0;
+          onlineVal = parseFloat(bRes.rows[0]?.final_amount || 0);
+        }
+        try {
+          await db.query('UPDATE bills SET payment_method = $1, cash_amount = $2, online_amount = $3 WHERE id = $4', [paymentMethod, cashVal, onlineVal, billId]);
+        } catch (e) {}
+      }
 
       const billRes = await db.query('SELECT * FROM bills WHERE id = $1', [billId]);
       if (billRes.rows.length === 0) return { status: 404, data: { message: 'Bill not found' } };
@@ -1406,7 +1443,10 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         printerSize: localStorage.getItem('cfg_printer_size') || '58mm',
         isCreditSettlement: body?.isCreditSettlement || false,
         settlementPaymentMethod: body?.settlementPaymentMethod || body?.paymentMethod || '',
-        isToken: body?.isToken || false
+        isToken: body?.isToken || false,
+        paymentMethod: paymentMethod || bill.payment_method || 'cash',
+        cashAmount: parseFloat(cashAmount || bill.cash_amount || 0),
+        onlineAmount: parseFloat(onlineAmount || bill.online_amount || 0)
       };
 
       // Trigger Bluetooth receipt spoler
@@ -1418,8 +1458,22 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if ((path.includes('/bill/') || path.includes('/bills/')) && path.endsWith('/pay') && methodUpper === 'PUT') {
       const parts = path.split('/');
       const billId = parseInt(parts[parts.length - 2]);
-      const { method } = body || {};
-      await db.query('UPDATE bills SET is_paid = 1, payment_method = $1 WHERE id = $2', [method || 'cash', billId]);
+      const { method, cash_amount, online_amount } = body || {};
+
+      let cashVal = parseFloat(cash_amount || 0);
+      let onlineVal = parseFloat(online_amount || 0);
+      if (method === 'cash') {
+        const bRes = await db.query('SELECT final_amount FROM bills WHERE id = $1', [billId]);
+        cashVal = parseFloat(bRes.rows[0]?.final_amount || 0);
+        onlineVal = 0;
+      } else if (method === 'upi' || method === 'online') {
+        const bRes = await db.query('SELECT final_amount FROM bills WHERE id = $1', [billId]);
+        cashVal = 0;
+        onlineVal = parseFloat(bRes.rows[0]?.final_amount || 0);
+      }
+
+      await db.query('UPDATE bills SET is_paid = 1, payment_method = $1, cash_amount = $2, online_amount = $3 WHERE id = $4', [method || 'cash', cashVal, onlineVal, billId]);
+      await db.saveDbFileNow();
       return { status: 200, data: { success: true } };
     }
 

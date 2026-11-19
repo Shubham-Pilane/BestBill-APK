@@ -37,6 +37,7 @@ const BillingHistory = () => {
     const [bills, setBills] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [paymentFilter, setPaymentFilter] = useState('ALL');
     const [selectedBill, setSelectedBill] = useState(null);
     const [editingBill, setEditingBill] = useState(null);
     const [customerPhone, setCustomerPhone] = useState('');
@@ -128,17 +129,44 @@ const BillingHistory = () => {
         return tableNo && tableNo.toLowerCase().includes('parcel');
     };
 
+    // Helper to extract cash & online amounts accurately for single & partial payment bills
+    const getBillCashAndOnline = (b) => {
+        const finalAmt = parseFloat(b.final_amount ?? b.total_amount ?? 0);
+        const method = (b.payment_method || '').toLowerCase();
+        if (method === 'partial') {
+            const c = parseFloat(b.cash_amount != null ? b.cash_amount : 0);
+            const o = parseFloat(b.online_amount != null ? b.online_amount : 0);
+            return { cash: c, online: o };
+        } else if (method === 'cash') {
+            const c = b.cash_amount != null && parseFloat(b.cash_amount) > 0 ? parseFloat(b.cash_amount) : finalAmt;
+            return { cash: c, online: 0 };
+        } else if (method === 'credit') {
+            return { cash: 0, online: 0 };
+        } else {
+            // upi / online / default
+            const o = b.online_amount != null && parseFloat(b.online_amount) > 0 ? parseFloat(b.online_amount) : finalAmt;
+            return { cash: 0, online: o };
+        }
+    };
+
     // --- History View Logic ---
     const filteredBills = useMemo(() => {
         const s = (searchTerm || '').trim().toLowerCase();
         return (bills || []).filter(b => {
             if (!b) return false;
+            if (paymentFilter !== 'ALL') {
+                const method = (b.payment_method || 'cash').toLowerCase();
+                if (paymentFilter === 'cash' && method !== 'cash') return false;
+                if (paymentFilter === 'online' && method !== 'upi' && method !== 'online') return false;
+                if (paymentFilter === 'partial' && method !== 'partial') return false;
+                if (paymentFilter === 'credit' && method !== 'credit') return false;
+            }
             if (!s) return true;
             const idStr = String(b.id || '');
             const tableStr = String(b.table_number || '').toLowerCase();
             return idStr.includes(s) || tableStr.includes(s);
         });
-    }, [bills, searchTerm]);
+    }, [bills, searchTerm, paymentFilter]);
 
     const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
     const currentBills = filteredBills.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -186,12 +214,10 @@ const BillingHistory = () => {
     const grandTotalRevenue = totalParcelRevenue + totalDineInRevenue;
 
     const totalCashRevenue = analyticsBills
-        .filter(b => b.payment_method && b.payment_method.toLowerCase() === 'cash')
-        .reduce((acc, b) => acc + parseFloat(b.final_amount || 0), 0);
+        .reduce((acc, b) => acc + getBillCashAndOnline(b).cash, 0);
 
     const totalOnlineRevenue = analyticsBills
-        .filter(b => !b.payment_method || b.payment_method.toLowerCase() !== 'cash')
-        .reduce((acc, b) => acc + parseFloat(b.final_amount || 0), 0);
+        .reduce((acc, b) => acc + getBillCashAndOnline(b).online, 0);
 
     const itemSales = useMemo(() => {
         const itemMap = {};
@@ -236,12 +262,12 @@ const BillingHistory = () => {
             if (d.getFullYear().toString() === selectedYear) {
                 const isP = isParcel(b.table_number);
                 const amt = parseFloat(b.final_amount || 0);
-                const isCash = b.payment_method && b.payment_method.toLowerCase() === 'cash';
+                const { cash: billCash, online: billOnline } = getBillCashAndOnline(b);
                 const mIdx = d.getMonth();
                 if (isP) data[mIdx].parcelRev += amt;
                 else data[mIdx].dineInRev += amt;
-                if (isCash) data[mIdx].cashRev += amt;
-                else data[mIdx].onlineRev += amt;
+                data[mIdx].cashRev += billCash;
+                data[mIdx].onlineRev += billOnline;
                 data[mIdx].totalRev += amt;
             }
         });
@@ -468,16 +494,45 @@ const BillingHistory = () => {
             {activeView === 'history' ? (
                 // HISTORY VIEW (Table)
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                         <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>{t('transaction_history', 'Transaction History')}</h3>
-                        <div style={{ position: 'relative', width: '300px' }}>
-                            <Search style={{ position: 'absolute', top: '12px', left: '16px', color: 'var(--text-muted)' }} size={16} />
-                            <input 
-                                placeholder={t('search_invoice_or_table', 'Search Invoice No or Table...')}
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                style={{width: '100%', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', padding: '10px 16px 10px 44px', borderRadius: '8px', outline: 'none', fontWeight: 600, fontSize: '14px' }}
-                            />
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <select
+                                value={paymentFilter}
+                                onChange={(e) => {
+                                    setPaymentFilter(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                style={{
+                                    backgroundColor: 'var(--bg-card)',
+                                    border: '1px solid var(--bg-border)',
+                                    color: 'var(--text-primary)',
+                                    padding: '10px 14px',
+                                    borderRadius: '8px',
+                                    outline: 'none',
+                                    fontWeight: 800,
+                                    fontSize: '13px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <option value="ALL">{t('all_payments', 'All Payment Methods')}</option>
+                                <option value="cash">{t('cash', 'Cash')}</option>
+                                <option value="online">{t('online', 'Online / UPI')}</option>
+                                <option value="partial">{t('partial_payment', 'Partial Payment')}</option>
+                                <option value="credit">{t('credit', 'Credit')}</option>
+                            </select>
+                            <div style={{ position: 'relative', width: isMobile ? '100%' : '260px' }}>
+                                <Search style={{ position: 'absolute', top: '12px', left: '14px', color: 'var(--text-muted)' }} size={16} />
+                                <input 
+                                    placeholder={t('search_invoice_or_table', 'Search Invoice or Table...')}
+                                    value={searchTerm}
+                                    onChange={(e) => {
+                                        setSearchTerm(e.target.value);
+                                        setCurrentPage(1);
+                                    }}
+                                    style={{ width: '100%', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', padding: '10px 14px 10px 40px', borderRadius: '8px', outline: 'none', fontWeight: 600, fontSize: '13px' }}
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -516,9 +571,20 @@ const BillingHistory = () => {
                                             <td style={{...tdStyle, color: '#10b981', fontWeight: 900}}>₹{parseFloat(bill.final_amount ?? bill.total_amount ?? 0).toFixed(2)}</td>
                                             <td style={tdStyle}>
                                                 {bill.is_paid ? (
-                                                    <span style={{ fontSize: '11px', color: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '4px 8px', borderRadius: '4px', fontWeight: 800 }}>
-                                                        {t('paid', 'PAID')}
-                                                    </span>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                                        <span style={{ fontSize: '11px', color: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px', fontWeight: 800, width: 'fit-content' }}>
+                                                            {t('paid', 'PAID')}
+                                                        </span>
+                                                        {bill.payment_method?.toLowerCase() === 'partial' ? (
+                                                            <span style={{ fontSize: '10px', color: '#8b5cf6', fontWeight: 800, backgroundColor: 'rgba(139,92,246,0.1)', padding: '2px 4px', borderRadius: '4px', width: 'fit-content' }}>
+                                                                {t('partial', 'PARTIAL')} (💵₹{parseFloat(bill.cash_amount || 0).toFixed(0)} | 💳₹{parseFloat(bill.online_amount || 0).toFixed(0)})
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
+                                                                {bill.payment_method || 'CASH'}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 ) : (
                                                     <span style={{ fontSize: '11px', color: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.1)', padding: '4px 8px', borderRadius: '4px', fontWeight: 800 }}>
                                                         {t('pending', 'UNPAID')}
@@ -841,13 +907,48 @@ const BillingHistory = () => {
                         </div>
 
                         {selectedBill.is_paid && (
-                        <div style={{ marginTop: '24px', textAlign: 'center', padding: '16px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '16px', color: 'white', fontWeight: 950, fontSize: '16px' }}>{t('successfully_settled', 'SUCCESSFULLY SETTLED')}</div>
+                          <div style={{ marginTop: '24px', textAlign: 'center', padding: '16px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '16px', color: 'white', fontWeight: 950, fontSize: '16px' }}>
+                            {t('successfully_settled', 'SUCCESSFULLY SETTLED')}
+                          </div>
+                        )}
+
+                        {selectedBill.payment_method?.toLowerCase() === 'partial' ? (
+                          <div style={{ marginTop: '16px', padding: '14px 16px', backgroundColor: selectedBill.is_paid ? 'rgba(0,0,0,0.18)' : 'var(--bg-card)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.25)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: selectedBill.is_paid ? '#ffffff' : '#8b5cf6' }}>
+                              ⚡ {t('partial_payment', 'Partial Payment Breakdown')}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800, color: selectedBill.is_paid ? 'white' : 'var(--text-primary)' }}>
+                              <span>{t('cash_payment', 'Cash Payment')}:</span>
+                              <span>₹{parseFloat(selectedBill.cash_amount || 0).toFixed(2)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800, color: selectedBill.is_paid ? 'white' : 'var(--text-primary)' }}>
+                              <span>{t('online_payment', 'Online Payment')}:</span>
+                              <span>₹{parseFloat(selectedBill.online_amount || 0).toFixed(2)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 900, borderTop: '1px dashed rgba(255,255,255,0.3)', paddingTop: '6px', color: selectedBill.is_paid ? 'white' : 'var(--text-primary)' }}>
+                              <span>{t('total_paid', 'Total Paid')}:</span>
+                              <span>₹{(parseFloat(selectedBill.cash_amount || 0) + parseFloat(selectedBill.online_amount || 0)).toFixed(2)}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ marginTop: '12px', fontSize: '12px', fontWeight: 800, color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
+                            {t('payment_method', 'Payment Method')}: <strong style={{ textTransform: 'uppercase' }}>{selectedBill.payment_method || 'CASH'}</strong>
+                          </div>
                         )}
                     </div>
 
                     <div style={{ width: isMobile ? '100%' : '380px', padding: isMobile ? '20px 16px' : '40px', backgroundColor: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         <div style={{ textAlign: 'center', backgroundColor: 'white', padding: '16px', borderRadius: '24px', display: 'inline-block', margin: '0 auto' }}>
-                        <QRCodeCanvas id="history-qr-canvas" value={`upi://pay?pa=${user?.upi_id || ''}&pn=${encodeURIComponent(selectedBill.hotel_name || user?.hotel_name || 'BESTBILL')}&am=${selectedBill.final_amount}&cu=INR`} size={isMobile ? 140 : 180} />
+                          <QRCodeCanvas 
+                            id="history-qr-canvas" 
+                            value={`upi://pay?pa=${user?.upi_id || ''}&pn=${encodeURIComponent(selectedBill.hotel_name || user?.hotel_name || 'BESTBILL')}&am=${selectedBill.payment_method?.toLowerCase() === 'partial' ? (parseFloat(selectedBill.online_amount || 0) > 0 ? selectedBill.online_amount : selectedBill.final_amount) : selectedBill.final_amount}&cu=INR`} 
+                            size={isMobile ? 140 : 180} 
+                          />
+                          {selectedBill.payment_method?.toLowerCase() === 'partial' && (
+                            <div style={{ marginTop: '8px', fontSize: '11px', color: '#0ea5e9', fontWeight: 800 }}>
+                              QR: Pay Online Portion ₹{parseFloat(selectedBill.online_amount || 0).toFixed(2)}
+                            </div>
+                          )}
                         </div>
                         <div style={{ backgroundColor: 'var(--bg-base)', padding: '14px 16px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid var(--bg-border)' }}>
                             <Phone size={18} color="var(--text-muted)" />

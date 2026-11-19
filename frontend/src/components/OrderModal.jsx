@@ -45,6 +45,8 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [billData, setBillData] = useState(null);
   const [customerPhone, setCustomerPhone] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cash');
+  const [partialCashAmount, setPartialCashAmount] = useState('');
+  const [partialOnlineAmount, setPartialOnlineAmount] = useState('');
   const [selectedDeliveryPartner, setSelectedDeliveryPartner] = useState('');
   const [discount, setDiscount] = useState('');
   const [isSwapModalOpen, setSwapModalOpen] = useState(false);
@@ -474,11 +476,55 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     return isValid;
   };
 
+  const validatePartialPayment = () => {
+    if (selectedPaymentMethod !== 'partial') return true;
+    const billTotal = parseFloat(billData?.final_amount || 0);
+    const cash = parseFloat(partialCashAmount || 0);
+    const online = parseFloat(partialOnlineAmount || 0);
+
+    if (isNaN(cash) || isNaN(online)) {
+      toast.error(t('invalid_partial_amounts', 'Please enter valid numbers for Cash and Online amounts'));
+      return false;
+    }
+    if (cash < 0 || online < 0) {
+      toast.error(t('partial_cannot_be_negative', 'Payment amounts cannot be negative'));
+      return false;
+    }
+    if (cash > billTotal || online > billTotal) {
+      toast.error(t('partial_cannot_exceed_total', 'Neither payment amount can exceed the total bill amount'));
+      return false;
+    }
+    if (cash === 0 && online === 0) {
+      toast.error(t('partial_at_least_one', 'At least one payment amount must be greater than zero'));
+      return false;
+    }
+    const sum = Math.round((cash + online) * 100) / 100;
+    const roundedTotal = Math.round(billTotal * 100) / 100;
+    const diff = Math.round(Math.abs(sum - roundedTotal) * 100) / 100;
+    if (diff > 0.01) {
+      if (sum < roundedTotal) {
+        toast.error(`₹${(roundedTotal - sum).toFixed(2)} ${t('remaining_to_allocate', 'remaining to allocate')}`);
+      } else {
+        toast.error(`₹${(sum - roundedTotal).toFixed(2)} ${t('excess_amount', 'excess amount (exceeds bill)')}`);
+      }
+      return false;
+    }
+    return true;
+  };
+
   const printToken = async () => {
     if (!billData) return;
     if (!validateCreditDetails()) return;
+    if (selectedPaymentMethod === 'partial' && !validatePartialPayment()) return;
     try {
-      await api.post(`/bills/${billData.id}/print`, { paymentMethod: selectedPaymentMethod, isToken: true });
+      const cashVal = selectedPaymentMethod === 'partial' ? parseFloat(partialCashAmount || 0) : undefined;
+      const onlineVal = selectedPaymentMethod === 'partial' ? parseFloat(partialOnlineAmount || 0) : undefined;
+      await api.post(`/bills/${billData.id}/print`, { 
+        paymentMethod: selectedPaymentMethod, 
+        isToken: true,
+        cash_amount: cashVal,
+        online_amount: onlineVal
+      });
       toast.success('Token ticket sent to printer!');
     } catch (err) {
       console.error('Token print failed:', err);
@@ -489,8 +535,15 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const printBill = async () => {
     if (!billData) return;
     if (!validateCreditDetails()) return;
+    if (selectedPaymentMethod === 'partial' && !validatePartialPayment()) return;
     try {
-      await api.post(`/bills/${billData.id}/print`, { paymentMethod: selectedPaymentMethod });
+      const cashVal = selectedPaymentMethod === 'partial' ? parseFloat(partialCashAmount || 0) : undefined;
+      const onlineVal = selectedPaymentMethod === 'partial' ? parseFloat(partialOnlineAmount || 0) : undefined;
+      await api.post(`/bills/${billData.id}/print`, { 
+        paymentMethod: selectedPaymentMethod,
+        cash_amount: cashVal,
+        online_amount: onlineVal
+      });
       toast.success(t('toast_bill_finalized', 'Bill finalized!'));
       if (!billData.is_paid) {
         await confirmPayment(selectedPaymentMethod);
@@ -512,6 +565,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const settleWithoutPrint = async () => {
     if (!billData) return;
     if (!validateCreditDetails()) return;
+    if (selectedPaymentMethod === 'partial' && !validatePartialPayment()) return;
     try {
       if (!billData.is_paid) {
         await confirmPayment(selectedPaymentMethod);
@@ -557,8 +611,32 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
           }, 1800);
           return;
        }
-       await api.put(`/tables/bill/${billData.id}/pay`, { method });
-       setBillData(prev => ({ ...prev, is_paid: true }));
+       if (method === 'partial') {
+          if (!validatePartialPayment()) return;
+          const cashVal = parseFloat(partialCashAmount || 0);
+          const onlineVal = parseFloat(partialOnlineAmount || 0);
+          await api.put(`/tables/bill/${billData.id}/pay`, { 
+            method: 'partial',
+            cash_amount: cashVal,
+            online_amount: onlineVal
+          });
+          setBillData(prev => ({ 
+            ...prev, 
+            is_paid: true, 
+            payment_method: 'partial',
+            cash_amount: cashVal,
+            online_amount: onlineVal
+          }));
+       } else {
+          await api.put(`/tables/bill/${billData.id}/pay`, { method });
+          setBillData(prev => ({ 
+            ...prev, 
+            is_paid: true, 
+            payment_method: method,
+            cash_amount: method === 'cash' ? prev.final_amount : 0,
+            online_amount: (method === 'upi' || method === 'online') ? prev.final_amount : 0
+          }));
+       }
        setIsSuccess(true);
        toast.success(t('toast_payment_settled_success', 'Transaction Completed'));
        
@@ -606,10 +684,20 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       toast.error('Please enter a phone number first');
       return;
     }
+    if (selectedPaymentMethod === 'partial' && !validatePartialPayment()) return;
     const toastId = toast.loading('Generating WhatsApp PDF bill...');
     try {
+      const cashVal = selectedPaymentMethod === 'partial' ? parseFloat(partialCashAmount || 0) : (selectedPaymentMethod === 'cash' ? parseFloat(billData.final_amount) : 0);
+      const onlineVal = selectedPaymentMethod === 'partial' ? parseFloat(partialOnlineAmount || 0) : (selectedPaymentMethod === 'upi' ? parseFloat(billData.final_amount) : 0);
       await shareBillPDFViaWhatsApp(
-        { ...billData, table: table.table_numberByFloor || table.table_number, delivery_partner: selectedDeliveryPartner },
+        { 
+          ...billData, 
+          table: table.table_numberByFloor || table.table_number, 
+          delivery_partner: selectedDeliveryPartner,
+          payment_method: selectedPaymentMethod,
+          cash_amount: cashVal,
+          online_amount: onlineVal
+        },
         user,
         customerPhone
       );
@@ -1388,22 +1476,22 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                             <label style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                               {t('payment_method', 'PAYMENT METHOD')}
                             </label>
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                               <button 
                                 type="button"
                                 onClick={() => setSelectedPaymentMethod('cash')} 
                                 style={{ 
-                                  flex: 1, 
-                                  padding: '12px 6px', 
+                                  padding: '10px 2px', 
                                   backgroundColor: selectedPaymentMethod === 'cash' ? '#10b981' : 'var(--bg-card)', 
                                   color: selectedPaymentMethod === 'cash' ? '#ffffff' : 'var(--text-secondary)', 
                                   border: selectedPaymentMethod === 'cash' ? 'none' : '1px solid var(--border-color)', 
                                   borderRadius: '10px', 
                                   fontWeight: 900, 
                                   cursor: 'pointer', 
-                                  fontSize: '12px', 
+                                  fontSize: '11px', 
                                   textTransform: 'uppercase', 
-                                  transition: 'all 0.2s'
+                                  transition: 'all 0.2s',
+                                  whiteSpace: 'nowrap'
                                 }}
                               >
                                 {t('cash', 'Cash')}
@@ -1412,36 +1500,63 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                                 type="button"
                                 onClick={() => setSelectedPaymentMethod('upi')} 
                                 style={{ 
-                                  flex: 1, 
-                                  padding: '12px 6px', 
+                                  padding: '10px 2px', 
                                   backgroundColor: selectedPaymentMethod === 'upi' ? '#0ea5e9' : 'var(--bg-card)', 
                                   color: selectedPaymentMethod === 'upi' ? '#ffffff' : 'var(--text-secondary)', 
                                   border: selectedPaymentMethod === 'upi' ? 'none' : '1px solid var(--border-color)', 
                                   borderRadius: '10px', 
                                   fontWeight: 900, 
                                   cursor: 'pointer', 
-                                  fontSize: '12px', 
+                                  fontSize: '11px', 
                                   textTransform: 'uppercase', 
-                                  transition: 'all 0.2s'
+                                  transition: 'all 0.2s',
+                                  whiteSpace: 'nowrap'
                                 }}
                               >
                                 {t('online', 'Online')}
                               </button>
                               <button 
                                 type="button"
+                                onClick={() => {
+                                  setSelectedPaymentMethod('partial');
+                                  if (!partialCashAmount && !partialOnlineAmount) {
+                                    const tot = parseFloat(billData?.final_amount || 0);
+                                    const half = Math.floor(tot / 2);
+                                    setPartialCashAmount(String(half));
+                                    setPartialOnlineAmount(String(Math.round((tot - half) * 100) / 100));
+                                  }
+                                }} 
+                                style={{ 
+                                  padding: '10px 2px', 
+                                  backgroundColor: selectedPaymentMethod === 'partial' ? '#8b5cf6' : 'var(--bg-card)', 
+                                  color: selectedPaymentMethod === 'partial' ? '#ffffff' : 'var(--text-secondary)', 
+                                  border: selectedPaymentMethod === 'partial' ? 'none' : '1px solid var(--border-color)', 
+                                  borderRadius: '10px', 
+                                  fontWeight: 900, 
+                                  cursor: 'pointer', 
+                                  fontSize: '11px', 
+                                  textTransform: 'uppercase', 
+                                  transition: 'all 0.2s',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                {t('partial', 'Partial')}
+                              </button>
+                              <button 
+                                type="button"
                                 onClick={() => setSelectedPaymentMethod('credit')} 
                                 style={{ 
-                                  flex: 1, 
-                                  padding: '12px 6px', 
+                                  padding: '10px 2px', 
                                   backgroundColor: selectedPaymentMethod === 'credit' ? '#f59e0b' : 'var(--bg-card)', 
                                   color: selectedPaymentMethod === 'credit' ? '#ffffff' : 'var(--text-secondary)', 
                                   border: selectedPaymentMethod === 'credit' ? 'none' : '1px solid var(--border-color)', 
                                   borderRadius: '10px', 
                                   fontWeight: 900, 
                                   cursor: 'pointer', 
-                                  fontSize: '12px', 
+                                  fontSize: '11px', 
                                   textTransform: 'uppercase', 
-                                  transition: 'all 0.2s'
+                                  transition: 'all 0.2s',
+                                  whiteSpace: 'nowrap'
                                 }}
                               >
                                 {t('credit', 'Credit')}
@@ -1539,6 +1654,209 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                             </div>
                           )}
   
+                          {selectedPaymentMethod === 'partial' && (
+                            <div style={{
+                              backgroundColor: 'var(--bg-card)',
+                              borderRadius: '16px',
+                              padding: '16px',
+                              border: '1.5px solid #8b5cf6',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '12px',
+                              boxShadow: '0 4px 16px rgba(139,92,246,0.1)'
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 900, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                  {t('partial_payment', 'Partial Payment')}
+                                </span>
+                                <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--text-primary)' }}>
+                                  {t('bill_total', 'Bill Total')}: ₹{parseFloat(billData?.final_amount || 0).toFixed(2)}
+                                </span>
+                              </div>
+
+                              {/* Quick Split Buttons */}
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const tot = parseFloat(billData?.final_amount || 0);
+                                    const half = Math.floor(tot / 2);
+                                    setPartialCashAmount(String(half));
+                                    setPartialOnlineAmount(String(Math.round((tot - half) * 100) / 100));
+                                  }}
+                                  style={{
+                                    flex: 1,
+                                    padding: '6px 8px',
+                                    borderRadius: '8px',
+                                    backgroundColor: 'rgba(139,92,246,0.12)',
+                                    color: '#8b5cf6',
+                                    border: '1px solid rgba(139,92,246,0.3)',
+                                    fontSize: '11px',
+                                    fontWeight: 800,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ⚡ {t('split_50_50', '50 / 50 Split')}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const tot = parseFloat(billData?.final_amount || 0);
+                                    const cash = parseFloat(partialCashAmount || 0);
+                                    const rem = Math.max(0, Math.round((tot - cash) * 100) / 100);
+                                    setPartialOnlineAmount(String(rem));
+                                  }}
+                                  style={{
+                                    flex: 1,
+                                    padding: '6px 8px',
+                                    borderRadius: '8px',
+                                    backgroundColor: 'rgba(14,165,233,0.12)',
+                                    color: '#0ea5e9',
+                                    border: '1px solid rgba(14,165,233,0.3)',
+                                    fontSize: '11px',
+                                    fontWeight: 800,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Fill Online Rem.
+                                </button>
+                              </div>
+
+                              {/* Cash Amount Field */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <label style={{ fontSize: '11px', fontWeight: 800, color: '#10b981' }}>
+                                    💵 {t('cash_amount', 'Cash Amount')} (₹)
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const tot = parseFloat(billData?.final_amount || 0);
+                                      const online = parseFloat(partialOnlineAmount || 0);
+                                      const rem = Math.max(0, Math.round((tot - online) * 100) / 100);
+                                      setPartialCashAmount(String(rem));
+                                    }}
+                                    style={{ fontSize: '10px', background: 'none', border: 'none', color: '#10b981', fontWeight: 800, cursor: 'pointer', textDecoration: 'underline' }}
+                                  >
+                                    {t('fill_balance', 'Fill Balance')}
+                                  </button>
+                                </div>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={billData?.final_amount || undefined}
+                                  step="any"
+                                  placeholder="0.00"
+                                  value={partialCashAmount}
+                                  onChange={(e) => setPartialCashAmount(e.target.value)}
+                                  style={{
+                                    padding: '10px 12px',
+                                    borderRadius: '10px',
+                                    border: '1px solid var(--border-color)',
+                                    backgroundColor: 'var(--bg-base)',
+                                    color: 'var(--text-primary)',
+                                    fontWeight: 800,
+                                    fontSize: '14px',
+                                    outline: 'none',
+                                    width: '100%',
+                                    boxSizing: 'border-box'
+                                  }}
+                                />
+                              </div>
+
+                              {/* Online Amount Field */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <label style={{ fontSize: '11px', fontWeight: 800, color: '#0ea5e9' }}>
+                                    💳 {t('online_amount', 'Online Amount')} (₹)
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const tot = parseFloat(billData?.final_amount || 0);
+                                      const cash = parseFloat(partialCashAmount || 0);
+                                      const rem = Math.max(0, Math.round((tot - cash) * 100) / 100);
+                                      setPartialOnlineAmount(String(rem));
+                                    }}
+                                    style={{ fontSize: '10px', background: 'none', border: 'none', color: '#0ea5e9', fontWeight: 800, cursor: 'pointer', textDecoration: 'underline' }}
+                                  >
+                                    {t('fill_balance', 'Fill Balance')}
+                                  </button>
+                                </div>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={billData?.final_amount || undefined}
+                                  step="any"
+                                  placeholder="0.00"
+                                  value={partialOnlineAmount}
+                                  onChange={(e) => setPartialOnlineAmount(e.target.value)}
+                                  style={{
+                                    padding: '10px 12px',
+                                    borderRadius: '10px',
+                                    border: '1px solid var(--border-color)',
+                                    backgroundColor: 'var(--bg-base)',
+                                    color: 'var(--text-primary)',
+                                    fontWeight: 800,
+                                    fontSize: '14px',
+                                    outline: 'none',
+                                    width: '100%',
+                                    boxSizing: 'border-box'
+                                  }}
+                                />
+                              </div>
+
+                              {/* Summary & Difference Calculation Banner */}
+                              {(() => {
+                                const billTotal = parseFloat(billData?.final_amount || 0);
+                                const cash = parseFloat(partialCashAmount || 0);
+                                const online = parseFloat(partialOnlineAmount || 0);
+                                const totalPaid = Math.round((cash + online) * 100) / 100;
+                                const roundedTotal = Math.round(billTotal * 100) / 100;
+                                const diff = Math.round((roundedTotal - totalPaid) * 100) / 100;
+                                const isMatch = Math.abs(diff) < 0.01 && (cash > 0 || online > 0);
+                                const isUnder = diff > 0.009;
+                                const isOver = diff < -0.009;
+
+                                return (
+                                  <div style={{
+                                    padding: '10px 12px',
+                                    borderRadius: '10px',
+                                    backgroundColor: isMatch ? 'rgba(16,185,129,0.1)' : isOver ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
+                                    border: `1px solid ${isMatch ? '#10b981' : isOver ? '#ef4444' : '#f59e0b'}`,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '4px'
+                                  }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 800 }}>
+                                      <span style={{ color: 'var(--text-secondary)' }}>{t('total_paid', 'Total Paid')}:</span>
+                                      <span style={{ color: isMatch ? '#10b981' : isOver ? '#ef4444' : '#f59e0b', fontWeight: 900 }}>
+                                        ₹{totalPaid.toFixed(2)} / ₹{roundedTotal.toFixed(2)}
+                                      </span>
+                                    </div>
+                                    {isMatch ? (
+                                      <div style={{ color: '#10b981', fontSize: '11px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        ✓ {t('amounts_match_ready', 'Amounts match! Ready to settle.')}
+                                      </div>
+                                    ) : isUnder ? (
+                                      <div style={{ color: '#f59e0b', fontSize: '11px', fontWeight: 900 }}>
+                                        ⚠️ ₹{diff.toFixed(2)} {t('remaining_to_allocate', 'remaining to allocate')}
+                                      </div>
+                                    ) : isOver ? (
+                                      <div style={{ color: '#ef4444', fontSize: '11px', fontWeight: 900 }}>
+                                        ❌ ₹{Math.abs(diff).toFixed(2)} {t('excess_amount', 'excess amount (exceeds bill)')}
+                                      </div>
+                                    ) : (
+                                      <div style={{ color: '#f59e0b', fontSize: '11px', fontWeight: 800 }}>
+                                        Enter cash and online payment amounts
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
+
                           {selectedPaymentMethod === 'credit' && (
                             <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
                               <div style={{ display: 'flex', gap: '8px' }}>
@@ -1735,12 +2053,21 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                        )}
                      </div>
                   ) : (
-                     <div style={{ display: 'flex', gap: '10px' }}>
-                        <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
-                           <Printer size={16} /> {!billData.is_paid ? t('print', 'Print') : t('re_print', 'Re-Print')}
-                        </button>
+                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {selectedPaymentMethod !== 'credit' && (
+                          <div style={{ display: 'flex', gap: '10px' }}>
+                             <button onClick={printBill} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
+                                <Printer size={16} /> {!billData.is_paid ? t('print', 'Print') : t('re_print', 'Re-Print')}
+                             </button>
+                             {!billData.is_paid && (
+                               <button onClick={settleWithoutPrint} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#10b981', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '900', fontSize: '12px', boxShadow: '0 4px 12px rgba(16,185,129,0.25)' }}>
+                                  <CheckCircle size={16} /> {t('settle_without_print', 'Settle Without Print')}
+                               </button>
+                             )}
+                          </div>
+                        )}
                         {user?.whatsAppBillingEnabled && selectedPaymentMethod !== 'credit' && (
-                          <button onClick={shareViaWhatsApp} style={{ flex: 1, padding: '14px', borderRadius: '14px', backgroundColor: '#22c55e', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
+                          <button onClick={shareViaWhatsApp} style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: '#22c55e', color: '#ffffff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', fontSize: '13px' }}>
                              <MessageCircle size={16} /> {t('whatsapp', 'WhatsApp')}
                           </button>
                         )}

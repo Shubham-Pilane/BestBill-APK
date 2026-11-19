@@ -364,7 +364,8 @@ export const shareBillPDFViaWhatsApp = (billData, hotelInfo = {}, customerPhone 
         `${sgstLine}` +
         `${discountText ? discountText + '\n' : ''}` +
         `${roundOffLine}` +
-        `*TOTAL AMOUNT:* ₹${formatAmount(totalVal)}\n\n` +
+        `*TOTAL AMOUNT:* ₹${formatAmount(totalVal)}\n` +
+        (isPaid ? `*Payment:* ${(billData.payment_method || 'CASH').toUpperCase()}\n\n` : `\n`) +
         `*Thank You! Visit Again!*`;
 
       if (finalPhone) {
