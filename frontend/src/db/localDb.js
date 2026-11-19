@@ -205,6 +205,8 @@ CREATE TABLE IF NOT EXISTS bills (
     round_off REAL DEFAULT 0,
     final_amount REAL DEFAULT 0,
     discount_percentage REAL DEFAULT 0,
+    discount_type TEXT DEFAULT 'percentage',
+    discount_amount REAL DEFAULT 0,
     is_paid BOOLEAN DEFAULT 0,
     payment_method TEXT,
     cash_amount REAL DEFAULT 0,
@@ -516,6 +518,12 @@ export const initDb = async () => {
     } catch (e) {}
     try {
       db.run("ALTER TABLE bills ADD COLUMN online_amount REAL DEFAULT 0;");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE bills ADD COLUMN discount_type TEXT DEFAULT 'percentage';");
+    } catch (e) {}
+    try {
+      db.run("ALTER TABLE bills ADD COLUMN discount_amount REAL DEFAULT 0;");
     } catch (e) {}
     saveDbFileNow();
     

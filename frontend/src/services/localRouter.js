@@ -715,7 +715,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if (path.startsWith('/tables/') && path.endsWith('/bill') && methodUpper === 'POST') {
       const tableId = parseInt(path.split('/')[2]);
-      const { discount_percentage } = body;
+      const { discount_percentage, discount_type, discount_amount, discount_value } = body || {};
 
       const [hotelRes, tableRes, orderRes] = await Promise.all([
         db.query('SELECT name, phone, location, gst_percentage, cgst_percentage, sgst_percentage, fssai_number FROM hotels WHERE id = $1', [user.hotel_id]),
@@ -747,8 +747,17 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const sgst = Number(((subtotal * sgstRate) / 100).toFixed(2));
 
       const preDiscount = Number((subtotal + gst + cgst + sgst).toFixed(2));
-      const discount = Math.max(0, Math.min(100, parseFloat(discount_percentage) || 0));
-      const discountAmount = Number(((preDiscount * discount) / 100).toFixed(2));
+      const discType = discount_type === 'amount' ? 'amount' : 'percentage';
+      let discountAmount = 0;
+      let discountPct = 0;
+      if (discType === 'amount') {
+        const rawAmt = parseFloat(discount_amount !== undefined ? discount_amount : (discount_value !== undefined ? discount_value : 0)) || 0;
+        discountAmount = Math.min(preDiscount, Math.max(0, rawAmt));
+        discountPct = preDiscount > 0 ? Number(((discountAmount / preDiscount) * 100).toFixed(2)) : 0;
+      } else {
+        discountPct = Math.max(0, Math.min(100, parseFloat(discount_percentage !== undefined ? discount_percentage : discount_value) || 0));
+        discountAmount = Number(((preDiscount * discountPct) / 100).toFixed(2));
+      }
       const unroundedTotal = Math.max(0, Number((preDiscount - discountAmount).toFixed(2)));
 
       const finalAmount = Math.ceil(unroundedTotal);
@@ -765,9 +774,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       }
 
       const billRes = await db.query(
-        `INSERT INTO bills (order_id, total_amount, gst, cgst, sgst, round_off, final_amount, discount_percentage) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, order_id, total_amount, gst, cgst, sgst, round_off, final_amount, discount_percentage`,
-        [orderId, subtotal, gst, cgst, sgst, roundOff, finalAmount, discount]
+        `INSERT INTO bills (order_id, total_amount, gst, cgst, sgst, round_off, final_amount, discount_percentage, discount_type, discount_amount) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, order_id, total_amount, gst, cgst, sgst, round_off, final_amount, discount_percentage, discount_type, discount_amount`,
+        [orderId, subtotal, gst, cgst, sgst, roundOff, finalAmount, discountPct, discType, discountAmount]
       );
 
       const newBill = billRes.rows[0] || {};
@@ -788,7 +797,8 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         gst_percentage: gstRate,
         cgst_percentage: cgstRate,
         sgst_percentage: sgstRate,
-        discount_percentage: discount,
+        discount_percentage: discountPct,
+        discount_type: discType,
         discount_amount: discountAmount,
         items: orderRes.rows,
         hotel_name: hotel.name || user?.hotel_name || '',
@@ -1430,6 +1440,8 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         roundOff: Number(bill.round_off || 0),
         finalAmount: Number(bill.final_amount || 0),
         discountPercentage: Number(bill.discount_percentage || 0),
+        discount_type: bill.discount_type || 'percentage',
+        discount_amount: Number(bill.discount_amount || 0),
         items: items.map(i => ({ name: i.name, marathi_name: i.marathi_name, price: Number(i.price || 0), qty: i.quantity || i.qty || 1 })),
         hotelName: String(hotel.name || user?.hotel_name || '').trim(),
         hotelPhone: String(hotel.phone || '').trim(),

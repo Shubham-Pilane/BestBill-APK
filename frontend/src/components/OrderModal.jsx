@@ -49,6 +49,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [partialOnlineAmount, setPartialOnlineAmount] = useState('');
   const [selectedDeliveryPartner, setSelectedDeliveryPartner] = useState('');
   const [discount, setDiscount] = useState('');
+  const [discountType, setDiscountType] = useState('percentage');
   const [isSwapModalOpen, setSwapModalOpen] = useState(false);
   const [allTables, setAllTables] = useState(passedTables || []);
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,8 +95,16 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     const sgstAmount = Number(((subtotal * sgstRate) / 100).toFixed(2));
 
     const preDiscount = Number((subtotal + gstAmount + cgstAmount + sgstAmount).toFixed(2));
-    const discountPct = Math.max(0, Math.min(100, parseFloat(discount) || 0));
-    const discountAmount = Number(((preDiscount * discountPct) / 100).toFixed(2));
+    let discountPct = 0;
+    let discountAmount = 0;
+    if (discountType === 'amount') {
+      const rawAmt = Math.max(0, parseFloat(discount) || 0);
+      discountAmount = Math.min(preDiscount, rawAmt);
+      discountPct = preDiscount > 0 ? Number(((discountAmount / preDiscount) * 100).toFixed(2)) : 0;
+    } else {
+      discountPct = Math.max(0, Math.min(100, parseFloat(discount) || 0));
+      discountAmount = Number(((preDiscount * discountPct) / 100).toFixed(2));
+    }
     const unroundedTotal = Math.max(0, Number((preDiscount - discountAmount).toFixed(2)));
 
     const grandTotal = Math.ceil(unroundedTotal);
@@ -112,13 +121,14 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       cgstAmount,
       sgstRate,
       sgstAmount,
+      discountType,
       discountPct,
       discountAmount,
       unroundedTotal,
       roundOff,
       grandTotal
     };
-  }, [orderItems, user?.gst_percentage, user?.cgst_percentage, user?.sgst_percentage, discount]);
+  }, [orderItems, user?.gst_percentage, user?.cgst_percentage, user?.sgst_percentage, discount, discountType]);
 
   const translateFloorName = (floorName) => {
     if (!floorName) return '';
@@ -410,7 +420,12 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
 
   const generateBill = async () => {
     try {
-      const res = await api.post(`/tables/${table.id}/bill`, { discount_percentage: discount });
+      const res = await api.post(`/tables/${table.id}/bill`, { 
+        discount_percentage: orderCalculations.discountPct,
+        discount_type: discountType,
+        discount_amount: orderCalculations.discountAmount,
+        discount_value: discount
+      });
       setBillData(res.data);
       setShowBill(true);
       toast.success(t('toast_bill_finalized', 'Bill finalized!'), {
@@ -1173,13 +1188,69 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 {/* Drawer Cart Footer - Compact Bottom Section */}
                 <div style={{ padding: '10px 16px', backgroundColor: '#0f172a', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>{t('loyalty_discount', 'LOYALTY DISCOUNT (%)')}</span>
-                    <input 
-                       type="number" 
-                       value={discount} 
-                       onChange={e => setDiscount(Math.max(0, Math.min(100, e.target.value)))} 
-                       style={{ width: '40px', background: 'none', border: 'none', borderBottom: '2px solid #0ea5e9', color: '#ffffff', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '12px' }} 
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}>{t('loyalty_discount', 'DISCOUNT')}</span>
+                      <div style={{ display: 'inline-flex', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.2)' }}>
+                        <button
+                          type="button"
+                          onClick={() => setDiscountType('percentage')}
+                          style={{
+                            padding: '1px 6px',
+                            fontSize: '10px',
+                            fontWeight: 900,
+                            border: 'none',
+                            cursor: 'pointer',
+                            backgroundColor: discountType === 'percentage' ? '#0ea5e9' : 'rgba(255,255,255,0.08)',
+                            color: '#ffffff'
+                          }}
+                        >
+                          %
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDiscountType('amount')}
+                          style={{
+                            padding: '1px 6px',
+                            fontSize: '10px',
+                            fontWeight: 900,
+                            border: 'none',
+                            cursor: 'pointer',
+                            backgroundColor: discountType === 'amount' ? '#0ea5e9' : 'rgba(255,255,255,0.08)',
+                            color: '#ffffff'
+                          }}
+                        >
+                          ₹
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                      {discountType === 'amount' && <span style={{ color: '#0ea5e9', fontSize: '11px', fontWeight: 900 }}>₹</span>}
+                      <input 
+                         type="number" 
+                         min="0"
+                         max={discountType === 'percentage' ? 100 : undefined}
+                         step="any"
+                         placeholder="0"
+                         value={discount} 
+                         onFocus={e => e.target.select()}
+                         onChange={e => {
+                           const val = e.target.value;
+                           if (val === '') {
+                             setDiscount('');
+                           } else {
+                             if (discountType === 'percentage') {
+                               const num = Math.max(0, Math.min(100, Number(val)));
+                               setDiscount(isNaN(num) ? '' : String(num));
+                             } else {
+                               const num = Math.max(0, Number(val));
+                               setDiscount(isNaN(num) ? '' : String(num));
+                             }
+                           }
+                         }} 
+                         style={{ width: discountType === 'amount' ? '60px' : '40px', background: 'none', border: 'none', borderBottom: '2px solid #0ea5e9', color: '#ffffff', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '12px' }} 
+                      />
+                      {discountType === 'percentage' && <span style={{ color: '#0ea5e9', fontSize: '11px', fontWeight: 900 }}>%</span>}
+                    </div>
                   </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>{t('final_due', 'Final Due')}</span>
@@ -1280,13 +1351,69 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 800 }}>{t('loyalty_discount', 'DISCOUNT (%)')}</span>
-                  <input 
-                    type="number" 
-                    value={discount} 
-                    onChange={e => setDiscount(e.target.value === '' ? '' : Math.max(0, Math.min(100, e.target.value)))} 
-                    style={{ width: '45px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '12px', borderRadius: '6px', padding: '2px 4px' }} 
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 800 }}>{t('loyalty_discount', 'DISCOUNT')}</span>
+                    <div style={{ display: 'inline-flex', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--bg-border)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setDiscountType('percentage')}
+                        style={{
+                          padding: '1px 6px',
+                          fontSize: '10px',
+                          fontWeight: 900,
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: discountType === 'percentage' ? '#0ea5e9' : 'transparent',
+                          color: discountType === 'percentage' ? '#ffffff' : 'var(--text-muted)'
+                        }}
+                      >
+                        %
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDiscountType('amount')}
+                        style={{
+                          padding: '1px 6px',
+                          fontSize: '10px',
+                          fontWeight: 900,
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: discountType === 'amount' ? '#0ea5e9' : 'transparent',
+                          color: discountType === 'amount' ? '#ffffff' : 'var(--text-muted)'
+                        }}
+                      >
+                        ₹
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                    {discountType === 'amount' && <span style={{ color: '#0ea5e9', fontSize: '11px', fontWeight: 900 }}>₹</span>}
+                    <input 
+                      type="number" 
+                      min="0"
+                      max={discountType === 'percentage' ? 100 : undefined}
+                      step="any"
+                      placeholder="0"
+                      value={discount} 
+                      onFocus={e => e.target.select()}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === '') {
+                          setDiscount('');
+                        } else {
+                          if (discountType === 'percentage') {
+                            const num = Math.max(0, Math.min(100, Number(val)));
+                            setDiscount(isNaN(num) ? '' : String(num));
+                          } else {
+                            const num = Math.max(0, Number(val));
+                            setDiscount(isNaN(num) ? '' : String(num));
+                          }
+                        }
+                      }} 
+                      style={{ width: discountType === 'amount' ? '60px' : '45px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', textAlign: 'center', fontWeight: 900, outline: 'none', fontSize: '12px', borderRadius: '6px', padding: '2px 4px' }} 
+                    />
+                    {discountType === 'percentage' && <span style={{ color: '#0ea5e9', fontSize: '11px', fontWeight: 900 }}>%</span>}
+                  </div>
                 </div>
 
                 {orderCalculations.roundOff > 0 && (
@@ -1435,10 +1562,10 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                    {parseFloat(billData.sgst || 0) > 0 && (
                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('sgst', 'SGST')} {billData.sgst_percentage ? `(${billData.sgst_percentage}%)` : ''}</span><span>₹{parseFloat(billData.sgst).toFixed(2)}</span></div>
                    )}
-                   {parseFloat(billData.discount_percentage || 0) > 0 && (
+                   {((parseFloat(billData.discount_percentage || 0) > 0) || (parseFloat(billData.discount_amount || 0) > 0)) && (
                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800, color: '#f59e0b' }}>
-                       <span>{t('loyalty_discount', 'DISCOUNT')} ({parseFloat(billData.discount_percentage)}%)</span>
-                       <span>-₹{parseFloat(billData.discount_amount || ((parseFloat(billData.subtotal || 0) + parseFloat(billData.gst || 0) + parseFloat(billData.cgst || 0) + parseFloat(billData.sgst || 0)) * (parseFloat(billData.discount_percentage || 0) / 100))).toFixed(2)}</span>
+                       <span>{t('loyalty_discount', 'DISCOUNT')} {billData.discount_type === 'amount' ? '(₹)' : `(${parseFloat(billData.discount_percentage)}%)`}</span>
+                       <span>-₹{parseFloat(billData.discount_amount !== undefined && billData.discount_amount !== null ? billData.discount_amount : ((parseFloat(billData.subtotal || 0) + parseFloat(billData.gst || 0) + parseFloat(billData.cgst || 0) + parseFloat(billData.sgst || 0)) * (parseFloat(billData.discount_percentage || 0) / 100))).toFixed(2)}</span>
                      </div>
                    )}
                    {parseFloat(billData.round_off || billData.roundOff || 0) > 0 && (

@@ -891,9 +891,9 @@ const BillingHistory = () => {
                         {parseFloat(selectedBill.sgst || 0) > 0 && (
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('sgst', 'SGST')} {selectedBill.sgst_percentage ? `(${selectedBill.sgst_percentage}%)` : ''}</span><span>₹{parseFloat(selectedBill.sgst).toFixed(2)}</span></div>
                         )}
-                        {parseFloat(selectedBill.discount_percentage || 0) > 0 && (
+                        {((parseFloat(selectedBill.discount_percentage || 0) > 0) || (parseFloat(selectedBill.discount_amount || 0) > 0)) && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800, color: selectedBill.is_paid ? 'white' : '#ef4444' }}>
-                            <span>{t('discount', 'DISCOUNT')} ({parseFloat(selectedBill.discount_percentage)}%)</span>
+                            <span>{t('discount', 'DISCOUNT')} {selectedBill.discount_type === 'amount' ? '(₹)' : `(${parseFloat(selectedBill.discount_percentage || 0)}%)`}</span>
                             <span>-₹{(parseFloat(selectedBill.discount_amount ?? ((parseFloat(selectedBill.subtotal || 0) + parseFloat(selectedBill.gst || 0) + parseFloat(selectedBill.cgst || 0) + parseFloat(selectedBill.sgst || 0)) * (parseFloat(selectedBill.discount_percentage || 0) / 100)))).toFixed(2)}</span>
                         </div>
                         )}

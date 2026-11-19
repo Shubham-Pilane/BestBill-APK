@@ -513,13 +513,16 @@ export async function formatBill(data, printerSize = '58mm') {
       }
     }
 
-    if (discountPct > 0) {
+    if (discountPct > 0 || Number(data.discount_amount || 0) > 0) {
+      const isFixed = data.discount_type === 'amount';
       const preVal = Number(data.subtotal || 0) + Number(data.gst || 0) + Number(data.cgst || 0) + Number(data.sgst || 0);
-      const discAmt = preVal * (discountPct / 100);
+      const discAmt = isFixed ? Number(data.discount_amount || 0) : preVal * (discountPct / 100);
       if (isMarathi) {
-        builder.appendBytes(renderDevanagariLineToRaster(`सवलत (${discountPct}%): -₹${formatAmount(discAmt)}`, { paperSize: printerSize, align: 'right' }));
+        const discLabel = isFixed ? `सूट (निश्चित):` : `सवलत (${discountPct}%):`;
+        builder.appendBytes(renderDevanagariLineToRaster(`${discLabel} -₹${formatAmount(discAmt)}`, { paperSize: printerSize, align: 'right' }));
       } else {
-        builder.text(padText(`Discount (${discountPct}%):`, labelLen) + ' ' + padText(`-${formatAmount(discAmt)}`, amtLen, 'right'));
+        const discLabel = isFixed ? `Discount (Fixed):` : `Discount (${discountPct}%):`;
+        builder.text(padText(discLabel, labelLen) + ' ' + padText(`-${formatAmount(discAmt)}`, amtLen, 'right'));
       }
     }
 
@@ -542,6 +545,18 @@ export async function formatBill(data, printerSize = '58mm') {
       .text(padText('TOTAL AMOUNT:', labelLen) + ' ' + padText(formatAmount(finalAmountToDisplay), amtLen, 'right'))
       .bold(false)
       .line('=', LINE_WIDTH);
+  }
+
+  if (data.paymentMethod) {
+    const pm = String(data.paymentMethod).toLowerCase();
+    if (pm === 'partial') {
+      const cAmt = Number(data.cashAmount || data.cash_amount || 0);
+      const oAmt = Number(data.onlineAmount || data.online_amount || 0);
+      builder.bold(true).text(padText('PAYMENT:', labelLen) + ' ' + padText('PARTIAL', amtLen, 'right')).bold(false);
+      builder.text(padText('  Cash:', labelLen) + ' ' + padText(formatAmount(cAmt), amtLen, 'right'));
+      builder.text(padText('  Online:', labelLen) + ' ' + padText(formatAmount(oAmt), amtLen, 'right'));
+      builder.line('-', LINE_WIDTH);
+    }
   }
 
   if (data.upiId) {
