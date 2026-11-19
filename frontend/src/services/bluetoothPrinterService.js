@@ -17,6 +17,14 @@ const padText = (str, len, align = 'left') => {
   return align === 'right' ? pad + s : s + pad;
 };
 
+// Software centering helper: calculates exact left space padding to prevent hardware alignment buffer bugs
+const centerText = (str, width) => {
+  const s = String(str || '').trim();
+  if (s.length >= width) return s.slice(0, width);
+  const pad = Math.floor((width - s.length) / 2);
+  return ' '.repeat(pad) + s;
+};
+
 // Word wrap helper
 const wordWrap = (str, width) => {
   if (!str) return [];
@@ -58,7 +66,8 @@ const formatAmount = (amt) => {
 class EscposBuilder {
   constructor(is58mm = true) {
     this.is58mm = is58mm;
-    this.bytes = [0x1B, 0x40, 0x1B, 0x21, 0x00, 0x1D, 0x21, 0x00]; // ESC @ (Initialize printer) + reset text modes
+    // Discard any residual buffer data (CAN 0x18), return cursor to col 0 (CR 0x0D), reset left align, normal font, bold off
+    this.bytes = [0x18, 0x0D, 0x1B, 0x61, 0x00, 0x1D, 0x21, 0x00, 0x1B, 0x45, 0x00];
   }
 
   appendBytes(bytesArr) {
@@ -90,13 +99,12 @@ class EscposBuilder {
   }
 
   setFontDouble() {
-    // Both ESC ! 0x30 (select print modes: double height + double width) and GS ! 0x11 for maximum printer compatibility
-    this.bytes.push(0x1B, 0x21, 0x30, 0x1D, 0x21, 0x11);
+    this.bytes.push(0x1D, 0x21, 0x11);
     return this;
   }
 
   setFontNormal() {
-    this.bytes.push(0x1B, 0x21, 0x00, 0x1D, 0x21, 0x00);
+    this.bytes.push(0x1D, 0x21, 0x00);
     return this;
   }
 
@@ -265,14 +273,9 @@ export async function formatKOT(data, printerSize = '58mm') {
   const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr';
 
   const titleText = isMarathi ? 'किचन ऑर्डर (KOT)' : 'KITCHEN ORDER';
-  if (containsDevanagari(titleText)) {
-    builder.appendBytes(renderDevanagariLineToRaster(titleText, { paperSize: printerSize, align: 'center', isDouble: true }));
-    builder.alignCenter();
-  } else {
-    builder.setFontDouble().bold().alignCenter().text(titleText).setFontNormal().bold(false).alignCenter();
-  }
+  builder.appendBytes(renderDevanagariLineToRaster(titleText, { paperSize: printerSize, align: 'center', isDouble: true }));
 
-  builder.line('=', LINE_WIDTH).alignLeft();
+  builder.line('=', LINE_WIDTH);
 
   let tStr = formatTableStringForBill(data.table || '', isMarathi);
   if (data.floor && !tStr.includes(data.floor) && !tStr.toLowerCase().includes('parcel') && !tStr.toLowerCase().includes('token') && !tStr.toLowerCase().includes('online')) {
@@ -340,7 +343,7 @@ export async function formatKOT(data, printerSize = '58mm') {
   }
 
   builder.appendBytes(renderDevanagariLineToRaster('⚡ Powered by BestBill™', { paperSize: printerSize, align: 'center', fontWeight: 'bold', fontSize: 22 }));
-  builder.feed(3).cut();
+  builder.feed(3).cut().setFontNormal().bold(false);
   return builder.build();
 }
 
@@ -353,34 +356,25 @@ export async function formatBill(data, printerSize = '58mm') {
   const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr';
 
   const hotelName = String(data.hotelName || 'BestBill POS').trim();
-  if (containsDevanagari(hotelName)) {
-    builder.appendBytes(renderDevanagariLineToRaster(hotelName, { paperSize: printerSize, align: 'center', isDouble: true }));
-    builder.alignCenter();
-  } else {
-    builder.setFontDouble().bold().alignCenter();
-    const hotelNameLines = wordWrap(hotelName, Math.floor(LINE_WIDTH / 2));
-    hotelNameLines.forEach(l => builder.text(l));
-    builder.setFontNormal().bold(false).alignCenter();
-  }
+  builder.appendBytes(renderDevanagariLineToRaster(hotelName, { paperSize: printerSize, align: 'center', isDouble: true }));
 
   if (data.hotelLocation) {
     const locStr = String(data.hotelLocation).trim();
     if (containsDevanagari(locStr)) {
       builder.appendBytes(renderDevanagariLineToRaster(locStr, { paperSize: printerSize, align: 'center' }));
-      builder.alignCenter();
     } else {
-      wordWrap(locStr, LINE_WIDTH).forEach(l => builder.text(l));
+      wordWrap(locStr, LINE_WIDTH).forEach(l => builder.text(centerText(l, LINE_WIDTH)));
     }
   }
-  if (data.hotelPhone) builder.text(`Phone: ${String(data.hotelPhone).trim()}`);
-  if (data.hotelFssai) builder.text(`FSSAI: ${String(data.hotelFssai).trim()}`);
+  if (data.hotelPhone) builder.text(centerText(`Phone: ${String(data.hotelPhone).trim()}`, LINE_WIDTH));
+  if (data.hotelFssai) builder.text(centerText(`FSSAI: ${String(data.hotelFssai).trim()}`, LINE_WIDTH));
 
   const isCancelOrder = data.type === 'CANCEL_ORDER' || data.isCancelOrder;
   const billNoStr = data.billId || data.orderNumber || data.order_number || data.id || 'N/A';
   const billLabel = isMarathi ? (isCancelOrder ? 'रद्द ऑर्डर क्र.:' : 'बिल क्र.:') : (isCancelOrder ? 'CANCEL ORDER NO:' : 'BILL NO:');
   const fullBillStr = `${billLabel} ${billNoStr}`;
 
-  builder.line('=', LINE_WIDTH).alignLeft();
+  builder.line('=', LINE_WIDTH);
 
   if (containsDevanagari(fullBillStr)) {
     builder.appendBytes(renderDevanagariLineToRaster(fullBillStr, { paperSize: printerSize, align: 'left', fontWeight: 'bold' }));
@@ -466,63 +460,18 @@ export async function formatBill(data, printerSize = '58mm') {
 
   const labelLen = LINE_WIDTH - amtLen - 1;
 
-  if (data.subtotal !== undefined && data.subtotal !== null) {
-    const subtotalAmt = Number(data.subtotal) || 0;
-    if (isMarathi) {
-      builder.appendBytes(renderDevanagariLineToRaster(`उपएकूण: ₹${formatAmount(subtotalAmt)}`, { paperSize: printerSize, align: 'right' }));
-    } else {
-      builder.text(padText('Subtotal:', labelLen) + ' ' + padText(formatAmount(subtotalAmt), amtLen, 'right'));
-    }
-  }
+  const subtotalAmt = data.subtotal !== undefined && data.subtotal !== null
+    ? Number(data.subtotal) || 0
+    : Number(data.totalAmount || data.total_amount || data.finalAmount || 0);
 
   const gstPct = Number(data.gst_percentage) || 0;
   const gstAmt = Number(data.gst) || 0;
-  if (gstPct > 0 || gstAmt > 0) {
-    if (isMarathi) {
-      builder.appendBytes(renderDevanagariLineToRaster(`जीएसटी (${gstPct}%): ₹${formatAmount(gstAmt)}`, { paperSize: printerSize, align: 'right' }));
-    } else {
-      builder.text(padText(`GST (${gstPct}%):`, labelLen) + ' ' + padText(formatAmount(gstAmt), amtLen, 'right'));
-    }
-  }
-
   const cgstPct = Number(data.cgst_percentage) || 0;
   const cgstAmt = Number(data.cgst) || 0;
-  if (cgstPct > 0 || cgstAmt > 0) {
-    if (isMarathi) {
-      builder.appendBytes(renderDevanagariLineToRaster(`सीजीएसटी (${cgstPct}%): ₹${formatAmount(cgstAmt)}`, { paperSize: printerSize, align: 'right' }));
-    } else {
-      builder.text(padText(`CGST (${cgstPct}%):`, labelLen) + ' ' + padText(formatAmount(cgstAmt), amtLen, 'right'));
-    }
-  }
-
   const sgstPct = Number(data.sgst_percentage) || 0;
   const sgstAmt = Number(data.sgst) || 0;
-  if (sgstPct > 0 || sgstAmt > 0) {
-    if (isMarathi) {
-      builder.appendBytes(renderDevanagariLineToRaster(`एसजीएसटी (${sgstPct}%): ₹${formatAmount(sgstAmt)}`, { paperSize: printerSize, align: 'right' }));
-    } else {
-      builder.text(padText(`SGST (${sgstPct}%):`, labelLen) + ' ' + padText(formatAmount(sgstAmt), amtLen, 'right'));
-    }
-  }
-
-  if (data.discountPercentage > 0) {
-    const preVal = Number(data.subtotal || 0) + Number(data.gst || 0) + Number(data.cgst || 0) + Number(data.sgst || 0);
-    const discAmt = preVal * (data.discountPercentage / 100);
-    if (isMarathi) {
-      builder.appendBytes(renderDevanagariLineToRaster(`सवलत (${data.discountPercentage}%): -₹${formatAmount(discAmt)}`, { paperSize: printerSize, align: 'right' }));
-    } else {
-      builder.text(padText(`Discount (${data.discountPercentage}%):`, labelLen) + ' ' + padText(`-${formatAmount(discAmt)}`, amtLen, 'right'));
-    }
-  }
-
+  const discountPct = Number(data.discountPercentage || data.discount_percentage) || 0;
   const roundOffAmt = Number(data.round_off !== undefined ? data.round_off : (data.roundOff || 0));
-  if (roundOffAmt > 0) {
-    if (isMarathi) {
-      builder.appendBytes(renderDevanagariLineToRaster(`राउंड ऑफ: +₹${formatAmount(roundOffAmt)}`, { paperSize: printerSize, align: 'right' }));
-    } else {
-      builder.text(padText('Round Off:', labelLen) + ' ' + padText(`+${formatAmount(roundOffAmt)}`, amtLen, 'right'));
-    }
-  }
 
   const finalAmountToDisplay = data.finalAmount !== undefined && data.finalAmount !== null
     ? Number(data.finalAmount)
@@ -530,13 +479,66 @@ export async function formatBill(data, printerSize = '58mm') {
         ? Number(data.totalAmount)
         : Number(data.total_amount || 0));
 
-  if (isMarathi) {
+  // If subtotal is identical to total amount and there is no discount/GST/round-off, skip printing Subtotal
+  const hasExtraCalc = (gstPct > 0 || gstAmt > 0 || cgstPct > 0 || cgstAmt > 0 || sgstPct > 0 || sgstAmt > 0 || discountPct > 0 || roundOffAmt > 0 || Math.abs(subtotalAmt - finalAmountToDisplay) > 0.01);
+
+  if (hasExtraCalc) {
+    if (isMarathi) {
+      builder.appendBytes(renderDevanagariLineToRaster(`उपएकूण: ₹${formatAmount(subtotalAmt)}`, { paperSize: printerSize, align: 'right' }));
+    } else {
+      builder.text(padText('Subtotal:', labelLen) + ' ' + padText(formatAmount(subtotalAmt), amtLen, 'right'));
+    }
+
+    if (gstPct > 0 || gstAmt > 0) {
+      if (isMarathi) {
+        builder.appendBytes(renderDevanagariLineToRaster(`जीएसटी (${gstPct}%): ₹${formatAmount(gstAmt)}`, { paperSize: printerSize, align: 'right' }));
+      } else {
+        builder.text(padText(`GST (${gstPct}%):`, labelLen) + ' ' + padText(formatAmount(gstAmt), amtLen, 'right'));
+      }
+    }
+
+    if (cgstPct > 0 || cgstAmt > 0) {
+      if (isMarathi) {
+        builder.appendBytes(renderDevanagariLineToRaster(`सीजीएसटी (${cgstPct}%): ₹${formatAmount(cgstAmt)}`, { paperSize: printerSize, align: 'right' }));
+      } else {
+        builder.text(padText(`CGST (${cgstPct}%):`, labelLen) + ' ' + padText(formatAmount(cgstAmt), amtLen, 'right'));
+      }
+    }
+
+    if (sgstPct > 0 || sgstAmt > 0) {
+      if (isMarathi) {
+        builder.appendBytes(renderDevanagariLineToRaster(`एसजीएसटी (${sgstPct}%): ₹${formatAmount(sgstAmt)}`, { paperSize: printerSize, align: 'right' }));
+      } else {
+        builder.text(padText(`SGST (${sgstPct}%):`, labelLen) + ' ' + padText(formatAmount(sgstAmt), amtLen, 'right'));
+      }
+    }
+
+    if (discountPct > 0) {
+      const preVal = Number(data.subtotal || 0) + Number(data.gst || 0) + Number(data.cgst || 0) + Number(data.sgst || 0);
+      const discAmt = preVal * (discountPct / 100);
+      if (isMarathi) {
+        builder.appendBytes(renderDevanagariLineToRaster(`सवलत (${discountPct}%): -₹${formatAmount(discAmt)}`, { paperSize: printerSize, align: 'right' }));
+      } else {
+        builder.text(padText(`Discount (${discountPct}%):`, labelLen) + ' ' + padText(`-${formatAmount(discAmt)}`, amtLen, 'right'));
+      }
+    }
+
+    if (roundOffAmt > 0) {
+      if (isMarathi) {
+        builder.appendBytes(renderDevanagariLineToRaster(`राउंड ऑफ: +₹${formatAmount(roundOffAmt)}`, { paperSize: printerSize, align: 'right' }));
+      } else {
+        builder.text(padText('Round Off:', labelLen) + ' ' + padText(`+${formatAmount(roundOffAmt)}`, amtLen, 'right'));
+      }
+    }
+
     builder.line('-', LINE_WIDTH);
+  }
+
+  if (isMarathi) {
     builder.appendBytes(renderDevanagariLineToRaster(`एकूण: ₹${formatAmount(finalAmountToDisplay)}`, { paperSize: printerSize, align: 'right', fontWeight: 'bold', fontSize: 26 }));
     builder.line('=', LINE_WIDTH);
   } else {
-    builder.line('-', LINE_WIDTH)
-      .bold(true)
+    builder.bold(true)
       .text(padText('TOTAL AMOUNT:', labelLen) + ' ' + padText(formatAmount(finalAmountToDisplay), amtLen, 'right'))
       .bold(false)
       .line('=', LINE_WIDTH);
@@ -544,24 +546,22 @@ export async function formatBill(data, printerSize = '58mm') {
 
   if (data.upiId) {
     const upiLink = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.hotelName || '')}&am=${finalAmountToDisplay}&cu=INR`;
-    builder.alignCenter()
-      .bold(true)
-      .text('SCAN TO PAY WITH ANY UPI APP')
+    builder.bold(true)
+      .text(centerText('SCAN TO PAY WITH ANY UPI APP', LINE_WIDTH))
       .bold(false)
       .qrCode(upiLink)
-      .text(`UPI ID: ${data.upiId}`)
+      .text(centerText(`UPI ID: ${data.upiId}`, LINE_WIDTH))
       .line('-', LINE_WIDTH);
   }
 
-  builder.alignCenter();
   if (isMarathi) {
     builder.appendBytes(renderDevanagariLineToRaster('धन्यवाद! पुन्हा भेट द्या.', { paperSize: printerSize, align: 'center', fontWeight: 'bold' }));
   } else {
-    builder.bold(true).text('THANK YOU! VISIT AGAIN').bold(false);
+    builder.bold(true).text(centerText('THANK YOU! VISIT AGAIN', LINE_WIDTH)).bold(false);
   }
 
   builder.appendBytes(renderDevanagariLineToRaster('⚡ Powered by BestBill™', { paperSize: printerSize, align: 'center', fontWeight: 'bold', fontSize: 22 }));
-  builder.feed(3).cut();
+  builder.feed(3).cut().setFontNormal().bold(false);
   return builder.build();
 }
 
@@ -714,26 +714,53 @@ export class BluetoothPrinterService {
       const btEnabled = await this.isBluetoothEnabled();
       if (!btEnabled) return false;
 
-      const writeBytes = () => {
-        return new Promise((resolve) => {
-          window.bluetoothSerial.write(
-            uint8Array.buffer,
-            () => resolve(true),
-            (err) => {
-              console.error('[BT WRITE ERR]', err);
-              resolve(false);
-            }
-          );
-        });
+      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+      // Transmit in 1024-byte slices with 10ms pacing to eliminate buffer underruns and motor stall
+      const writeBytes = async () => {
+        const CHUNK_SIZE = 1024;
+        if (uint8Array.length <= CHUNK_SIZE) {
+          return new Promise((resolve) => {
+            window.bluetoothSerial.write(
+              uint8Array.buffer,
+              () => resolve(true),
+              (err) => {
+                console.error('[BT WRITE ERR]', err);
+                resolve(false);
+              }
+            );
+          });
+        }
+
+        for (let offset = 0; offset < uint8Array.length; offset += CHUNK_SIZE) {
+          const chunk = uint8Array.slice(offset, offset + CHUNK_SIZE);
+          const ok = await new Promise((resolve) => {
+            window.bluetoothSerial.write(
+              chunk.buffer,
+              () => resolve(true),
+              (err) => {
+                console.error('[BT WRITE CHUNK ERR]', err);
+                resolve(false);
+              }
+            );
+          });
+          if (!ok) return false;
+          if (offset + CHUNK_SIZE < uint8Array.length) {
+            await sleep(10);
+          }
+        }
+        return true;
       };
 
       const connectAndWrite = () => {
         return new Promise((resolve) => {
           window.bluetoothSerial.connect(
             macAddress,
-            async () => {
-              const res = await writeBytes();
-              resolve(res);
+            () => {
+              setTimeout(async () => {
+                const res = await writeBytes();
+                resolve(res);
+              }, 100);
             },
             async (err) => {
               console.error('[BT CONNECT ERR]', err);
@@ -745,9 +772,11 @@ export class BluetoothPrinterService {
               setTimeout(() => {
                 window.bluetoothSerial.connect(
                   macAddress,
-                  async () => {
-                    const res = await writeBytes();
-                    resolve(res);
+                  () => {
+                    setTimeout(async () => {
+                      const res = await writeBytes();
+                      resolve(res);
+                    }, 100);
                   },
                   () => resolve(false)
                 );
@@ -783,8 +812,19 @@ export class BluetoothPrinterService {
     }
   }
 
+  static isBootstrapped = false;
+  static isPrinting = false;
+
   static bootstrap() {
+    if (this.isBootstrapped) return;
+    this.isBootstrapped = true;
+
     window.addEventListener('print-job-triggered', async (e) => {
+      if (this.isPrinting) {
+        console.warn('[BT PRINTER] Another print job in progress, ignoring duplicate trigger');
+        return;
+      }
+      this.isPrinting = true;
       try {
         const job = e.detail;
         let printBytes;
@@ -805,6 +845,10 @@ export class BluetoothPrinterService {
         }
       } catch (err) {
         console.error('[BT PRINTER EVENT ERR]', err);
+      } finally {
+        setTimeout(() => {
+          this.isPrinting = false;
+        }, 800);
       }
     });
   }

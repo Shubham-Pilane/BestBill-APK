@@ -52,7 +52,9 @@ npx cap sync android
 # Run Android build
 Write-Host "Building APK..."
 cd d:\BestBill-apk\frontend\android
-.\gradlew.bat clean assembleDebug
+$outputApk = "d:\BestBill-apk\frontend\android\app\build\outputs\apk\debug\app-debug.apk"
+Remove-Item -Force $outputApk -ErrorAction SilentlyContinue
+.\gradlew.bat clean assembleDebug --no-daemon
 
 # Copy compiled APK to root of BestBill-apk
 $outputApk = "d:\BestBill-apk\frontend\android\app\build\outputs\apk\debug\app-debug.apk"

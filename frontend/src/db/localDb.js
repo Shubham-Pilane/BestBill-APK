@@ -70,7 +70,13 @@ const saveDbFile = () => {
   try {
     const data = db.export();
     const base64 = uint8ToBase64(data);
-    localStorage.setItem('bestbill_db', base64);
+    
+    // Safely write to localStorage without blocking native file persistence if quota exceeded
+    try {
+      localStorage.setItem('bestbill_db', base64);
+    } catch (lsErr) {
+      console.warn('[LOCAL DB LS QUOTA WARNING]', lsErr.message);
+    }
     
     if (isNative()) {
       Filesystem.writeFile({
@@ -382,7 +388,11 @@ export const saveDbFileNow = async () => {
   try {
     const data = db.export();
     const base64 = uint8ToBase64(data);
-    localStorage.setItem('bestbill_db', base64);
+    try {
+      localStorage.setItem('bestbill_db', base64);
+    } catch (lsErr) {
+      console.warn('[LOCAL DB LS QUOTA WARNING]', lsErr.message);
+    }
     if (isNative()) {
       try {
         await Filesystem.writeFile({

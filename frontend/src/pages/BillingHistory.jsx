@@ -22,9 +22,13 @@ const getVfs = () => {
 // Utility to safely parse SQLite timestamps (YYYY-MM-DD HH:MM:SS) into cross-platform valid Dates
 const safeDate = (dateString) => {
     if (!dateString) return new Date();
-    // Replace space with 'T' for iOS/Safari ISO-8601 compatibility
-    const safeStr = typeof dateString === 'string' ? dateString.replace(' ', 'T') : dateString;
-    return new Date(safeStr);
+    if (dateString instanceof Date) return isNaN(dateString.getTime()) ? new Date() : dateString;
+    try {
+        const safeStr = typeof dateString === 'string' ? dateString.replace(' ', 'T') : String(dateString);
+        const d = new Date(safeStr);
+        if (!isNaN(d.getTime())) return d;
+    } catch (e) {}
+    return new Date();
 };
 
 const BillingHistory = () => {
@@ -58,19 +62,21 @@ const BillingHistory = () => {
     const fetchHistory = async () => {
         try {
             const res = await api.get('/bills/history');
-            const data = Array.isArray(res.data) ? res.data : [];
+            const rawData = Array.isArray(res.data) ? res.data : (res.data?.bills || res.data?.data || []);
+            const data = Array.isArray(rawData) ? rawData : [];
             // Parse items_json if it exists (from our backend modification)
             const parsedData = data.map(b => {
-                let parsedItems = [];
-                if (b.items_json) {
+                let parsedItems = Array.isArray(b.items) && b.items.length > 0 ? b.items : [];
+                if (b.items_json && parsedItems.length === 0) {
                     try {
                         parsedItems = JSON.parse(b.items_json);
                     } catch (e) {}
                 }
-                return { ...b, parsedItems };
+                return { ...b, parsedItems, items: parsedItems };
             });
             setBills(parsedData);
         } catch (err) {
+            console.error('[FETCH BILLS HISTORY ERR]', err);
             toast.error('Failed to load transaction history');
         } finally {
             setLoading(false);
@@ -124,18 +130,30 @@ const BillingHistory = () => {
 
     // --- History View Logic ---
     const filteredBills = useMemo(() => {
-        return bills.filter(b => {
-            const matchesSearch = b.id.toString().includes(searchTerm) || 
-                                  (b.table_number && b.table_number.toLowerCase().includes(searchTerm.toLowerCase()));
-            return matchesSearch;
+        const s = (searchTerm || '').trim().toLowerCase();
+        return (bills || []).filter(b => {
+            if (!b) return false;
+            if (!s) return true;
+            const idStr = String(b.id || '');
+            const tableStr = String(b.table_number || '').toLowerCase();
+            return idStr.includes(s) || tableStr.includes(s);
         });
     }, [bills, searchTerm]);
 
     const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
     const currentBills = filteredBills.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    const todayBills = bills.filter(b => safeDate(b.created_at).toDateString() === new Date().toDateString());
-    const todayRevenue = todayBills.reduce((acc, b) => acc + parseFloat(b.final_amount || 0), 0);
+    const todayBills = useMemo(() => {
+        const todayStr = new Date().toDateString();
+        return (bills || []).filter(b => {
+            if (!b) return false;
+            return safeDate(b.created_at).toDateString() === todayStr;
+        });
+    }, [bills]);
+
+    const todayRevenue = useMemo(() => {
+        return todayBills.reduce((acc, b) => acc + parseFloat(b.final_amount ?? b.total_amount ?? 0), 0);
+    }, [todayBills]);
 
     // --- Analytics View Logic ---
     const getFilteredAnalyticsBills = () => {
@@ -495,7 +513,7 @@ const BillingHistory = () => {
                                                 </span>
                                             </td>
                                             <td style={tdStyle}>{bill.table_number}</td>
-                                            <td style={{...tdStyle, color: '#10b981', fontWeight: 900}}>₹{parseFloat(bill.final_amount).toFixed(2)}</td>
+                                            <td style={{...tdStyle, color: '#10b981', fontWeight: 900}}>₹{parseFloat(bill.final_amount ?? bill.total_amount ?? 0).toFixed(2)}</td>
                                             <td style={tdStyle}>
                                                 {bill.is_paid ? (
                                                     <span style={{ fontSize: '11px', color: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '4px 8px', borderRadius: '4px', fontWeight: 800 }}>
@@ -795,7 +813,9 @@ const BillingHistory = () => {
                         </div>
 
                         <div style={{ borderTop: '1px dashed var(--text-muted)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('subtotal', 'SUBTOTAL')}</span><span>₹{parseFloat(selectedBill.subtotal || selectedBill.total_amount || 0).toFixed(2)}</span></div>
+                        {((parseFloat(selectedBill.gst || 0) > 0) || (parseFloat(selectedBill.cgst || 0) > 0) || (parseFloat(selectedBill.sgst || 0) > 0) || (parseFloat(selectedBill.discount_percentage || 0) > 0) || (parseFloat(selectedBill.round_off || selectedBill.roundOff || 0) > 0) || Math.abs(parseFloat(selectedBill.subtotal || selectedBill.total_amount || 0) - parseFloat(selectedBill.final_amount || 0)) > 0.01) && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('subtotal', 'SUBTOTAL')}</span><span>₹{parseFloat(selectedBill.subtotal || selectedBill.total_amount || 0).toFixed(2)}</span></div>
+                        )}
                         {parseFloat(selectedBill.gst || 0) > 0 && (
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('gst', 'GST')} {selectedBill.gst_percentage ? `(${selectedBill.gst_percentage}%)` : ''}</span><span>₹{parseFloat(selectedBill.gst).toFixed(2)}</span></div>
                         )}
@@ -817,7 +837,7 @@ const BillingHistory = () => {
                             <span>+₹{parseFloat(selectedBill.round_off || selectedBill.roundOff).toFixed(2)}</span>
                         </div>
                         )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: isMobile ? '24px' : '42px', fontWeight: 1000, color: selectedBill.is_paid ? 'white' : '#10b981', borderTop: '4px double var(--text-muted)', marginTop: '8px', paddingTop: '8px' }}><span>{t('grand_total', 'TOTAL')}</span><span>₹{parseFloat(selectedBill.final_amount).toFixed(2)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: isMobile ? '24px' : '42px', fontWeight: 1000, color: selectedBill.is_paid ? 'white' : '#10b981', borderTop: '4px double var(--text-muted)', marginTop: '8px', paddingTop: '8px' }}><span>{t('grand_total', 'TOTAL')}</span><span>₹{parseFloat(selectedBill.final_amount ?? selectedBill.total_amount ?? 0).toFixed(2)}</span></div>
                         </div>
 
                         {selectedBill.is_paid && (

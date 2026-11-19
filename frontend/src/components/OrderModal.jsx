@@ -1334,7 +1334,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 </div>
  
                 <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '6px', color: billData.is_paid ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)' }}>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('subtotal', 'SUBTOTAL')}</span><span>₹{parseFloat(billData.subtotal || billData.total_amount || 0).toFixed(2)}</span></div>
+                   {((parseFloat(billData.gst || 0) > 0) || (parseFloat(billData.cgst || 0) > 0) || (parseFloat(billData.sgst || 0) > 0) || (parseFloat(billData.discount_percentage || 0) > 0) || (parseFloat(billData.round_off || billData.roundOff || 0) > 0) || Math.abs(parseFloat(billData.subtotal || billData.total_amount || 0) - parseFloat(billData.final_amount || 0)) > 0.01) && (
+                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('subtotal', 'SUBTOTAL')}</span><span>₹{parseFloat(billData.subtotal || billData.total_amount || 0).toFixed(2)}</span></div>
+                   )}
                    {parseFloat(billData.gst || 0) > 0 && (
                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800 }}><span>{t('gst', 'GST')} {billData.gst_percentage ? `(${billData.gst_percentage}%)` : ''}</span><span>₹{parseFloat(billData.gst).toFixed(2)}</span></div>
                    )}

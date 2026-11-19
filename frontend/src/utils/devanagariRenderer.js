@@ -144,6 +144,112 @@ export function renderDevanagariLineToRaster(text, options = {}) {
 }
 
 /**
+ * Render complete hotel header (Hotel Name, Location, Phone, FSSAI) as a single ESC/POS raster bitmap command.
+ * Guarantees zero line-splitting or firmware wrapping glitches on ESC/POS thermal printers.
+ * @param {Object} headerData
+ * @param {string} headerData.hotelName - Hotel name
+ * @param {string} [headerData.hotelLocation] - Hotel location / address
+ * @param {string} [headerData.hotelPhone] - Hotel phone number
+ * @param {string} [headerData.hotelFssai] - Hotel FSSAI number
+ * @param {Object} [options]
+ * @param {string} [options.paperSize='58mm'] - '58mm' (384 dots) or '80mm' (576 dots)
+ * @returns {Uint8Array} ESC/POS raster command bytes.
+ */
+export function renderHotelHeaderToRaster(headerData, options = {}) {
+  if (typeof document === 'undefined' || !headerData) {
+    return new Uint8Array([]);
+  }
+
+  const paperSize = options.paperSize || '58mm';
+  const is58mm = paperSize === '58mm';
+  const totalWidth = is58mm ? 384 : 576;
+
+  const nameFontSize = is58mm ? 32 : 40;
+  const detailFontSize = is58mm ? 22 : 26;
+  const nameLineHeight = Math.ceil(nameFontSize * 1.3);
+  const detailLineHeight = Math.ceil(detailFontSize * 1.35);
+
+  const fontFamily = '"Noto Sans Devanagari", "Mukta", "Devanagari", "Segoe UI", Arial, sans-serif';
+  const nameFont = `bold ${nameFontSize}px ${fontFamily}`;
+  const detailFont = `normal ${detailFontSize}px ${fontFamily}`;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = totalWidth;
+  const ctx = canvas.getContext('2d');
+
+  // 1. Process Hotel Name lines with word wrapping
+  const hotelName = String(headerData.hotelName || 'BestBill POS').trim();
+  ctx.font = nameFont;
+  const nameWords = hotelName.split(/\s+/);
+  const nameLines = [];
+  let curNameLine = '';
+  nameWords.forEach(word => {
+    const testLine = curNameLine ? `${curNameLine} ${word}` : word;
+    if (ctx.measureText(testLine).width <= totalWidth - 8) {
+      curNameLine = testLine;
+    } else {
+      if (curNameLine) nameLines.push(curNameLine);
+      curNameLine = word;
+    }
+  });
+  if (curNameLine) nameLines.push(curNameLine);
+
+  // 2. Process detail lines (Location, Phone, FSSAI)
+  ctx.font = detailFont;
+  const detailLines = [];
+  if (headerData.hotelLocation) {
+    const locStr = String(headerData.hotelLocation).trim();
+    const locWords = locStr.split(/\s+/);
+    let curLoc = '';
+    locWords.forEach(word => {
+      const test = curLoc ? `${curLoc} ${word}` : word;
+      if (ctx.measureText(test).width <= totalWidth - 8) {
+        curLoc = test;
+      } else {
+        if (curLoc) detailLines.push(curLoc);
+        curLoc = word;
+      }
+    });
+    if (curLoc) detailLines.push(curLoc);
+  }
+
+  if (headerData.hotelPhone) {
+    detailLines.push(`Phone: ${String(headerData.hotelPhone).trim()}`);
+  }
+  if (headerData.hotelFssai) {
+    detailLines.push(`FSSAI: ${String(headerData.hotelFssai).trim()}`);
+  }
+
+  const totalHeight = (nameLines.length * nameLineHeight) + (detailLines.length * detailLineHeight) + 12;
+  canvas.height = totalHeight;
+
+  // Clear background to solid white
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, totalWidth, totalHeight);
+  ctx.fillStyle = '#000000';
+  ctx.textBaseline = 'top';
+
+  let currentY = 4;
+  ctx.font = nameFont;
+  nameLines.forEach(lineText => {
+    const metrics = ctx.measureText(lineText);
+    const x = Math.max(0, (totalWidth - metrics.width) / 2);
+    ctx.fillText(lineText, x, currentY);
+    currentY += nameLineHeight;
+  });
+
+  ctx.font = detailFont;
+  detailLines.forEach(lineText => {
+    const metrics = ctx.measureText(lineText);
+    const x = Math.max(0, (totalWidth - metrics.width) / 2);
+    ctx.fillText(lineText, x, currentY);
+    currentY += detailLineHeight;
+  });
+
+  return canvasToEscposRaster(canvas);
+}
+
+/**
  * Render Marathi Table Header Row (पदार्थ + नग + दर + रक्कम) as ESC/POS raster bitmap command.
  * Perfectly aligns column titles with the item rows below.
  * @param {Object} options - Paper size configurations.

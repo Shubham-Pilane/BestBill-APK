@@ -38,6 +38,22 @@ const combineAndMergeItems = (activeItems = [], removedItems = []) => {
   return Array.from(map.values());
 };
 
+// Resolve effective tax rate for billing history and receipt printing
+const resolveMobileEffectiveTaxRate = (oldTaxAmt, oldTotalAmt, hotelTaxRate) => {
+  const hRate = Number(hotelTaxRate || 0);
+  const total = Number(oldTotalAmt || 0);
+  const tax = Number(oldTaxAmt || 0);
+  if (total > 0 && tax === 0) return 0;
+  if (tax > 0 && total > 0 && hRate === 0) {
+    return Number(((tax / total) * 100).toFixed(2));
+  }
+  return hRate;
+};
+
+const resolveMobileEffectiveGstRate = (bill, hotel) => {
+  return resolveMobileEffectiveTaxRate(bill?.gst, bill?.total_amount, hotel?.gst_percentage);
+};
+
 // Generate a simple mock JWT
 const generateMockToken = (userId, role, hotelId) => {
   return `mock-token-${userId}-${role}-${hotelId}-${Date.now()}`;
@@ -805,56 +821,115 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if ((path === '/bills/history' || path === '/bills') && methodUpper === 'GET') {
       try {
-        const hotelRes = await db.query(
-          'SELECT gst_percentage, cgst_percentage, sgst_percentage FROM hotels WHERE id = $1 OR owner_id = $2',
-          [user?.hotel_id, user?.id]
-        );
-        const hotel = hotelRes.rows[0] || {};
+        let hotel = {};
+        try {
+          const hotelRes = await db.query(
+            'SELECT * FROM hotels WHERE id = $1 OR owner_id = $2 LIMIT 1',
+            [user?.hotel_id || 1, user?.id || 1]
+          );
+          hotel = hotelRes.rows[0] || {};
+        } catch (hErr) {
+          console.warn('[BILLS HISTORY HOTEL FETCH NOTE]', hErr.message);
+        }
 
-        const billsRes = await db.query(`
-          SELECT b.*, COALESCE(t.table_number, 'Counter') as table_number
-          FROM bills b
-          LEFT JOIN orders o ON b.order_id = o.id
-          LEFT JOIN tables t ON o.table_id = t.id
-          ORDER BY b.id DESC
-        `);
+        let billsRes;
+        try {
+          billsRes = await db.query(`
+            SELECT b.*, COALESCE(t.table_number, 'Counter') as table_number
+            FROM bills b
+            LEFT JOIN orders o ON b.order_id = o.id
+            LEFT JOIN tables t ON o.table_id = t.id
+            ORDER BY b.id DESC
+          `);
+        } catch (joinErr) {
+          console.warn('[BILLS HISTORY JOIN QUERY FAILED, FALLING BACK TO DIRECT SELECT]', joinErr.message);
+          billsRes = await db.query('SELECT * FROM bills ORDER BY id DESC');
+        }
 
         const formattedBills = [];
-        for (const bill of billsRes.rows) {
-          const itemsRes = await db.query(`
-            SELECT oi.id, oi.menu_item_id, oi.quantity, oi.is_manual, oi.custom_name, oi.custom_price,
-                   COALESCE(oi.custom_name, mi.name, 'Other') as name, mi.marathi_name,
-                   COALESCE(oi.custom_price, mi.price, 0) as price
-            FROM order_items oi
-            LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
-            WHERE oi.order_id = $1 AND oi.quantity > 0
-            ORDER BY oi.created_at ASC, oi.id ASC
-          `, [bill.order_id]);
+        for (const bill of (billsRes?.rows || [])) {
+          try {
+            let items = [];
+            if (bill.order_id) {
+              try {
+                const itemsRes = await db.query(`
+                  SELECT oi.id, oi.menu_item_id, oi.quantity, oi.is_manual, oi.custom_name, oi.custom_price,
+                         COALESCE(oi.custom_name, mi.name, 'Other') as name, mi.marathi_name,
+                         COALESCE(oi.custom_price, mi.price, 0) as price
+                  FROM order_items oi
+                  LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
+                  WHERE oi.order_id = $1 AND oi.quantity > 0
+                  ORDER BY oi.created_at ASC, oi.id ASC
+                `, [bill.order_id]);
+                items = itemsRes.rows || [];
+              } catch (itemErr) {
+                try {
+                  const fallbackItems = await db.query('SELECT * FROM order_items WHERE order_id = $1', [bill.order_id]);
+                  items = fallbackItems.rows || [];
+                } catch (e2) {}
+              }
+            }
 
-          const effGst = resolveMobileEffectiveTaxRate(bill.gst, bill.total_amount, hotel.gst_percentage);
-          const effCgst = resolveMobileEffectiveTaxRate(bill.cgst, bill.total_amount, hotel.cgst_percentage);
-          const effSgst = resolveMobileEffectiveTaxRate(bill.sgst, bill.total_amount, hotel.sgst_percentage);
+            let effGst = 0, effCgst = 0, effSgst = 0;
+            try {
+              effGst = resolveMobileEffectiveTaxRate(bill.gst, bill.total_amount, hotel.gst_percentage);
+              effCgst = resolveMobileEffectiveTaxRate(bill.cgst, bill.total_amount, hotel.cgst_percentage);
+              effSgst = resolveMobileEffectiveTaxRate(bill.sgst, bill.total_amount, hotel.sgst_percentage);
+            } catch (taxErr) {}
 
-          formattedBills.push({
-            ...bill,
-            subtotal: bill.total_amount,
-            is_paid: bill.is_paid === 1 || bill.is_paid === true,
-            effective_gst_percentage: effGst,
-            effective_cgst_percentage: effCgst,
-            effective_sgst_percentage: effSgst,
-            gst_percentage: effGst,
-            cgst_percentage: effCgst,
-            sgst_percentage: effSgst,
-            items: itemsRes.rows,
-            items_json: JSON.stringify(itemsRes.rows),
-            parsedItems: itemsRes.rows
-          });
+            formattedBills.push({
+              ...bill,
+              subtotal: Number(bill.total_amount || 0),
+              final_amount: Number(bill.final_amount ?? bill.total_amount ?? 0),
+              is_paid: bill.is_paid === 1 || bill.is_paid === true,
+              table_number: bill.table_number || 'Counter',
+              effective_gst_percentage: effGst,
+              effective_cgst_percentage: effCgst,
+              effective_sgst_percentage: effSgst,
+              gst_percentage: effGst,
+              cgst_percentage: effCgst,
+              sgst_percentage: effSgst,
+              items: items,
+              items_json: JSON.stringify(items),
+              parsedItems: items
+            });
+          } catch (singleBillErr) {
+            console.error('[SINGLE BILL PROCESS ERROR]', singleBillErr);
+            formattedBills.push({
+              ...bill,
+              subtotal: Number(bill.total_amount || 0),
+              final_amount: Number(bill.final_amount ?? bill.total_amount ?? 0),
+              is_paid: bill.is_paid === 1 || bill.is_paid === true,
+              table_number: bill.table_number || 'Counter',
+              items: [],
+              items_json: '[]',
+              parsedItems: []
+            });
+          }
         }
 
         return { status: 200, data: formattedBills };
       } catch (e) {
         console.error('[LOCAL BILLS HISTORY ERROR]', e);
-        return { status: 200, data: [] };
+        try {
+          const directBills = await db.query('SELECT * FROM bills ORDER BY id DESC');
+          return {
+            status: 200,
+            data: directBills.rows.map(b => ({
+              ...b,
+              subtotal: Number(b.total_amount || 0),
+              final_amount: Number(b.final_amount ?? b.total_amount ?? 0),
+              is_paid: b.is_paid === 1 || b.is_paid === true,
+              table_number: 'Counter',
+              items: [],
+              items_json: '[]',
+              parsedItems: []
+            }))
+          };
+        } catch (fallbackErr) {
+          console.error('[LOCAL BILLS HISTORY FALLBACK ERR]', fallbackErr);
+          return { status: 200, data: [] };
+        }
       }
     }
 
@@ -1008,21 +1083,6 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     // ----------------------------------------
     // BILLS HISTORICAL ROUTES
     // ----------------------------------------
-    const resolveMobileEffectiveTaxRate = (oldTaxAmt, oldTotalAmt, hotelTaxRate) => {
-      const hRate = Number(hotelTaxRate || 0);
-      const total = Number(oldTotalAmt || 0);
-      const tax = Number(oldTaxAmt || 0);
-      if (total > 0 && tax === 0) return 0;
-      if (tax > 0 && total > 0 && hRate === 0) {
-        return Number(((tax / total) * 100).toFixed(2));
-      }
-      return hRate;
-    };
-
-    const resolveMobileEffectiveGstRate = (bill, hotel) => {
-      return resolveMobileEffectiveTaxRate(bill?.gst, bill?.total_amount, hotel?.gst_percentage);
-    };
-
     const getMobileFullBillById = async (billId) => {
       const billRes = await db.query('SELECT * FROM bills WHERE id = $1', [billId]);
       if (billRes.rows.length === 0) return null;
