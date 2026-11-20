@@ -197,6 +197,7 @@ CREATE TABLE IF NOT EXISTS orders (
 
 CREATE TABLE IF NOT EXISTS bills (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bill_number INTEGER,
     order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
     total_amount REAL DEFAULT 0,
     gst REAL DEFAULT 0,
@@ -525,6 +526,63 @@ export const initDb = async () => {
     try {
       db.run("ALTER TABLE bills ADD COLUMN discount_amount REAL DEFAULT 0;");
     } catch (e) {}
+    try {
+      db.run("ALTER TABLE bills ADD COLUMN bill_number INTEGER;");
+    } catch (e) {}
+
+    // Backfill contiguous daily sequence (1 to N) for existing bills
+    try {
+      const unnumberedBills = db.exec(`
+        SELECT b.id, b.created_at, COALESCE(t.hotel_id, 1) as hotel_id
+        FROM bills b
+        LEFT JOIN orders o ON b.order_id = o.id
+        LEFT JOIN tables t ON o.table_id = t.id
+        WHERE b.bill_number IS NULL OR b.bill_number = 0
+        ORDER BY b.created_at ASC, b.id ASC
+      `);
+      if (unnumberedBills.length > 0 && unnumberedBills[0].values && unnumberedBills[0].values.length > 0) {
+        const existingBills = db.exec(`
+          SELECT b.id, b.created_at, b.bill_number, COALESCE(t.hotel_id, 1) as hotel_id
+          FROM bills b
+          LEFT JOIN orders o ON b.order_id = o.id
+          LEFT JOIN tables t ON o.table_id = t.id
+          WHERE b.bill_number IS NOT NULL AND b.bill_number > 0
+        `);
+        const dailyCounters = {};
+        if (existingBills.length > 0 && existingBills[0].values) {
+          for (const eb of existingBills[0].values) {
+            let dateKey = 'unknown';
+            if (eb[1]) {
+              const d = new Date(String(eb[1]).replace(' ', 'T'));
+              if (!isNaN(d.getTime())) {
+                dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+              }
+            }
+            const groupKey = `${eb[3] || 1}_${dateKey}`;
+            if (!dailyCounters[groupKey] || eb[2] > dailyCounters[groupKey]) {
+              dailyCounters[groupKey] = eb[2];
+            }
+          }
+        }
+        for (const row of unnumberedBills[0].values) {
+          const bId = row[0];
+          const bCreatedAt = row[1];
+          const hId = row[2] || 1;
+          let dateKey = 'unknown';
+          if (bCreatedAt) {
+            const d = new Date(String(bCreatedAt).replace(' ', 'T'));
+            if (!isNaN(d.getTime())) {
+              dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            }
+          }
+          const groupKey = `${hId}_${dateKey}`;
+          dailyCounters[groupKey] = (dailyCounters[groupKey] || 0) + 1;
+          db.run("UPDATE bills SET bill_number = ? WHERE id = ?", [dailyCounters[groupKey], bId]);
+        }
+      }
+    } catch (backfillErr) {
+      console.warn('[LOCAL DB] Backfill bill_number note:', backfillErr);
+    }
     saveDbFileNow();
     
     // Enable Foreign Keys & Seed Defaults

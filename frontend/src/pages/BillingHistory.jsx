@@ -38,6 +38,14 @@ const BillingHistory = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [paymentFilter, setPaymentFilter] = useState('ALL');
+    const [dateFilter, setDateFilter] = useState('today'); // 'today', 'yesterday', 'specific', 'all'
+    const [specificDate, setSpecificDate] = useState(() => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    });
     const [selectedBill, setSelectedBill] = useState(null);
     const [editingBill, setEditingBill] = useState(null);
     const [customerPhone, setCustomerPhone] = useState('');
@@ -149,11 +157,36 @@ const BillingHistory = () => {
         }
     };
 
+    // Helper to extract local date string YYYY-MM-DD
+    const getLocalDateString = (dateInput) => {
+        if (!dateInput) return '';
+        const d = safeDate(dateInput);
+        if (isNaN(d.getTime())) return '';
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     // --- History View Logic ---
     const filteredBills = useMemo(() => {
+        const todayStr = getLocalDateString(new Date());
+        const yDate = new Date();
+        yDate.setDate(yDate.getDate() - 1);
+        const yesterdayStr = getLocalDateString(yDate);
         const s = (searchTerm || '').trim().toLowerCase();
+
         return (bills || []).filter(b => {
             if (!b) return false;
+
+            // Date filter
+            const bDateStr = getLocalDateString(b.created_at);
+            if (dateFilter === 'today' && bDateStr !== todayStr) return false;
+            if (dateFilter === 'yesterday' && bDateStr !== yesterdayStr) return false;
+            if (dateFilter === 'specific' && bDateStr !== specificDate) return false;
+            // 'all' includes all dates
+
+            // Payment filter
             if (paymentFilter !== 'ALL') {
                 const method = (b.payment_method || 'cash').toLowerCase();
                 if (paymentFilter === 'cash' && method !== 'cash') return false;
@@ -161,21 +194,32 @@ const BillingHistory = () => {
                 if (paymentFilter === 'partial' && method !== 'partial') return false;
                 if (paymentFilter === 'credit' && method !== 'credit') return false;
             }
+
+            // Search filter
             if (!s) return true;
+            const bNum = String(b.bill_number != null ? b.bill_number : '');
             const idStr = String(b.id || '');
             const tableStr = String(b.table_number || '').toLowerCase();
-            return idStr.includes(s) || tableStr.includes(s);
+            return bNum.includes(s) || idStr.includes(s) || tableStr.includes(s);
         });
-    }, [bills, searchTerm, paymentFilter]);
+    }, [bills, dateFilter, specificDate, searchTerm, paymentFilter]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [dateFilter, specificDate, paymentFilter, searchTerm]);
 
     const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
     const currentBills = filteredBills.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+    const filteredRevenue = useMemo(() => {
+        return filteredBills.reduce((acc, b) => acc + parseFloat(b.final_amount ?? b.total_amount ?? 0), 0);
+    }, [filteredBills]);
+
     const todayBills = useMemo(() => {
-        const todayStr = new Date().toDateString();
+        const todayStr = getLocalDateString(new Date());
         return (bills || []).filter(b => {
             if (!b) return false;
-            return safeDate(b.created_at).toDateString() === todayStr;
+            return getLocalDateString(b.created_at) === todayStr;
         });
     }, [bills]);
 
@@ -463,12 +507,16 @@ const BillingHistory = () => {
             {/* Summary Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
                 <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '16px', padding: '24px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('todays_revenue', "Today's Revenue")}</span>
-                    <h3 style={{ fontSize: '32px', fontWeight: 900, color: '#10b981', margin: 0 }}>₹{todayRevenue.toFixed(2)}</h3>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                        {dateFilter === 'today' ? t('todays_revenue', "Today's Revenue") : (dateFilter === 'yesterday' ? "Yesterday's Revenue" : (dateFilter === 'specific' ? `Revenue (${specificDate})` : "Total Revenue (All)"))}
+                    </span>
+                    <h3 style={{ fontSize: '32px', fontWeight: 900, color: '#10b981', margin: 0 }}>₹{filteredRevenue.toFixed(2)}</h3>
                 </div>
                 <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '16px', padding: '24px', border: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('total_invoices_today', 'Total Invoices Today')}</span>
-                    <h3 style={{ fontSize: '32px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{todayBills.length}</h3>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                        {dateFilter === 'today' ? t('total_invoices_today', 'Total Invoices Today') : (dateFilter === 'yesterday' ? "Total Invoices Yesterday" : (dateFilter === 'specific' ? `Total Invoices (${specificDate})` : "Total Invoices (All)"))}
+                    </span>
+                    <h3 style={{ fontSize: '32px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{filteredBills.length}</h3>
                 </div>
                 <div 
                     onClick={() => setActiveView(activeView === 'history' ? 'analytics' : 'history')}
@@ -495,8 +543,104 @@ const BillingHistory = () => {
                 // HISTORY VIEW (Table)
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>{t('transaction_history', 'Transaction History')}</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>{t('transaction_history', 'Transaction History')}</h3>
+                            <span style={{ backgroundColor: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.3)', padding: '5px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                Total Bills: <strong style={{ color: '#0284c7', fontSize: '15px' }}>{filteredBills.length}</strong>
+                            </span>
+                        </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            {/* Date Filter Tabs */}
+                            <div style={{ display: 'flex', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '8px', padding: '3px', gap: '3px', alignItems: 'center' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setDateFilter('today')}
+                                    style={{
+                                        padding: '7px 12px',
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        fontWeight: 800,
+                                        backgroundColor: dateFilter === 'today' ? '#0ea5e9' : 'transparent',
+                                        color: dateFilter === 'today' ? '#ffffff' : 'var(--text-muted)',
+                                        transition: 'all 0.15s'
+                                    }}
+                                >
+                                    Today's Bills
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDateFilter('yesterday')}
+                                    style={{
+                                        padding: '7px 12px',
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        fontWeight: 800,
+                                        backgroundColor: dateFilter === 'yesterday' ? '#0ea5e9' : 'transparent',
+                                        color: dateFilter === 'yesterday' ? '#ffffff' : 'var(--text-muted)',
+                                        transition: 'all 0.15s'
+                                    }}
+                                >
+                                    Yesterday
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDateFilter('specific')}
+                                    style={{
+                                        padding: '7px 12px',
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        fontWeight: 800,
+                                        backgroundColor: dateFilter === 'specific' ? '#0ea5e9' : 'transparent',
+                                        color: dateFilter === 'specific' ? '#ffffff' : 'var(--text-muted)',
+                                        transition: 'all 0.15s'
+                                    }}
+                                >
+                                    Specific Date
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDateFilter('all')}
+                                    style={{
+                                        padding: '7px 12px',
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        fontWeight: 800,
+                                        backgroundColor: dateFilter === 'all' ? '#0ea5e9' : 'transparent',
+                                        color: dateFilter === 'all' ? '#ffffff' : 'var(--text-muted)',
+                                        transition: 'all 0.15s'
+                                    }}
+                                >
+                                    All Bills
+                                </button>
+                            </div>
+
+                            {dateFilter === 'specific' && (
+                                <input
+                                    type="date"
+                                    value={specificDate}
+                                    onChange={(e) => setSpecificDate(e.target.value)}
+                                    style={{
+                                        backgroundColor: 'var(--bg-card)',
+                                        border: '1px solid #0ea5e9',
+                                        color: 'var(--text-primary)',
+                                        padding: '8px 12px',
+                                        borderRadius: '8px',
+                                        fontWeight: 700,
+                                        fontSize: '13px',
+                                        outline: 'none',
+                                        cursor: 'pointer'
+                                    }}
+                                />
+                            )}
+
                             <select
                                 value={paymentFilter}
                                 onChange={(e) => {
@@ -560,7 +704,7 @@ const BillingHistory = () => {
                                 ) : (
                                     currentBills.map(bill => (
                                         <tr key={bill.id} style={{ transition: 'background-color 0.2s' }} onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--bg-base)'} onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                            <td style={tdStyle}>#{bill.id}</td>
+                                            <td style={tdStyle}>#{bill.bill_number || bill.id}</td>
                                             <td style={tdStyle}>{safeDate(bill.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td>
                                             <td style={tdStyle}>
                                                 <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 800, backgroundColor: isParcel(bill.table_number) ? 'rgba(245, 158, 11, 0.1)' : 'rgba(14, 165, 233, 0.1)', color: isParcel(bill.table_number) ? '#f59e0b' : '#0ea5e9' }}>
@@ -856,7 +1000,7 @@ const BillingHistory = () => {
                         <div style={{ borderTop: '2px dashed var(--text-muted)', borderBottom: '2px dashed var(--text-muted)', padding: '12px 0', marginBottom: '20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 900, color: selectedBill.is_paid ? 'white' : 'var(--text-muted)' }}>
                             <span>TABLE NO: {selectedBill.table_number}</span>
-                            <span>BILL NO: #{selectedBill.id}</span>
+                            <span>BILL NO: #{selectedBill.bill_number || selectedBill.id}</span>
                         </div>
                         <div style={{ fontSize: '12px', color: selectedBill.is_paid ? 'white' : 'var(--text-muted)', marginTop: '4px' }}>DATE: {safeDate(selectedBill.created_at).toLocaleDateString()} {safeDate(selectedBill.created_at).toLocaleTimeString()}</div>
                         </div>

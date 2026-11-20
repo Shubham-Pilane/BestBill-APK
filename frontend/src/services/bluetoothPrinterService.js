@@ -370,7 +370,7 @@ export async function formatBill(data, printerSize = '58mm') {
   if (data.hotelFssai) builder.text(centerText(`FSSAI: ${String(data.hotelFssai).trim()}`, LINE_WIDTH));
 
   const isCancelOrder = data.type === 'CANCEL_ORDER' || data.isCancelOrder;
-  const billNoStr = data.billId || data.orderNumber || data.order_number || data.id || 'N/A';
+  const billNoStr = data.bill_number || data.billNumber || data.billId || data.orderNumber || data.order_number || data.id || 'N/A';
   const billLabel = isMarathi ? (isCancelOrder ? 'रद्द ऑर्डर क्र.:' : 'बिल क्र.:') : (isCancelOrder ? 'CANCEL ORDER NO:' : 'BILL NO:');
   const fullBillStr = `${billLabel} ${billNoStr}`;
 

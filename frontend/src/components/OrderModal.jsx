@@ -671,7 +671,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
       await api.post(`/tables/${table.id}/bill/send`, { 
         method, 
         customerPhone,
-        billId: billData.id
+        billId: billData.bill_number || billData.id
       });
       toast.success(`Invoice dispatched via ${method.toUpperCase()}!`);
     } catch (err) {
@@ -1533,7 +1533,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 <div style={{ borderTop: '2px dashed var(--border-color)', borderBottom: '2px dashed var(--border-color)', padding: '14px 0', marginBottom: '20px' }}>
                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 900, color: billData.is_paid ? '#ffffff' : 'var(--text-primary)' }}>
                       <span>{t('table_no', 'TABLE NO')}: {table.table_numberByFloor || table.table_number}</span>
-                      <span>{t('bill_no', 'BILL NO')}: #{billData.id}</span>
+                      <span>{t('bill_no', 'BILL NO')}: #{billData.bill_number || billData.id}</span>
                    </div>
                    <div style={{ fontSize: '12px', color: billData.is_paid ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)' }}>{t('date_label', 'DATE')}: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</div>
                 </div>

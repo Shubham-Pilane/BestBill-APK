@@ -773,10 +773,35 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         console.warn('[STOCK DEDUCTION NOTE]', e.message);
       }
 
+      // Compute contiguous daily sequence (1 to N)
+      let nextBillNumber = 1;
+      try {
+        const now = new Date();
+        const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const billCountRes = await db.query(
+          `SELECT COALESCE(MAX(b.bill_number), 0) + 1 AS next_bill_no
+           FROM bills b
+           JOIN orders o ON b.order_id = o.id
+           JOIN tables t ON o.table_id = t.id
+           WHERE t.hotel_id = $1
+             AND (
+               substr(b.created_at, 1, 10) = $2
+               OR date(b.created_at) = date($2)
+               OR date(b.created_at, 'localtime') = date($2)
+             )`,
+          [user.hotel_id, localDate]
+        );
+        if (billCountRes.rows.length > 0 && billCountRes.rows[0].next_bill_no) {
+          nextBillNumber = parseInt(billCountRes.rows[0].next_bill_no, 10);
+        }
+      } catch (numErr) {
+        console.warn('[LOCAL ROUTER] Error calculating bill_number:', numErr);
+      }
+
       const billRes = await db.query(
-        `INSERT INTO bills (order_id, total_amount, gst, cgst, sgst, round_off, final_amount, discount_percentage, discount_type, discount_amount) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, order_id, total_amount, gst, cgst, sgst, round_off, final_amount, discount_percentage, discount_type, discount_amount`,
-        [orderId, subtotal, gst, cgst, sgst, roundOff, finalAmount, discountPct, discType, discountAmount]
+        `INSERT INTO bills (order_id, total_amount, gst, cgst, sgst, round_off, final_amount, discount_percentage, discount_type, discount_amount, bill_number) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, order_id, total_amount, gst, cgst, sgst, round_off, final_amount, discount_percentage, discount_type, discount_amount, bill_number`,
+        [orderId, subtotal, gst, cgst, sgst, roundOff, finalAmount, discountPct, discType, discountAmount, nextBillNumber]
       );
 
       const newBill = billRes.rows[0] || {};
@@ -1430,7 +1455,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
       const printPayload = {
         type: 'FINAL_BILL',
-        billId: bill.id,
+        billId: bill.bill_number || bill.id,
+        billNumber: bill.bill_number || bill.id,
+        rawBillId: bill.id,
         table: tableName,
         subtotal: Number(bill.total_amount || 0),
         gst: Number(bill.gst || 0),

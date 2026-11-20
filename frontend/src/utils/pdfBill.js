@@ -70,7 +70,7 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
   const fssaiNo = hotelInfo.fssai_number || hotelInfo.fssai || hotelInfo.hotelFssai || '';
   const logoUrl = hotelInfo.logo_url || '';
 
-  const billId = billData.id || billData.bill_id || 'N/A';
+  const billId = billData.bill_number || billData.billNumber || billData.id || billData.bill_id || 'N/A';
   const rawTableOrRoom = billData.table || billData.table_number || (billData.room_number ? (isMarathi ? `रूम ${billData.room_number}` : `Room ${billData.room_number}`) : (isMarathi ? 'काउंटर' : 'Counter'));
   const tableOrRoom = formatTableStringForBill(rawTableOrRoom, isMarathi);
   const dateStr = billData.created_at ? new Date(billData.created_at).toLocaleDateString() : new Date().toLocaleDateString();
@@ -300,7 +300,7 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
 export const shareBillPDFViaWhatsApp = (billData, hotelInfo = {}, customerPhone = '') => {
   return new Promise((resolve, reject) => {
     try {
-      const billId = billData.id || billData.bill_id || 'receipt';
+      const billId = billData.bill_number || billData.billNumber || billData.id || billData.bill_id || 'receipt';
       const cleanPhone = customerPhone ? customerPhone.replace(/\\D/g, '') : '';
       const finalPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
       const hotelName = hotelInfo.hotel_name || hotelInfo.hotelName || 'BESTBILL';
