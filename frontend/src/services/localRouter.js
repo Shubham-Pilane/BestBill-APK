@@ -1453,6 +1453,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       const effectiveCgstPct = resolveMobileEffectiveTaxRate(bill.cgst, bill.total_amount, hotel.cgst_percentage);
       const effectiveSgstPct = resolveMobileEffectiveTaxRate(bill.sgst, bill.total_amount, hotel.sgst_percentage);
 
+      const isLogoEnabled = localStorage.getItem('cfg_logo_printing_enabled') !== 'false';
+      const storedLogo = localStorage.getItem('cfg_hotel_logo_url');
+      const billLogo = (isLogoEnabled && (storedLogo || hotel.logo_url)) ? (storedLogo || hotel.logo_url) : '';
+      const billLogoSize = localStorage.getItem('cfg_logo_size') || '300';
+
       const printPayload = {
         type: 'FINAL_BILL',
         billId: bill.bill_number || bill.id,
@@ -1475,6 +1480,9 @@ export async function handleRequest(method, url, body = null, headers = {}) {
         hotelLocation: String(hotel.location || '').trim(),
         hotelFssai: String(hotel.fssai_number || '').trim(),
         upiId: showUPI ? String(hotel.upi_id || '').trim() : '',
+        logoUrl: billLogo,
+        logoSize: billLogoSize,
+        logo_printing_enabled: isLogoEnabled && !!billLogo,
         isPaid: bill.is_paid === 1 || bill.is_paid === true,
         gst_percentage: effectiveGstPct,
         cgst_percentage: effectiveCgstPct,
@@ -1858,30 +1866,31 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/hotel' && methodUpper === 'PUT') {
-      const { name, phone, location, address, upi_id, gst_percentage, cgst_percentage, sgst_percentage, fssai_number, email } = body;
+      const { name, phone, location, address, upi_id, gst_percentage, cgst_percentage, sgst_percentage, fssai_number, email, logo_url } = body;
       const loc = location || address || '';
       const safeGst = parseFloat(gst_percentage) || 0;
       const safeCgst = parseFloat(cgst_percentage) || 0;
       const safeSgst = parseFloat(sgst_percentage) || 0;
+      const safeLogo = logo_url || '';
       
       const existing = await db.query('SELECT id FROM hotels WHERE id = $1 OR owner_id = $2', [user.hotel_id, user.id]);
       if (existing.rows.length > 0) {
         const hotelId = existing.rows[0].id;
         await db.query(
-          'UPDATE hotels SET name = $1, phone = $2, location = $3, upi_id = $4, gst_percentage = $5, cgst_percentage = $6, sgst_percentage = $7, fssai_number = $8, email = $9 WHERE id = $10',
-          [name, phone, loc, upi_id, safeGst, safeCgst, safeSgst, fssai_number || null, email || null, hotelId]
+          'UPDATE hotels SET name = $1, phone = $2, location = $3, upi_id = $4, gst_percentage = $5, cgst_percentage = $6, sgst_percentage = $7, fssai_number = $8, email = $9, logo_url = COALESCE(NULLIF($10, \'\'), logo_url) WHERE id = $11',
+          [name, phone, loc, upi_id, safeGst, safeCgst, safeSgst, fssai_number || null, email || null, safeLogo, hotelId]
         );
       } else {
         const newH = await db.query(
-          'INSERT INTO hotels (owner_id, name, phone, location, upi_id, gst_percentage, cgst_percentage, sgst_percentage, fssai_number, email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
-          [user.id, name, phone, loc, upi_id, safeGst, safeCgst, safeSgst, fssai_number || null, email || null]
+          'INSERT INTO hotels (owner_id, name, phone, location, upi_id, gst_percentage, cgst_percentage, sgst_percentage, fssai_number, email, logo_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id',
+          [user.id, name, phone, loc, upi_id, safeGst, safeCgst, safeSgst, fssai_number || null, email || null, safeLogo || null]
         );
         if (newH.rows[0]?.id) {
           await db.query('UPDATE users SET hotel_id = $1 WHERE id = $2', [newH.rows[0].id, user.id]);
         }
       }
       await db.saveDbFileNow();
-      return { status: 200, data: { success: true, name, phone, location: loc, upi_id, gst_percentage: safeGst, cgst_percentage: safeCgst, sgst_percentage: safeSgst, fssai_number, email } };
+      return { status: 200, data: { success: true, name, phone, location: loc, upi_id, gst_percentage: safeGst, cgst_percentage: safeCgst, sgst_percentage: safeSgst, fssai_number, email, logo_url: safeLogo } };
     }
 
     if (path === '/hotel/waiters' && methodUpper === 'GET') {

@@ -68,7 +68,11 @@ export const createBillPDFDocDefinition = (billData, hotelInfo = {}) => {
   const email = hotelInfo.hotel_email || hotelInfo.email || '';
   const gstNo = hotelInfo.gst_number || hotelInfo.gstin || '';
   const fssaiNo = hotelInfo.fssai_number || hotelInfo.fssai || hotelInfo.hotelFssai || '';
-  const logoUrl = hotelInfo.logo_url || '';
+  const logoPrintingEnabled = typeof window !== 'undefined'
+    ? localStorage.getItem('cfg_logo_printing_enabled') !== 'false'
+    : true;
+  const storedLogo = typeof window !== 'undefined' ? localStorage.getItem('cfg_hotel_logo_url') : '';
+  const logoUrl = logoPrintingEnabled ? (hotelInfo.logo_url || storedLogo || '') : '';
 
   const billId = billData.bill_number || billData.billNumber || billData.id || billData.bill_id || 'N/A';
   const rawTableOrRoom = billData.table || billData.table_number || (billData.room_number ? (isMarathi ? `रूम ${billData.room_number}` : `Room ${billData.room_number}`) : (isMarathi ? 'काउंटर' : 'Counter'));

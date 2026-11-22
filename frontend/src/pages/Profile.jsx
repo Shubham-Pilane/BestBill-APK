@@ -43,7 +43,9 @@ const Profile = () => {
     });
 
     const [logoPrintingEnabled, setLogoPrintingEnabled] = useState(
-        localStorage.getItem('cfg_logo_printing_enabled') === 'true'
+        localStorage.getItem('cfg_logo_printing_enabled') !== null
+            ? localStorage.getItem('cfg_logo_printing_enabled') === 'true'
+            : !!(user?.logo_url || localStorage.getItem('cfg_hotel_logo_url'))
     );
     const [logoUrl, setLogoUrl] = useState(
         user?.logo_url || localStorage.getItem('cfg_hotel_logo_url') || ''
@@ -75,7 +77,7 @@ const Profile = () => {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const maxWidth = 200;
+                const maxWidth = 300;
                 const aspect = img.height / img.width;
                 const width = Math.min(maxWidth, img.width);
                 const height = Math.round(width * aspect);
@@ -89,7 +91,9 @@ const Profile = () => {
 
                 const compressedDataUrl = canvas.toDataURL('image/png');
                 setLogoUrl(compressedDataUrl);
+                setLogoPrintingEnabled(true);
                 localStorage.setItem('cfg_hotel_logo_url', compressedDataUrl);
+                localStorage.setItem('cfg_logo_printing_enabled', 'true');
                 setHotelData(prev => ({ ...prev, logo_url: compressedDataUrl }));
                 toast.success('Hotel Logo Uploaded & Saved!');
             };
@@ -626,6 +630,9 @@ const Profile = () => {
             const finalAmount = Math.ceil(unroundedTotal);
             const roundOff = Number((finalAmount - unroundedTotal).toFixed(2));
 
+            const isLogoEnabled = logoPrintingEnabled;
+            const currentLogoUrl = isLogoEnabled ? (logoUrl || localStorage.getItem('cfg_hotel_logo_url') || hotelData.logo_url || '') : '';
+
             const testPayload = {
                 type: 'FINAL_BILL',
                 billId: 9999,
@@ -640,7 +647,10 @@ const Profile = () => {
                 isPaid: false,
                 gst_percentage: gstPct,
                 cgst_percentage: cgstPct,
-                sgst_percentage: sgstPct
+                sgst_percentage: sgstPct,
+                logoUrl: currentLogoUrl,
+                logoSize: logoSize || localStorage.getItem('cfg_logo_size') || '300',
+                logo_printing_enabled: isLogoEnabled && !!currentLogoUrl
             };
 
             const size = printerConfig.billing.paperSize || '58mm';
@@ -778,6 +788,7 @@ const Profile = () => {
         try {
             const payload = {
                 ...hotelData,
+                logo_url: logoUrl || hotelData.logo_url || localStorage.getItem('cfg_hotel_logo_url') || '',
                 gst_percentage: parseFloat(hotelData.gst_percentage) || 0,
                 cgst_percentage: parseFloat(hotelData.cgst_percentage) || 0,
                 sgst_percentage: parseFloat(hotelData.sgst_percentage) || 0
@@ -789,6 +800,7 @@ const Profile = () => {
                 hotel_phone: hotelData.phone,
                 hotel_location: hotelData.address,
                 upi_id: hotelData.upi_id, 
+                logo_url: payload.logo_url,
                 gst_percentage: parseFloat(hotelData.gst_percentage) || 0,
                 cgst_percentage: parseFloat(hotelData.cgst_percentage) || 0,
                 sgst_percentage: parseFloat(hotelData.sgst_percentage) || 0,
@@ -1050,7 +1062,12 @@ const Profile = () => {
                                                             <img src={logoUrl} alt="Hotel Logo" style={{ maxHeight: '60px', maxWidth: '120px', objectFit: 'contain' }} />
                                                             <button 
                                                                 type="button" 
-                                                                onClick={() => { setLogoUrl(''); localStorage.removeItem('cfg_hotel_logo_url'); toast.success('Logo removed'); }}
+                                                                onClick={() => { 
+                                                                    setLogoUrl(''); 
+                                                                    setHotelData(prev => ({ ...prev, logo_url: '' }));
+                                                                    localStorage.removeItem('cfg_hotel_logo_url'); 
+                                                                    toast.success('Logo removed'); 
+                                                                }}
                                                                 style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
                                                             >
                                                                 {t('remove_logo', 'Remove Logo')}

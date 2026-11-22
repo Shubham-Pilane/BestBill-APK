@@ -7,6 +7,7 @@ import {
   renderKOTHeaderRowToRaster,
   renderKOTItemRowToRaster
 } from '../utils/devanagariRenderer';
+import { renderCenteredQrCodeToRaster } from '../utils/qrcodegen';
 import { formatTableStringForBill } from '../utils/pdfBill';
 
 // Helper to pad text left/right for ESC/POS alignment
@@ -144,14 +145,20 @@ class EscposBuilder {
     const pL = len % 256;
     const pH = Math.floor(len / 256);
 
+    // ESC a 1: Center alignment
+    this.bytes.push(0x1B, 0x61, 0x01);
+
     this.bytes.push(0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00);
-    this.bytes.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06);
+    this.bytes.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, this.is58mm ? 0x05 : 0x06);
     this.bytes.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30);
     this.bytes.push(0x1D, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30);
     for (let i = 0; i < textBytes.length; i++) {
       this.bytes.push(textBytes[i]);
     }
     this.bytes.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30);
+
+    // ESC a 0: Reset to left alignment
+    this.bytes.push(0x1B, 0x61, 0x00);
     return this;
   }
 
@@ -355,6 +362,26 @@ export async function formatBill(data, printerSize = '58mm') {
   const dateStr = new Date().toLocaleString();
   const isMarathi = (typeof window !== 'undefined' && localStorage.getItem('app_language') === 'mr') || data.language === 'mr';
 
+  // Render centered hotel logo if enabled
+  const logoPrintingEnabled = data.logo_printing_enabled !== undefined
+    ? (data.logo_printing_enabled === true || data.logo_printing_enabled === 'true')
+    : (typeof window !== 'undefined' ? localStorage.getItem('cfg_logo_printing_enabled') !== 'false' : true);
+
+  const logoUrl = data.logoUrl || data.logo_url || (typeof window !== 'undefined' ? localStorage.getItem('cfg_hotel_logo_url') : '') || '';
+  const logoSizeSetting = data.logoSize || data.logo_size || (typeof window !== 'undefined' ? localStorage.getItem('cfg_logo_size') : '300') || '300';
+
+  if (logoPrintingEnabled && logoUrl) {
+    try {
+      const logoBytes = await renderCenteredLogoToRaster(logoUrl, printerSize, logoSizeSetting);
+      if (logoBytes && logoBytes.length > 0) {
+        builder.appendBytes(logoBytes);
+        builder.feed(1);
+      }
+    } catch (e) {
+      console.warn('[LOGO PRINT FAILED]', e);
+    }
+  }
+
   const hotelName = String(data.hotelName || 'BestBill POS').trim();
   builder.appendBytes(renderDevanagariLineToRaster(hotelName, { paperSize: printerSize, align: 'center', isDouble: true }));
 
@@ -551,8 +578,17 @@ export async function formatBill(data, printerSize = '58mm') {
     const upiLink = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.hotelName || '')}&am=${finalAmountToDisplay}&cu=INR`;
     builder.bold(true)
       .text(centerText('SCAN TO PAY WITH ANY UPI APP', LINE_WIDTH))
-      .bold(false)
-      .qrCode(upiLink)
+      .bold(false);
+
+    // Render pixel-perfect centered QR Code raster bitmap
+    const qrBytes = renderCenteredQrCodeToRaster(upiLink, printerSize);
+    if (qrBytes && qrBytes.length > 0) {
+      builder.appendBytes(qrBytes);
+    } else {
+      builder.alignCenter().qrCode(upiLink).alignLeft();
+    }
+
+    builder
       .text(centerText(`UPI ID: ${data.upiId}`, LINE_WIDTH))
       .line('-', LINE_WIDTH);
   }
@@ -568,38 +604,151 @@ export async function formatBill(data, printerSize = '58mm') {
   return builder.build();
 }
 
-// Convert logo image to ESC/POS monochrome bitmap
-export async function convertImageToEscpos(url, maxWidth = 300) {
+// Render hotel logo centered as an ESC/POS GS v 0 raster bitmap
+export async function renderCenteredLogoToRaster(logoUrl, paperSize = '58mm', logoSizeSetting = '300') {
+  if (!logoUrl || typeof document === 'undefined') return new Uint8Array([]);
+  const is58mm = paperSize === '58mm';
+  const paperWidth = is58mm ? 384 : 576;
+
   return new Promise((resolve) => {
-    if (!url) { resolve([]); return; }
-    const img = new Image();
-    img.crossOrigin = 'Anonymous';
-    img.onload = () => {
-      try {
-        let targetWidth = Math.min(img.width || maxWidth, maxWidth);
-        targetWidth = Math.floor(targetWidth / 8) * 8;
-        if (targetWidth < 8) targetWidth = 8;
-        const aspect = img.height / img.width;
-        const width = targetWidth;
-        const height = Math.round(width * aspect);
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0, width, height);
-
-        resolve(Array.from(convertCanvasToEscpos(canvas)));
-      } catch (e) {
-        console.warn('[IMAGE ERROR]', e);
-        resolve([]);
+    let finished = false;
+    const finish = (bytes) => {
+      if (!finished) {
+        finished = true;
+        resolve(bytes);
       }
     };
-    img.onerror = () => resolve([]);
-    img.src = url;
+
+    const timeoutId = setTimeout(() => {
+      console.warn('[LOGO TIMEOUT] Logo rasterization timed out');
+      finish(new Uint8Array([]));
+    }, 3000);
+
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+
+    const process = () => {
+      clearTimeout(timeoutId);
+      try {
+        if (!img.naturalWidth && !img.width) {
+          finish(new Uint8Array([]));
+          return;
+        }
+
+        const srcWidth = img.naturalWidth || img.width;
+        const srcHeight = img.naturalHeight || img.height;
+
+        // Size handling: 180px for Small, up to 300px for Large (clamped to paper printable width)
+        const requestedWidth = String(logoSizeSetting) === '180' ? 180 : 300;
+        const maxAllowedWidth = paperWidth - 32;
+        let targetWidth = Math.min(requestedWidth, maxAllowedWidth);
+        targetWidth = Math.floor(targetWidth / 8) * 8;
+        if (targetWidth < 8) targetWidth = 8;
+
+        const aspect = srcHeight / srcWidth;
+        let targetHeight = Math.round(targetWidth * aspect);
+        const maxHeight = is58mm ? 260 : 360;
+        if (targetHeight > maxHeight) {
+          targetHeight = maxHeight;
+          targetWidth = Math.floor((targetHeight / aspect) / 8) * 8;
+        }
+
+        const offsetX = Math.max(0, Math.floor((paperWidth - targetWidth) / 2));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = paperWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          finish(new Uint8Array([]));
+          return;
+        }
+
+        // White background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, paperWidth, targetHeight);
+        ctx.drawImage(img, offsetX, 0, targetWidth, targetHeight);
+
+        const imgData = ctx.getImageData(0, 0, paperWidth, targetHeight);
+        const pixels = imgData.data;
+
+        // Grayscale conversion with alpha composite
+        const gray = new Float32Array(paperWidth * targetHeight);
+        for (let i = 0; i < paperWidth * targetHeight; i++) {
+          const r = pixels[i * 4];
+          const g = pixels[i * 4 + 1];
+          const b = pixels[i * 4 + 2];
+          const a = pixels[i * 4 + 3] / 255;
+          const blendedR = r * a + 255 * (1 - a);
+          const blendedG = g * a + 255 * (1 - a);
+          const blendedB = b * a + 255 * (1 - a);
+          gray[i] = blendedR * 0.299 + blendedG * 0.587 + blendedB * 0.114;
+        }
+
+        // Floyd-Steinberg dithering for smooth thermal reproduction
+        const bw = new Uint8Array(paperWidth * targetHeight);
+        for (let y = 0; y < targetHeight; y++) {
+          for (let x = 0; x < paperWidth; x++) {
+            const idx = y * paperWidth + x;
+            const oldPixel = gray[idx];
+            const newPixel = oldPixel < 160 ? 0 : 255;
+            bw[idx] = newPixel === 0 ? 1 : 0;
+            const error = oldPixel - newPixel;
+
+            if (x + 1 < paperWidth) gray[idx + 1] += error * (7 / 16);
+            if (y + 1 < targetHeight) {
+              if (x > 0) gray[idx + paperWidth - 1] += error * (3 / 16);
+              gray[idx + paperWidth] += error * (5 / 16);
+              if (x + 1 < paperWidth) gray[idx + paperWidth + 1] += error * (1 / 16);
+            }
+          }
+        }
+
+        const bytesPerLine = paperWidth / 8;
+        const xL = bytesPerLine % 256;
+        const xH = Math.floor(bytesPerLine / 256);
+        const yL = targetHeight % 256;
+        const yH = Math.floor(targetHeight / 256);
+
+        const bytes = [0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH];
+        for (let y = 0; y < targetHeight; y++) {
+          for (let bx = 0; bx < bytesPerLine; bx++) {
+            let byte = 0;
+            for (let b = 0; b < 8; b++) {
+              const px = bx * 8 + b;
+              if (bw[y * paperWidth + px] === 1) {
+                byte |= (1 << (7 - b));
+              }
+            }
+            bytes.push(byte);
+          }
+        }
+
+        finish(new Uint8Array(bytes));
+      } catch (err) {
+        console.error('[LOGO RASTER ERROR]', err);
+        finish(new Uint8Array([]));
+      }
+    };
+
+    img.onload = process;
+    img.onerror = (err) => {
+      clearTimeout(timeoutId);
+      console.warn('[LOGO LOAD ERROR]', err);
+      finish(new Uint8Array([]));
+    };
+
+    img.src = logoUrl;
+    if (img.complete && (img.naturalWidth > 0 || img.width > 0)) {
+      process();
+    }
   });
+}
+
+// Convert logo image to ESC/POS monochrome bitmap (backward compatibility wrapper)
+export async function convertImageToEscpos(url, maxWidth = 300) {
+  const bytes = await renderCenteredLogoToRaster(url, '58mm', String(maxWidth));
+  return Array.from(bytes);
 }
 
 // Bluetooth Printer Manager
