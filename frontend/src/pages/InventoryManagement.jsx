@@ -546,9 +546,12 @@ const InventoryManagement = () => {
     const itemsTotalPages = Math.ceil(filteredItems.length / itemsPerPage) || 1;
     const paginatedItems = filteredItems.slice((itemCurrentPage - 1) * itemsPerPage, itemCurrentPage * itemsPerPage);
 
-    const filteredMenuItems = menuItems.filter(menuItem => 
-        menuItem.name.toLowerCase().includes(menuSearchQuery.toLowerCase())
-    );
+    const filteredMenuItems = menuItems.filter(menuItem => {
+        const q = menuSearchQuery.trim().toLowerCase();
+        if (!q) return true;
+        const numStr = menuItem.item_number !== undefined && menuItem.item_number !== null ? String(menuItem.item_number) : '';
+        return menuItem.name.toLowerCase().includes(q) || numStr === q || numStr.startsWith(q);
+    });
     const menuTotalPages = Math.ceil(filteredMenuItems.length / menuItemsPerPage) || 1;
     const paginatedMenuItems = filteredMenuItems.slice((menuCurrentPage - 1) * menuItemsPerPage, menuCurrentPage * menuItemsPerPage);
 
@@ -839,7 +842,7 @@ const InventoryManagement = () => {
                                         
                                         return (
                                             <tr key={menuItem.id} style={{ borderBottom: '1px solid var(--border-rgba-05)', transition: 'background-color 0.2s' }} onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--bg-base)'} onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                                <td style={{ padding: '16px', fontWeight: 700 }}>{menuItem.name}</td>
+                                                <td style={{ padding: '16px', fontWeight: 700 }}>{menuItem.item_number ? `#${menuItem.item_number} ` : ''}{menuItem.name}</td>
                                                 <td style={{ padding: '16px', fontWeight: 800, color: '#10b981' }}>₹{parseFloat(menuItem.price).toFixed(2)}</td>
                                                 <td style={{ padding: '16px', color: 'var(--text-muted)', fontWeight: 600 }}>
                                                     {linkedRecipe ? (

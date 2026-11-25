@@ -36,7 +36,8 @@ const MenuManagement = () => {
     marathi_name: '',
     price: '',
     category_id: '',
-    description: ''
+    description: '',
+    item_number: ''
   });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -88,7 +89,7 @@ const MenuManagement = () => {
       const lines = text.split(/\r?\n/);
       const importedItems = [];
       
-      let catIdx = -1, nameIdx = -1, priceIdx = -1, marathiNameIdx = -1, marathiCatIdx = -1;
+      let catIdx = -1, nameIdx = -1, priceIdx = -1, marathiNameIdx = -1, marathiCatIdx = -1, itemNumIdx = -1;
       
       let startIdx = 0;
       if (lines.length > 0 && (lines[0].toLowerCase().includes('category') || lines[0].toLowerCase().includes('price') || lines[0].toLowerCase().includes('name'))) {
@@ -104,6 +105,10 @@ const MenuManagement = () => {
         if (marathiNameIdx === -1) marathiNameIdx = headers.indexOf('marathi name');
         marathiCatIdx = headers.indexOf('marathi_category');
         if (marathiCatIdx === -1) marathiCatIdx = headers.indexOf('marathi category');
+        itemNumIdx = headers.indexOf('item_number');
+        if (itemNumIdx === -1) itemNumIdx = headers.indexOf('item number');
+        if (itemNumIdx === -1) itemNumIdx = headers.indexOf('item_no');
+        if (itemNumIdx === -1) itemNumIdx = headers.indexOf('item no');
       }
 
       if (catIdx === -1) catIdx = 0;
@@ -123,9 +128,10 @@ const MenuManagement = () => {
         const price = parseFloat(parts[priceIdx]);
         const marathi_name = parts[marathiNameIdx] || '';
         const marathi_category = marathiCatIdx !== -1 ? (parts[marathiCatIdx] || '') : '';
+        const item_number = itemNumIdx !== -1 && parts[itemNumIdx] ? parseInt(parts[itemNumIdx], 10) : '';
         
         if (category && name && !isNaN(price)) {
-          importedItems.push({ category, name, price, marathi_name, marathi_category });
+          importedItems.push({ category, name, price, marathi_name, marathi_category, ...(item_number > 0 ? { item_number } : {}) });
         }
       }
 
@@ -197,7 +203,7 @@ const MenuManagement = () => {
     if (!newItem.category_id) return toast.error('Please assign a category');
     try {
       await api.post('/menu/items', newItem);
-      setNewItem({ name: '', marathi_name: '', price: '', category_id: '', description: '' });
+      setNewItem({ name: '', marathi_name: '', price: '', category_id: '', description: '', item_number: '' });
       fetchData(1, '');
       setCurrentPage(1);
       setSearchTerm('');
@@ -464,6 +470,17 @@ const MenuManagement = () => {
           </div>
 
           <form onSubmit={addItem} style={{ gap: '24px' }} className="responsive-grid-12">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 2' }}>
+              <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('item_no_auto', 'Item No. (Auto)')}</label>
+              <input
+                type="number"
+                min="1"
+                placeholder={t('auto_placeholder', 'Auto')}
+                style={{width: '100%', backgroundColor: 'var(--bg-base)', border: '2px solid var(--bg-border)', color: '#38bdf8', padding: '14px 12px', borderRadius: '16px', outline: 'none', fontSize: '14px', fontWeight: 800, textAlign: 'center' }}
+                value={newItem.item_number || ''}
+                onChange={(e) => setNewItem({...newItem, item_number: e.target.value})}
+              />
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: language === 'mr' ? 'span 4' : 'span 6' }}>
               <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('item_name', 'Dish Name')} (English)</label>
               <input
@@ -475,7 +492,7 @@ const MenuManagement = () => {
               />
             </div>
             {language === 'mr' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 4' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 3' }}>
                 <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Marathi Name</label>
                 <input
                   type="text"
@@ -485,7 +502,7 @@ const MenuManagement = () => {
                 />
               </div>
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: language === 'mr' ? 'span 4' : 'span 6' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: language === 'mr' ? 'span 3' : 'span 4' }}>
               <label style={{ fontSize: '11px', fontWeight: 950, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('item_price', 'Price (₹)')}</label>
               <div style={{ position: 'relative' }}>
                 <IndianRupee style={{ position: 'absolute', top: '15px', left: '16px', color: 'var(--text-muted)' }} size={16} />
@@ -567,6 +584,18 @@ const MenuManagement = () => {
                       </span>
                       {editingItemId === item.id ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 900, color: '#38bdf8' }}>{t('item_no_short', 'No:')}</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editItemData.item_number ?? ''}
+                              placeholder="Item #"
+                              onChange={(e) => setEditItemData({...editItemData, item_number: e.target.value})}
+                              style={{background: 'var(--bg-base)', border: '1.5px solid #38bdf8', color: '#38bdf8', padding: '4px 8px', borderRadius: '8px', fontSize: '13px', fontWeight: 900, width: '80px', outline: 'none' }}
+                              title="Edit Item Number"
+                            />
+                          </div>
                           <input placeholder="English Name" value={editItemData.name} onChange={(e) => setEditItemData({...editItemData, name: e.target.value})} style={{background: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', padding: '6px 10px', borderRadius: '8px', fontSize: '14px', fontWeight: 900, width: '200px' }} />
                           {language === 'mr' && (
                             <input placeholder="Marathi Name" value={editItemData.marathi_name} onChange={(e) => setEditItemData({...editItemData, marathi_name: e.target.value})} style={{background: 'var(--bg-base)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', padding: '6px 10px', borderRadius: '8px', fontSize: '14px', fontWeight: 900, width: '200px' }} />
@@ -574,7 +603,12 @@ const MenuManagement = () => {
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <h4 style={{fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, textTransform: 'uppercase' }}>{item.name}</h4>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 900, color: '#0284c7', backgroundColor: 'rgba(14, 165, 233, 0.12)', border: '1px solid rgba(14, 165, 233, 0.25)', padding: '1px 7px', borderRadius: '6px', letterSpacing: '0.02em', flexShrink: 0 }}>
+                              #{item.item_number || '-'}
+                            </span>
+                            <h4 style={{fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, textTransform: 'uppercase' }}>{item.name}</h4>
+                          </div>
                           {language === 'mr' && item.marathi_name && (
                             <span style={{ fontSize: '15px', color: 'var(--text-primary)', fontWeight: 700, marginTop: '2px' }}>{item.marathi_name}</span>
                           )}

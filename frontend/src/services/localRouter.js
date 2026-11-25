@@ -412,7 +412,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
       const order = orderRes.rows[0];
       const itemsRes = await db.query(
-        `SELECT oi.id, oi.order_id, oi.menu_item_id, oi.quantity, mi.name, mi.marathi_name, mi.price
+        `SELECT oi.id, oi.order_id, oi.menu_item_id, oi.quantity, mi.name, mi.marathi_name, mi.price, mi.item_number
          FROM order_items oi
          JOIN menu_items mi ON oi.menu_item_id = mi.id
          WHERE oi.order_id = $1
@@ -457,7 +457,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
       }
 
       const updatedItems = await db.query(
-        `SELECT oi.*, mi.name, mi.marathi_name, mi.price FROM order_items oi 
+        `SELECT oi.*, mi.name, mi.marathi_name, mi.price, mi.item_number FROM order_items oi 
          JOIN menu_items mi ON oi.menu_item_id = mi.id 
          WHERE oi.order_id = $1 ORDER BY oi.created_at ASC`,
         [orderId]
@@ -902,7 +902,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
                 const itemsRes = await db.query(`
                   SELECT oi.id, oi.menu_item_id, oi.quantity, oi.is_manual, oi.custom_name, oi.custom_price,
                          COALESCE(oi.custom_name, mi.name, 'Other') as name, mi.marathi_name,
-                         COALESCE(oi.custom_price, mi.price, 0) as price
+                         COALESCE(oi.custom_price, mi.price, 0) as price, mi.item_number
                   FROM order_items oi
                   LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
                   WHERE oi.order_id = $1 AND oi.quantity > 0
@@ -1020,16 +1020,35 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     if (path === '/menu/items' && methodUpper === 'GET') {
       const { page, limit = 10, search = '' } = queryParams;
       const hotelId = user.hotel_id;
+      const trimmedSearch = String(search || '').trim();
       
       let itemsRes;
-      if (search) {
+      if (trimmedSearch) {
+        const lowerSearch = trimmedSearch.toLowerCase();
+        const likeParam = `%${lowerSearch}%`;
+        const prefixParam = `${trimmedSearch}%`;
         itemsRes = await db.query(
           `SELECT mi.*, c.name as category_name, c.marathi_name as marathi_category
            FROM menu_items mi 
            LEFT JOIN categories c ON mi.category_id = c.id
-           WHERE mi.hotel_id = $1 AND mi.is_deleted = 0 AND (mi.name LIKE $2 OR mi.marathi_name LIKE $3 OR c.name LIKE $4 OR c.marathi_name LIKE $5)
-           ORDER BY COALESCE(mi.is_pinned, 0) DESC, c.name ASC, mi.name ASC`,
-          [hotelId, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`]
+           WHERE mi.hotel_id = $1 AND mi.is_deleted = 0
+             AND (
+               LOWER(COALESCE(mi.name, '')) LIKE $2
+               OR LOWER(COALESCE(mi.marathi_name, '')) LIKE $3
+               OR LOWER(COALESCE(c.name, '')) LIKE $4
+               OR LOWER(COALESCE(c.marathi_name, '')) LIKE $5
+               OR CAST(mi.item_number AS TEXT) LIKE $6
+             )
+           ORDER BY
+             CASE
+               WHEN CAST(mi.item_number AS TEXT) = $7 THEN 0
+               WHEN CAST(mi.item_number AS TEXT) LIKE $8 THEN 1
+               ELSE 2
+             END ASC,
+             CASE WHEN mi.item_number IS NOT NULL AND mi.item_number > 0 THEN mi.item_number ELSE 999999 END ASC,
+             COALESCE(mi.is_pinned, 0) DESC,
+             mi.name ASC`,
+          [hotelId, likeParam, likeParam, likeParam, likeParam, likeParam, trimmedSearch, prefixParam]
         );
       } else {
         itemsRes = await db.query(
@@ -1037,7 +1056,11 @@ export async function handleRequest(method, url, body = null, headers = {}) {
            FROM menu_items mi 
            LEFT JOIN categories c ON mi.category_id = c.id
            WHERE mi.hotel_id = $1 AND mi.is_deleted = 0
-           ORDER BY COALESCE(mi.is_pinned, 0) DESC, c.name ASC, mi.name ASC`,
+           ORDER BY
+             CASE WHEN mi.item_number IS NOT NULL AND mi.item_number > 0 THEN mi.item_number ELSE 999999 END ASC,
+             COALESCE(mi.is_pinned, 0) DESC,
+             c.name ASC,
+             mi.name ASC`,
           [hotelId]
         );
       }
@@ -1065,27 +1088,47 @@ export async function handleRequest(method, url, body = null, headers = {}) {
     }
 
     if (path === '/menu/items' && methodUpper === 'POST') {
-      const { category_id, name, marathi_name = '', price, description, is_available } = body;
-      await db.query(
-        'INSERT INTO menu_items (hotel_id, category_id, name, marathi_name, price, description, is_available) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-        [user.hotel_id, category_id, name, marathi_name, price, description, is_available ? 1 : 0]
+      const { category_id, name, marathi_name = '', price, description, is_available, item_number } = body;
+      let assignedItemNumber = (item_number !== undefined && item_number !== null && String(item_number).trim() !== '')
+        ? parseInt(item_number, 10)
+        : null;
+      if (!assignedItemNumber || isNaN(assignedItemNumber) || assignedItemNumber <= 0) {
+        const maxNumRes = await db.query(
+          'SELECT COALESCE(MAX(item_number), 0) as max_num FROM menu_items WHERE hotel_id = $1 AND (is_deleted = 0 OR is_deleted IS NULL)',
+          [user.hotel_id]
+        );
+        assignedItemNumber = (parseInt(maxNumRes.rows[0]?.max_num, 10) || 0) + 1;
+      }
+
+      const newItemRes = await db.query(
+        'INSERT INTO menu_items (hotel_id, category_id, name, marathi_name, price, description, is_available, item_number) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+        [user.hotel_id, category_id, name, marathi_name, price, description, is_available !== false ? 1 : 0, assignedItemNumber]
       );
-      return { status: 201, data: { message: 'Item created' } };
+      return { status: 201, data: newItemRes.rows[0] || { message: 'Item created', item_number: assignedItemNumber } };
     }
 
-    if (path.startsWith('/menu/items/') && !path.endsWith('/pin') && methodUpper === 'PUT') {
+    if (path.startsWith('/menu/items/') && !path.endsWith('/pin') && !path.endsWith('/renumber') && methodUpper === 'PUT') {
       const id = parseInt(path.split('/')[3]);
-      const { category_id, name, marathi_name = '', price, description, is_available } = body || {};
+      const { category_id, name, marathi_name = '', price, description, is_available, item_number } = body || {};
+      let parsedItemNumber = (item_number !== undefined && item_number !== null && String(item_number).trim() !== '')
+        ? parseInt(item_number, 10)
+        : null;
+      if (isNaN(parsedItemNumber) || parsedItemNumber <= 0) {
+        parsedItemNumber = null;
+      }
+
       await db.query(
-        'UPDATE menu_items SET category_id = $1, name = $2, marathi_name = $3, price = $4, description = $5, is_available = $6 WHERE id = $7 AND hotel_id = $8',
-        [category_id, name, marathi_name, price, description, is_available ? 1 : 0, id, user.hotel_id]
+        'UPDATE menu_items SET category_id = $1, name = $2, marathi_name = $3, price = $4, description = $5, is_available = $6, item_number = COALESCE($7, item_number) WHERE id = $8 AND hotel_id = $9',
+        [category_id, name, marathi_name, price, description, is_available ? 1 : 0, parsedItemNumber, id, user.hotel_id]
       );
-      return { status: 200, data: { message: 'Item updated' } };
+      const updatedRes = await db.query('SELECT * FROM menu_items WHERE id = $1 AND hotel_id = $2', [id, user.hotel_id]);
+      await db.saveDbFileNow();
+      return { status: 200, data: updatedRes.rows[0] || { message: 'Item updated' } };
     }
 
     if (path.startsWith('/menu/items/') && methodUpper === 'DELETE') {
       const id = parseInt(path.split('/')[3]);
-      await db.query('UPDATE menu_items SET is_deleted = 1 WHERE id = $2 AND hotel_id = $3', [id, user.hotel_id]);
+      await db.query('UPDATE menu_items SET is_deleted = 1, item_number = NULL WHERE id = $1 AND hotel_id = $2', [id, user.hotel_id]);
       return { status: 200, data: { message: 'Item deleted' } };
     }
 
@@ -1104,6 +1147,12 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
     if (path === '/menu/items/bulk' && methodUpper === 'POST') {
       const { items } = body;
+      const maxNumRes = await db.query(
+        'SELECT COALESCE(MAX(item_number), 0) as max_num FROM menu_items WHERE hotel_id = $1 AND (is_deleted = 0 OR is_deleted IS NULL)',
+        [user.hotel_id]
+      );
+      let nextItemNumber = (parseInt(maxNumRes.rows[0]?.max_num, 10) || 0) + 1;
+
       for (const item of items) {
         // Find or create category
         let catId;
@@ -1118,17 +1167,28 @@ export async function handleRequest(method, url, body = null, headers = {}) {
           catId = insertCat.rows[0].id;
         }
 
-        // Insert item
+        const parsedCsvNum = (item.item_number !== undefined && item.item_number !== null && String(item.item_number).trim() !== '')
+          ? parseInt(item.item_number, 10)
+          : null;
+        const assignedItemNumber = (parsedCsvNum && !isNaN(parsedCsvNum) && parsedCsvNum > 0)
+          ? parsedCsvNum
+          : nextItemNumber++;
+        if (assignedItemNumber >= nextItemNumber) {
+          nextItemNumber = assignedItemNumber + 1;
+        }
+
+        // Insert item with default sequential item_number
         await db.query(
-          'INSERT INTO menu_items (hotel_id, category_id, name, marathi_name, price, description) VALUES ($1, $2, $3, $4, $5, $6)',
-          [user.hotel_id, catId, item.name, item.marathi_name || '', item.price, item.description || '']
+          'INSERT INTO menu_items (hotel_id, category_id, name, marathi_name, price, description, item_number) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [user.hotel_id, catId, item.name, item.marathi_name || '', item.price, item.description || '', assignedItemNumber]
         );
       }
+      await db.saveDbFileNow();
       return { status: 200, data: { message: `Items bulk imported successfully` } };
     }
 
     if (path === '/menu/purge-all' && methodUpper === 'DELETE') {
-      await db.query('UPDATE menu_items SET is_deleted = 1 WHERE hotel_id = $1', [user.hotel_id]);
+      await db.query('UPDATE menu_items SET is_deleted = 1, item_number = NULL WHERE hotel_id = $1', [user.hotel_id]);
       await db.query('UPDATE categories SET is_deleted = 1 WHERE hotel_id = $1', [user.hotel_id]);
       return { status: 200, data: { message: 'Menu purged' } };
     }
@@ -1163,7 +1223,7 @@ export async function handleRequest(method, url, body = null, headers = {}) {
 
       const itemsRes = await db.query(
         `SELECT oi.id, oi.menu_item_id, oi.quantity, oi.is_manual, oi.custom_name, oi.custom_price,
-                COALESCE(oi.custom_name, mi.name, 'Other') as name, mi.marathi_name, COALESCE(oi.custom_price, mi.price, 0) as price 
+                COALESCE(oi.custom_name, mi.name, 'Other') as name, mi.marathi_name, COALESCE(oi.custom_price, mi.price, 0) as price, mi.item_number
          FROM order_items oi 
          LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id 
          WHERE oi.order_id = $1 AND oi.quantity > 0

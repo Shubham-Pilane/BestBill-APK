@@ -165,7 +165,8 @@ CREATE TABLE IF NOT EXISTS menu_items (
     marathi_name TEXT,
     created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
     is_deleted BOOLEAN DEFAULT 0,
-    is_pinned BOOLEAN DEFAULT 0
+    is_pinned BOOLEAN DEFAULT 0,
+    item_number INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS tables (
@@ -582,6 +583,45 @@ export const initDb = async () => {
       }
     } catch (backfillErr) {
       console.warn('[LOCAL DB] Backfill bill_number note:', backfillErr);
+    }
+
+    try {
+      db.run("ALTER TABLE menu_items ADD COLUMN item_number INTEGER;");
+    } catch (e) {}
+
+    // Default sequential item_number (1 to N) only for active unnumbered menu items
+    // Preserves user-edited or duplicate item numbers assigned across multiple items
+    try {
+      db.run("UPDATE menu_items SET item_number = NULL WHERE is_deleted = 1;");
+      const unnumberedMenuRes = db.exec(`
+        SELECT id, COALESCE(hotel_id, 1) as hotel_id
+        FROM menu_items
+        WHERE (is_deleted = 0 OR is_deleted IS NULL)
+          AND (item_number IS NULL OR item_number <= 0)
+        ORDER BY id ASC
+      `);
+      if (unnumberedMenuRes.length > 0 && unnumberedMenuRes[0].values && unnumberedMenuRes[0].values.length > 0) {
+        const maxPerHotel = {};
+        const maxRes = db.exec(`
+          SELECT COALESCE(hotel_id, 1) as hotel_id, COALESCE(MAX(item_number), 0) as max_num
+          FROM menu_items
+          WHERE (is_deleted = 0 OR is_deleted IS NULL) AND item_number IS NOT NULL AND item_number > 0
+          GROUP BY COALESCE(hotel_id, 1)
+        `);
+        if (maxRes.length > 0 && maxRes[0].values) {
+          for (const row of maxRes[0].values) {
+            maxPerHotel[row[0]] = Number(row[1] || 0);
+          }
+        }
+        for (const row of unnumberedMenuRes[0].values) {
+          const itemId = row[0];
+          const hId = row[1] || 1;
+          maxPerHotel[hId] = (maxPerHotel[hId] || 0) + 1;
+          db.run("UPDATE menu_items SET item_number = ? WHERE id = ?", [maxPerHotel[hId], itemId]);
+        }
+      }
+    } catch (menuNumErr) {
+      console.warn('[LOCAL DB] Backfill item_number note:', menuNumErr);
     }
     saveDbFileNow();
     

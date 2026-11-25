@@ -92,20 +92,25 @@ const EditBillModal = ({ bill, onClose, onBillUpdated }) => {
 
   // Filter & paginate menu items
   const { pagedItems, totalPages, suggestions } = useMemo(() => {
-    let filtered = [...allItems].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0));
+    let filtered = [...allItems];
 
     if (selectedCategory && selectedCategory !== 'all') {
       filtered = filtered.filter(i => String(i.category_id) === String(selectedCategory));
     }
 
-    if (searchQuery.trim().length > 0) {
-      const rawLower = searchQuery.toLowerCase();
-      const compactQuery = rawLower.replace(/\s/g, '');
+    const trimmedQuery = searchQuery.trim().toLowerCase();
+    const hasSearch = trimmedQuery.length > 0;
+    if (hasSearch) {
+      const compactQuery = trimmedQuery.replace(/\s/g, '');
       filtered = filtered.filter(i => {
+        if (i.item_number !== undefined && i.item_number !== null && i.item_number !== '') {
+          const itemNumStr = String(i.item_number).trim();
+          if (itemNumStr === trimmedQuery || itemNumStr.startsWith(trimmedQuery)) return true;
+        }
         const name = (i.name || '').toLowerCase();
         const marathiName = (i.marathi_name || '').toLowerCase();
         const categoryName = (i.category_name || '').toLowerCase();
-        if (name.includes(rawLower) || marathiName.includes(rawLower) || categoryName.includes(rawLower)) {
+        if (name.includes(trimmedQuery) || marathiName.includes(trimmedQuery) || categoryName.includes(trimmedQuery)) {
           return true;
         }
         const matchesSubseq = (str) => {
@@ -120,13 +125,30 @@ const EditBillModal = ({ bill, onClose, onBillUpdated }) => {
       });
     }
 
+    filtered.sort((a, b) => {
+      if (hasSearch) {
+        const aNumStr = (a.item_number !== undefined && a.item_number !== null && a.item_number !== '') ? String(a.item_number).trim() : '';
+        const bNumStr = (b.item_number !== undefined && b.item_number !== null && b.item_number !== '') ? String(b.item_number).trim() : '';
+        const aMatchRank = aNumStr === trimmedQuery ? 0 : (aNumStr.startsWith(trimmedQuery) ? 1 : 2);
+        const bMatchRank = bNumStr === trimmedQuery ? 0 : (bNumStr.startsWith(trimmedQuery) ? 1 : 2);
+        if (aMatchRank !== bMatchRank) return aMatchRank - bMatchRank;
+      } else {
+        const pinDiff = (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0);
+        if (pinDiff !== 0) return pinDiff;
+      }
+      const numA = (a.item_number !== undefined && a.item_number !== null && a.item_number !== '') ? Number(a.item_number) : 999999;
+      const numB = (b.item_number !== undefined && b.item_number !== null && b.item_number !== '') ? Number(b.item_number) : 999999;
+      if (numA !== numB) return numA - numB;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+
     const pages = Math.ceil(filtered.length / 10) || 1;
     const safePage = Math.min(currentPage, pages);
     const startIdx = (safePage - 1) * 10;
     return {
       pagedItems: filtered.slice(startIdx, startIdx + 10),
       totalPages: pages,
-      suggestions: searchQuery.trim().length > 0 ? filtered : []
+      suggestions: hasSearch ? filtered : []
     };
   }, [allItems, selectedCategory, searchQuery, currentPage]);
 
@@ -632,6 +654,11 @@ const EditBillModal = ({ bill, onClose, onBillUpdated }) => {
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <Plus size={14} color="#0ea5e9" />
+                              {s.item_number ? (
+                                <span style={{ fontSize: '11px', fontWeight: 900, color: '#0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.14)', padding: '1px 6px', borderRadius: '5px' }}>
+                                  #{s.item_number}
+                                </span>
+                              ) : null}
                               <span>{isMarathi && s.marathi_name ? s.marathi_name : s.name}</span>
                             </div>
                             <span style={{ color: '#10b981' }}>₹{s.price}</span>
@@ -753,6 +780,11 @@ const EditBillModal = ({ bill, onClose, onBillUpdated }) => {
                       >
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            {item.item_number ? (
+                              <span style={{ fontSize: '11px', fontWeight: 900, color: '#0284c7', backgroundColor: 'rgba(14, 165, 233, 0.12)', border: '1px solid rgba(14, 165, 233, 0.25)', padding: '1px 6px', borderRadius: '6px' }}>
+                                #{item.item_number}
+                              </span>
+                            ) : null}
                             <span
                               style={{
                                 fontSize: isMobile ? '14px' : '15px',

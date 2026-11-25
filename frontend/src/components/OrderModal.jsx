@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { shareBillPDFViaWhatsApp } from '../utils/pdfBill';
@@ -54,6 +54,9 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   const [allTables, setAllTables] = useState(passedTables || []);
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
+  const searchInputRef = useRef(null);
+  const suggestionRefs = useRef([]);
   const [syncingItems, setSyncingItems] = useState(new Set());
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [editPriceValue, setEditPriceValue] = useState('');
@@ -264,19 +267,33 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
   }, [table?.id]);
 
   useEffect(() => {
-    let filtered = allItems;
+    let filtered = [...allItems];
     if (selectedCategory && selectedCategory !== 'all') {
       filtered = filtered.filter(i => String(i.category_id) === String(selectedCategory));
     }
-    if (searchQuery.trim().length > 0) {
-      const query = searchQuery.toLowerCase().replace(/\s/g, '');
+    const trimmedQuery = searchQuery.trim().toLowerCase();
+    const hasSearch = trimmedQuery.length > 0;
+    if (hasSearch) {
+      const query = trimmedQuery.replace(/\s/g, '');
       filtered = filtered.filter(i => {
-        const name = i.name.toLowerCase();
+        if (i.item_number !== undefined && i.item_number !== null && i.item_number !== '') {
+          const itemNumStr = String(i.item_number).trim();
+          if (itemNumStr === trimmedQuery || itemNumStr.startsWith(trimmedQuery)) return true;
+        }
+
+        const name = (i.name || '').toLowerCase();
+        const marathiName = (i.marathi_name || '').toLowerCase();
         const categoryName = (i.category_name || '').toLowerCase();
-        if (name.includes(searchQuery.toLowerCase()) || categoryName.includes(searchQuery.toLowerCase())) return true;
+        if (name.includes(trimmedQuery) || marathiName.includes(trimmedQuery) || categoryName.includes(trimmedQuery)) return true;
         
         let patternIdx = 0;
         for (let char of name) {
+          if (char === query[patternIdx]) patternIdx++;
+          if (patternIdx === query.length) return true;
+        }
+
+        patternIdx = 0;
+        for (let char of marathiName) {
           if (char === query[patternIdx]) patternIdx++;
           if (patternIdx === query.length) return true;
         }
@@ -292,26 +309,42 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     }
 
     filtered.sort((a, b) => {
-      if (a.is_pinned && !b.is_pinned) return -1;
-      if (!a.is_pinned && b.is_pinned) return 1;
+      if (hasSearch) {
+        const aNumStr = (a.item_number !== undefined && a.item_number !== null && a.item_number !== '') ? String(a.item_number).trim() : '';
+        const bNumStr = (b.item_number !== undefined && b.item_number !== null && b.item_number !== '') ? String(b.item_number).trim() : '';
+        const aMatchRank = aNumStr === trimmedQuery ? 0 : (aNumStr.startsWith(trimmedQuery) ? 1 : 2);
+        const bMatchRank = bNumStr === trimmedQuery ? 0 : (bNumStr.startsWith(trimmedQuery) ? 1 : 2);
+        if (aMatchRank !== bMatchRank) return aMatchRank - bMatchRank;
+      } else {
+        if (a.is_pinned && !b.is_pinned) return -1;
+        if (!a.is_pinned && b.is_pinned) return 1;
+      }
 
-      const aInOrder = orderItems.some(i => i.menu_item_id === a.id);
-      const bInOrder = orderItems.some(i => i.menu_item_id === b.id);
-      if (aInOrder && !bInOrder) return -1;
-      if (!aInOrder && bInOrder) return 1;
-      return 0;
+      const numA = (a.item_number !== undefined && a.item_number !== null && a.item_number !== '') ? Number(a.item_number) : 999999;
+      const numB = (b.item_number !== undefined && b.item_number !== null && b.item_number !== '') ? Number(b.item_number) : 999999;
+      if (numA !== numB) return numA - numB;
+
+      return String(a.name || '').localeCompare(String(b.name || ''));
     });
 
     setTotalPages(Math.ceil(filtered.length / 10) || 1);
     const startIndex = (currentPage - 1) * 10;
     setItems(filtered.slice(startIndex, startIndex + 10));
     
-    if (searchQuery.trim().length > 0) {
+    if (hasSearch) {
       setSuggestions(filtered);
     } else {
       setSuggestions([]);
     }
   }, [allItems, currentPage, selectedCategory, searchQuery]);
+
+  useEffect(() => {
+    if (suggestions.length > 0) {
+      setSelectedSuggestionIndex(0);
+    } else {
+      setSelectedSuggestionIndex(-1);
+    }
+  }, [suggestions]);
 
   const addToOrder = async (item) => {
     // Optimistic Update
@@ -694,6 +727,48 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
     setCurrentPage(1);
   };
 
+  const handleSearchKeyDown = (e) => {
+    if (suggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedSuggestionIndex(prev => {
+        const nextIdx = prev < suggestions.length - 1 ? prev + 1 : 0;
+        const el = suggestionRefs.current[nextIdx];
+        if (el) el.scrollIntoView({ block: 'nearest' });
+        return nextIdx;
+      });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedSuggestionIndex(prev => {
+        const nextIdx = prev > 0 ? prev - 1 : suggestions.length - 1;
+        const el = suggestionRefs.current[nextIdx];
+        if (el) el.scrollIntoView({ block: 'nearest' });
+        return nextIdx;
+      });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const chosenIdx = selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.length
+        ? selectedSuggestionIndex
+        : 0;
+      const targetItem = suggestions[chosenIdx];
+      if (targetItem) {
+        addToOrder(targetItem);
+        setSearchQuery('');
+        setSuggestions([]);
+        setSelectedSuggestionIndex(0);
+        setTimeout(() => {
+          if (searchInputRef.current) searchInputRef.current.focus();
+        }, 10);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setSearchQuery('');
+      setSuggestions([]);
+      setSelectedSuggestionIndex(0);
+    }
+  };
+
   const shareViaWhatsApp = async () => {
     if (!customerPhone) {
       toast.error('Please enter a phone number first');
@@ -822,10 +897,12 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   <Search size={16} />
                 </div>
                 <input 
+                   ref={searchInputRef}
                    type="text" 
-                   placeholder={t('search_menu', 'Search Menu...')}
+                   placeholder={t('search_menu', 'Search by no. or dish...')}
                    value={searchQuery}
                    onChange={handleSearchChange}
+                   onKeyDown={handleSearchKeyDown}
                    style={{
                      width: '100%', 
                      padding: '12px 40px 12px 44px', 
@@ -841,7 +918,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 />
                 {searchQuery && (
                   <button 
-                    onClick={() => { setSearchQuery(''); setSuggestions([]); }}
+                    onClick={() => { setSearchQuery(''); setSuggestions([]); setSelectedSuggestionIndex(0); }}
                     style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255, 255, 255, 0.5)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
                   >
                     <X size={16} />
@@ -851,15 +928,47 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                 {/* Suggestions Dropdown */}
                 {suggestions.length > 0 && (
                   <div className="search-suggestions-scrollbar" style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'var(--bg-card)', borderRadius: '16px', marginTop: '6px', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', zIndex: 100, border: '1px solid var(--border-color)', overflowY: 'auto', maxHeight: '280px' }}>
-                    {suggestions.map(s => (
-                      <div key={s.id} onClick={() => { addToOrder(s); setSearchQuery(''); setSuggestions([]); }} style={{ padding: '12px 18px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', color: 'var(--text-primary)', fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <Plus size={14} color="#0ea5e9" />
-                          <span>{language === 'mr' && s.marathi_name ? s.marathi_name : s.name}</span>
+                    {suggestions.map((s, idx) => {
+                      const isSelected = idx === selectedSuggestionIndex;
+                      return (
+                        <div
+                          key={s.id}
+                          ref={el => suggestionRefs.current[idx] = el}
+                          onMouseEnter={() => setSelectedSuggestionIndex(idx)}
+                          onClick={() => {
+                            addToOrder(s);
+                            setSearchQuery('');
+                            setSuggestions([]);
+                            setSelectedSuggestionIndex(0);
+                          }}
+                          style={{
+                            padding: '12px 18px',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid var(--border-color)',
+                            color: isSelected ? '#ffffff' : 'var(--text-primary)',
+                            fontWeight: 800,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            backgroundColor: isSelected ? '#0ea5e9' : 'transparent',
+                            borderLeft: isSelected ? '4px solid #38bdf8' : '4px solid transparent'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                            <Plus size={14} color={isSelected ? '#ffffff' : '#0ea5e9'} style={{ flexShrink: 0 }} />
+                            {s.item_number ? (
+                              <span style={{ fontSize: '11px', fontWeight: 900, color: isSelected ? '#ffffff' : '#0ea5e9', backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : 'rgba(14, 165, 233, 0.14)', padding: '1px 6px', borderRadius: '5px', flexShrink: 0 }}>
+                                #{s.item_number}
+                              </span>
+                            ) : null}
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
+                              {language === 'mr' && s.marathi_name ? s.marathi_name : s.name}
+                            </span>
+                          </div>
+                          <span style={{ color: isSelected ? '#ffffff' : '#10b981', fontWeight: 900, flexShrink: 0, marginLeft: '8px' }}>₹{s.price}</span>
                         </div>
-                        <span style={{ color: '#10b981' }}>₹{s.price}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {suggestions.length > 4 && (
                       <div style={{
                         position: 'sticky',
@@ -964,6 +1073,11 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                         >
                           <Pin size={16} fill={item.is_pinned ? '#f59e0b' : 'none'} />
                         </button>
+                        {item.item_number ? (
+                          <span style={{ fontSize: '11px', fontWeight: 900, color: '#0284c7', backgroundColor: 'rgba(14, 165, 233, 0.12)', border: '1px solid rgba(14, 165, 233, 0.25)', padding: '1px 7px', borderRadius: '6px', marginTop: '2px', flexShrink: 0 }}>
+                            #{item.item_number}
+                          </span>
+                        ) : null}
                         <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.02em', marginTop: '2px' }}>{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</span>
                         <span style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: 800, backgroundColor: 'var(--bg-base)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
                           {language === 'mr' && item.marathi_category ? item.marathi_category : item.category_name || 'Item'}
@@ -1160,7 +1274,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   {orderItems.map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'rgba(15, 23, 42, 0.9)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
-                        <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', wordBreak: 'break-word' }}>{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</div>
+                        <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', wordBreak: 'break-word' }}>{item.item_number ? `${item.item_number} - ` : ''}{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</div>
                         <div style={{ color: '#10b981', fontSize: '11px', fontWeight: 800, marginTop: '1px' }}>
                            ₹{Math.round(item.price * item.quantity)} {item.quantity > 1 && <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '9px' }}>(₹{Math.round(item.price)} each)</span>}
                         </div>
@@ -1304,7 +1418,7 @@ const OrderModal = ({ table, onClose, initialMenu, allTables: passedTables }) =>
                   orderItems.map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
-                        <div style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</div>
+                        <div style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.item_number ? `${item.item_number} - ` : ''}{language === 'mr' && item.marathi_name ? item.marathi_name : item.name}</div>
                         <div style={{ color: '#10b981', fontSize: '12px', fontWeight: 900, marginTop: '1px' }}>
                           ₹{item.price}
                         </div>
