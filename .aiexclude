@@ -1,0 +1,13 @@
+# AI Tool Exclusion Rules — BestBill Solutions
+# Restricts AI coding assistants and indexing tools from accessing or exposing
+# proprietary license keys, passcodes, salts, and configuration secrets.
+
+frontend/src/services/localLicenseService.js
+frontend/src/services/localRouter.js
+frontend/src/services/supabaseClient.js
+frontend/src/pages/Profile.jsx
+LICENSE_AND_PASSCODES_GUIDE.md
+HARDWARE_LICENSING_ARCHITECTURE.md
+.env
+.env.*
+

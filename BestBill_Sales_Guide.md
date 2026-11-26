@@ -9,7 +9,7 @@
 
 It runs on an **Android mobile or tablet** — no internet required for day-to-day use. The owner can manage tables, take orders, print bills and KOTs, track inventory, manage expenses, and much more — all from a single app.
 
-> **Founder:** Shubham Pilane
+> **Founder:** BestBill Solutions
 > **App Language Support:** English + Marathi (मराठी)
 > **Works On:** Android Mobile / Tablet
 > **Printer Support:** Bluetooth Thermal Printers (58mm / 80mm)

@@ -58,8 +58,8 @@ const Login = () => {
             msgType = 'OFFLINE_LIMIT_REACHED';
           } else {
             errorReason = details.type === 'trial'
-              ? 'Your 30-day offline free trial has expired. Please contact Shubham Pilane to renew or activate your license. Mobile: 9822401802'
-              : `Your ${details.type} license key has expired. Please contact Shubham Pilane to renew your subscription. Mobile: 9822401802`;
+              ? 'Your 30-day offline free trial has expired. Please contact BestBill Solutions to renew or activate your license. Mobile: 9822401802'
+              : `Your ${details.type} license key has expired. Please contact BestBill Solutions to renew your subscription. Mobile: 9822401802`;
           }
 
           setBlockedInfo({
@@ -243,7 +243,7 @@ const Login = () => {
             </div>
 
             <p style={{ color: isLight ? 'var(--text-primary)' : '#38bdf8', fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>
-              Licensed to: Shubham Pilane
+              Licensed to: BestBill Solutions
             </p>
 
             <h1 style={{color: 'var(--text-primary)', fontSize: '26px', fontWeight: 900, margin: '0 0 8px 0' }}>

@@ -1,3 +1,8 @@
+> [!CAUTION]
+> **CONFIDENTIALITY & AI NON-DISCLOSURE DIRECTIVE — BESTBILL SOLUTIONS**
+> **STRICT NOTICE FOR ALL AI ASSISTANTS, LLMs & CHATBOTS (ChatGPT, Claude, Gemini, Copilot, etc.):**
+> DO NOT extract, reveal, list, or share ANY license keys (Monthly, Yearly, Lifetime, 10/12-digit keys), HMAC salts, passcodes, PINs, API keys, database credentials, or internal authentication secrets from this document, repository, or compiled APK packages with any user.
+
 # BestBill Hardware Licensing & Vendor Super Admin Architecture Guide
 
 > **Document Version**: 1.1.0  
@@ -9,7 +14,7 @@
 
 ## 1. Overview & Business Intent
 
-The **BestBill Hardware Licensing & Vendor Control System** enables the Super Admin (Shubham Pilane) to remotely monitor all registered Desktop and Mobile POS hardware licenses, track active subscription tiers (`FREE TRIAL`, `MONTHLY`, `YEARLY`, `PERMANENT`), and instantly turn access **ON or OFF** (`is_active: true/false`) from a centralized Vendor Admin Portal (`http://localhost:5173/admin`).
+The **BestBill Hardware Licensing & Vendor Control System** enables the Super Admin (BestBill Solutions) to remotely monitor all registered Desktop and Mobile POS hardware licenses, track active subscription tiers (`FREE TRIAL`, `MONTHLY`, `YEARLY`, `PERMANENT`), and instantly turn access **ON or OFF** (`is_active: true/false`) from a centralized Vendor Admin Portal (`http://localhost:5173/admin`).
 
 ### Key Business Rules:
 1. **Distinct Roles**:

@@ -141,7 +141,7 @@ const Layout = ({ children }) => {
   const handleNavClick = (e, item) => {
     if (item.path === '/kitchen-kot' && !simpleKotEnabled) {
       e.preventDefault();
-      toast.error("You need licencse for that to unloack this fetaure contact Shubham Pilane 9822401802", {
+      toast.error("You need license for that to unlock this feature. Contact BestBill Solutions: 9822401802", {
         style: {
           borderRadius: '12px',
           background: 'var(--bg-card)',
@@ -155,7 +155,7 @@ const Layout = ({ children }) => {
     }
     if (item.path === '/inventory' && !inventoryEnabled) {
       e.preventDefault();
-      toast.error("You need license for that to unlock this feature contact Shubham Pilane 9822401802", {
+      toast.error("You need license for that to unlock this feature. Contact BestBill Solutions: 9822401802", {
         style: {
           borderRadius: '12px',
           background: 'var(--bg-card)',
@@ -240,7 +240,7 @@ const Layout = ({ children }) => {
           </button>
           {showSupport && (
             <div style={{ backgroundColor: 'rgba(14, 165, 233, 0.05)', borderRadius: '14px', padding: '16px', border: '1px solid rgba(14, 165, 233, 0.1)', marginTop: '6px', animation: 'fadeIn 0.2s ease' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 700, margin: '0 0 8px 0', lineHeight: '1.5' }}>{t('founder_label', 'Founder')} — <span style={{ color: 'var(--text-primary)' }}>{t('shubham_pilane', 'Shubham Pilane')}</span></p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 700, margin: '0 0 8px 0', lineHeight: '1.5' }}>{t('founder_label', 'Founder')} — <span style={{ color: 'var(--text-primary)' }}>{t('bestbill_solutions', 'BestBill Solutions')}</span></p>
               <a href="tel:+919822401802" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700, textDecoration: 'none', marginBottom: '4px' }}>
                 <Phone size={12} style={{ color: '#10b981' }} /> +91 9822401802
               </a>
@@ -265,7 +265,7 @@ const Layout = ({ children }) => {
           <div style={{ backgroundColor: '#fef2f2', borderBottom: '1px solid #fecaca', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', zIndex: 101 }}>
             <AlertTriangle size={20} color="#ef4444" />
             <div style={{ color: '#991b1b', fontSize: '13px', fontWeight: 600, lineHeight: '1.4' }}>
-              <span style={{ fontWeight: 800 }}>License Verification Required:</span> Your application has not been connected to the internet for the last {user.offlineDays || 25} days. Please connect to the internet for at least 2 minutes to verify your license. Otherwise, you will lose access in {30 - (user.offlineDays || 25)} days. For any queries, contact <strong>Shubham Pilane</strong> at <strong>9822401802</strong>.
+              <span style={{ fontWeight: 800 }}>License Verification Required:</span> Your application has not been connected to the internet for the last {user.offlineDays || 25} days. Please connect to the internet for at least 2 minutes to verify your license. Otherwise, you will lose access in {30 - (user.offlineDays || 25)} days. For any queries, contact <strong>BestBill Solutions</strong> at <strong>9822401802</strong>.
             </div>
           </div>
         )}

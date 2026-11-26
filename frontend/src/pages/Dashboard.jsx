@@ -679,9 +679,9 @@ const Dashboard = () => {
           </div>
           <div>
             {language === 'mr' ? (
-              `तुमची सबस्क्रिप्शन ${timeRemainingStr || `${subStatus.daysRemaining} दिवसांत`} संपेल. नूतनीकरणासाठी कृपया शुभम पिलाणे यांच्याशी संपर्क साधा. मोबाईल: 9822401802`
+              `तुमची सबस्क्रिप्शन ${timeRemainingStr || `${subStatus.daysRemaining} दिवसांत`} संपेल. नूतनीकरणासाठी कृपया BestBill Solutions यांच्याशी संपर्क साधा. मोबाईल: 9822401802`
             ) : (
-              `Your subscription will expire in ${timeRemainingStr || `${subStatus.daysRemaining} day(s)`}. Please contact Shubham Pilane to renew your license. Mobile: 9822401802`
+              `Your subscription will expire in ${timeRemainingStr || `${subStatus.daysRemaining} day(s)`}. Please contact BestBill Solutions to renew your license. Mobile: 9822401802`
             )}
           </div>
         </div>
