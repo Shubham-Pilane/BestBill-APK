@@ -240,7 +240,7 @@ const Layout = ({ children }) => {
           </button>
           {showSupport && (
             <div style={{ backgroundColor: 'rgba(14, 165, 233, 0.05)', borderRadius: '14px', padding: '16px', border: '1px solid rgba(14, 165, 233, 0.1)', marginTop: '6px', animation: 'fadeIn 0.2s ease' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 700, margin: '0 0 8px 0', lineHeight: '1.5' }}>{t('founder_label', 'Founder')} — <span style={{ color: 'var(--text-primary)' }}>{t('bestbill_solutions', 'BestBill Solutions')}</span></p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 700, margin: '0 0 8px 0', lineHeight: '1.5' }}><span style={{ color: 'var(--text-primary)' }}>BestBill Solutions Pvt Ltd</span></p>
               <a href="tel:+919822401802" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700, textDecoration: 'none', marginBottom: '4px' }}>
                 <Phone size={12} style={{ color: '#10b981' }} /> +91 9822401802
               </a>
